@@ -1,0 +1,332 @@
+package components
+
+import "github.com/Francesco99975/authpoc/views/icons"
+
+templ AuthForm(csrf string) {
+	<div
+		class="w-full max-w-md"
+		x-data="{ mode: 'login' }"
+	>
+		<!-- Auth Card -->
+		<div class="bg-std rounded-2xl shadow-xl p-6 md:p-8">
+			<!-- Header -->
+			<div class="text-center mb-6 md:mb-8">
+				<h2 class="text-2xl md:text-3xl font-bold bg-linear-to-r from-primary to-accent bg-clip-text text-transparent mb-2">
+					Welcome Back
+				</h2>
+				<p class="text-sm md:text-base text-text-muted">
+					Sign in to continue to your account
+				</p>
+			</div>
+			<!-- Toggle Buttons -->
+			<div class="flex gap-2 p-1.5 mb-6 md:mb-8 bg-std/50 rounded-xl border border-primary/10">
+				<button
+					type="button"
+					@click="mode = 'login'"
+					:class="mode === 'login' ? 'bg-primary text-white shadow-md' : 'bg-transparent text-primary/70'"
+					class="flex-1 py-2.5 md:py-3 font-medium text-sm md:text-base rounded-lg transition-all duration-200"
+				>
+					Sign In
+				</button>
+				<button
+					type="button"
+					@click="mode = 'signup'"
+					:class="mode === 'signup' ? 'bg-primary text-white shadow-md' : 'bg-transparent text-primary/70'"
+					class="flex-1 py-2.5 md:py-3 font-medium text-sm md:text-base rounded-lg transition-all duration-200"
+				>
+					Sign Up
+				</button>
+			</div>
+			<!-- Forms -->
+			<div
+				x-show="mode === 'login'"
+				x-cloak
+				x-transition:enter="transition ease-out duration-300"
+				x-transition:enter-start="opacity-0 transform translate-y-2"
+				x-transition:enter-end="opacity-100 transform translate-y-0"
+			>
+				@LoginForm(csrf)
+			</div>
+			<div
+				x-show="mode === 'signup'"
+				x-cloak
+				x-transition:enter="transition ease-out duration-300"
+				x-transition:enter-start="opacity-0 transform translate-y-2"
+				x-transition:enter-end="opacity-100 transform translate-y-0"
+			>
+				@SignupForm(csrf)
+			</div>
+			<div id="auth-response"></div>
+		</div>
+	</div>
+}
+
+templ LoginForm(csrf string) {
+	<form
+		hx-post="/login"
+		hx-indicator="#login-indicator"
+		hx-disabled-elt="find input, find button"
+		class="space-y-4 md:space-y-5"
+	>
+		@CSRF(csrf)
+		<div>
+			<label class="block text-sm font-medium text-primary mb-2" for="login-eou">Email or Username</label>
+			<input
+				type="text"
+				id="login-eou"
+				name="eou"
+				class="w-full px-4 py-3 border-2 border-primary/20 rounded-xl bg-std text-primary placeholder:text-primary/50 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all duration-200"
+				placeholder="Email or Username"
+				required
+			/>
+		</div>
+		<div>
+			<label class="block text-sm font-medium text-primary mb-2" for="login-password">Password</label>
+			<input
+				type="password"
+				id="login-password"
+				name="password"
+				class="w-full px-4 py-3 border-2 border-primary/20 rounded-xl bg-std text-primary placeholder:text-primary/50 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all duration-200"
+				placeholder="••••••••"
+				required
+			/>
+		</div>
+		<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+			<div class="flex items-center gap-2">
+				<input
+					type="checkbox"
+					id="remember"
+					name="remember"
+					class="w-4 h-4 rounded border-2 border-primary/20 accent-primary cursor-pointer"
+					checked
+				/>
+				<label for="remember" class="text-sm text-primary/80 cursor-pointer">
+					Remember me
+				</label>
+			</div>
+			<a
+				href="/auth/reset"
+				hx-boost="true"
+				hx-push-url="true"
+				class="text-sm font-medium text-primary hover:text-accent transition-colors"
+			>
+				Forgot password?
+			</a>
+		</div>
+		<div class="relative">
+			<button
+				type="submit"
+				class="w-full py-3 md:py-3.5 bg-primary text-white font-semibold rounded-xl hover:bg-primary/90 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 disabled:opacity-75 disabled:cursor-not-allowed"
+			>
+				Sign In
+			</button>
+			<div id="login-indicator" class="htmx-indicator absolute inset-0 flex items-center justify-center bg-primary/95 rounded-xl pointer-events-none">
+				@icons.Loading("w-5 h-5 animate-spin text-white")
+			</div>
+		</div>
+	</form>
+	@SocialButtons()
+}
+
+templ SignupForm(csrf string) {
+	<form
+		hx-post="/signup"
+		hx-target="this"
+		hx-swap="outerHTML"
+		hx-indicator="#signup-indicator"
+		hx-disabled-elt="find input, find button"
+		class="space-y-4 md:space-y-5"
+	>
+		@CSRF(csrf)
+		<div>
+			<label class="block text-sm font-medium text-primary mb-2" for="signup-email">Email Address</label>
+			<input
+				type="email"
+				id="signup-email"
+				name="email"
+				class="w-full px-4 py-3 border-2 border-primary/20 rounded-xl bg-std text-primary placeholder:text-primary/50 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all duration-200"
+				placeholder="Email Address"
+				required
+			/>
+		</div>
+		<div>
+			<label class="block text-sm font-medium text-primary mb-2" for="signup-username">Username</label>
+			<input
+				type="text"
+				id="signup-username"
+				name="username"
+				class="w-full px-4 py-3 border-2 border-primary/20 rounded-xl bg-std text-primary placeholder:text-primary/50 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all duration-200"
+				placeholder="Username"
+				required
+			/>
+		</div>
+		<div>
+			<label class="block text-sm font-medium text-primary mb-2" for="signup-password">Password</label>
+			<input
+				type="password"
+				id="signup-password"
+				name="password"
+				class="w-full px-4 py-3 border-2 border-primary/20 rounded-xl bg-std text-primary placeholder:text-primary/50 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all duration-200"
+				placeholder="••••••••"
+				required
+			/>
+		</div>
+		<div>
+			<label class="block text-sm font-medium text-primary mb-2" for="signup-confirm">Confirm Password</label>
+			<input
+				type="password"
+				id="signup-confirm"
+				name="confirm"
+				class="w-full px-4 py-3 border-2 border-primary/20 rounded-xl bg-std text-primary placeholder:text-primary/50 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all duration-200"
+				placeholder="••••••••"
+				required
+			/>
+		</div>
+		<div class="relative">
+			<button
+				type="submit"
+				class="w-full py-3 md:py-3.5 bg-primary text-white font-semibold rounded-xl hover:bg-primary/90 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 disabled:opacity-75 disabled:cursor-not-allowed"
+			>
+				Create Account
+			</button>
+			<div id="signup-indicator" class="htmx-indicator absolute inset-0 flex items-center justify-center bg-primary/95 rounded-xl pointer-events-none">
+				@icons.Loading("w-5 h-5 animate-spin text-white")
+			</div>
+		</div>
+		<p class="text-xs text-center text-primary/60">
+			By signing up, you agree to our
+			<a
+				href="/terms"
+				hx-get="/terms"
+				hx-target="#main-content"
+				hx-push-url="true"
+				class="font-medium text-primary hover:text-accent transition-colors"
+			>Terms of Service</a>
+			and
+			<a
+				href="/privacy"
+				hx-get="/privacy"
+				hx-target="#main-content"
+				hx-push-url="true"
+				class="font-medium text-primary hover:text-accent transition-colors"
+			>Privacy Policy</a>
+		</p>
+	</form>
+	@SocialButtons()
+}
+
+templ SocialButtons() {
+	<div class="flex items-center my-6">
+		<div class="flex-1 border-t border-primary/20"></div>
+		<span class="px-4 text-sm text-primary/60">or continue with</span>
+		<div class="flex-1 border-t border-primary/20"></div>
+	</div>
+	<div class="grid grid-cols-2 gap-3">
+		<button
+			type="button"
+			hx-post="/auth/google"
+			hx-target="#auth-response"
+			class="flex items-center justify-center gap-2 px-4 py-3 border-2 border-primary/20 rounded-xl bg-std hover:border-primary hover:bg-primary/5 transition-all duration-200"
+		>
+			@icons.Google("w-5 h-5")
+			<span class="text-sm font-medium text-primary hidden sm:inline">Google</span>
+		</button>
+		<button
+			type="button"
+			hx-post="/auth/github"
+			hx-target="#auth-response"
+			class="flex items-center justify-center gap-2 px-4 py-3 border-2 border-primary/20 rounded-xl bg-std hover:border-primary hover:bg-primary/5 transition-all duration-200"
+		>
+			@icons.GitHub("w-5 h-5")
+			<span class="text-sm font-medium text-primary hidden sm:inline">GitHub</span>
+		</button>
+	</div>
+}
+
+templ EmailVerification(email string, csrf string) {
+	<div class="bg-std rounded-2xl shadow-xl p-8 max-w-md w-full mx-auto" x-data="{ verifying: false }">
+		<div class="text-center mb-6">
+			<div class="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
+				<svg class="w-8 h-8 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+				</svg>
+			</div>
+			<h2 class="text-2xl font-bold text-primary mb-2">Verify Your Email</h2>
+			<p class="text-primary/70">
+				We've sent a verification email to <span class="font-semibold text-primary">{ email }</span>
+			</p>
+		</div>
+		<div class="bg-std/50 rounded-xl p-6 mb-6 border border-primary/10">
+			<h3 class="font-semibold text-primary mb-3 flex items-center gap-2">
+				<svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+				</svg>
+				Two ways to verify:
+			</h3>
+			<ol class="space-y-2 text-sm text-primary/80">
+				<li class="flex items-start gap-2">
+					<span class="font-bold text-primary min-w-[20px]">1.</span>
+					<span>Click the <strong>verification link</strong> in your email</span>
+				</li>
+				<li class="flex items-start gap-2">
+					<span class="font-bold text-primary min-w-[20px]">2.</span>
+					<span>Or enter the <strong>verification code</strong> below</span>
+				</li>
+			</ol>
+		</div>
+		<form
+			hx-post="/verification/manual"
+			hx-indicator="#verify-spinner"
+			@submit="verifying = true"
+			class="space-y-4"
+		>
+			@CSRF(csrf)
+			<div>
+				<label for="token" class="block text-sm font-medium text-primary mb-2">
+					Verification Code
+				</label>
+				<input
+					type="text"
+					id="token"
+					name="token"
+					placeholder="Enter your token"
+					required
+					maxlength="21"
+					class="w-full px-4 py-3 bg-std border border-primary/20 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-center text-lg font-mono tracking-wider text-primary"
+				/>
+				<p class="text-xs text-primary/60 mt-2">
+					Check your email for the verification token
+				</p>
+			</div>
+			<button
+				type="submit"
+				class="w-full bg-primary hover:bg-primary/90 text-white font-semibold py-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
+				:disabled="verifying"
+			>
+				<span x-show="!verifying">Verify Email</span>
+				<span x-show="verifying" class="flex items-center gap-2">
+					<span id="verify-spinner" class="htmx-indicator">
+						@icons.Loading("w-5 h-5 animate-spin")
+					</span>
+					Verifying...
+				</span>
+			</button>
+		</form>
+		<div class="mt-6 text-center">
+			<form
+				hx-post="/verification/resend"
+				hx-target="#auth-response"
+				hx-swap="innerHTML"
+			>
+				<input type="hidden" name="email" value={ email }/>
+				@CSRF(csrf)
+				<button
+					type="submit"
+					class="text-sm text-primary hover:underline"
+				>
+					Didn't receive the email? Resend
+				</button>
+			</form>
+		</div>
+	</div>
+}

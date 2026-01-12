@@ -1,0 +1,19 @@
+package components
+
+import "github.com/Francesco99975/authpoc/views/icons"
+
+templ InfoDisplay(title string, description string) {
+	<div class="bg-std rounded-lg shadow-lg p-8 max-w-md w-full text-center">
+		<div class="flex justify-center mb-4">
+			<div class="w-16 h-16 rounded-full bg-success bg-opacity-20 flex items-center justify-center">
+				@icons.CheckCircle("w-8 h-8 text-success")
+			</div>
+		</div>
+		<h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+			{ title }
+		</h2>
+		<p class="text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
+			{ description }
+		</p>
+	</div>
+}

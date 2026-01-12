@@ -1,0 +1,49 @@
+package middlewares
+
+import (
+	"context"
+	"net/http"
+
+	"github.com/Francesco99975/authpoc/internal/auth"
+	"github.com/labstack/echo/v4"
+)
+
+func AuthMiddleware() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			userID, _, authenticated := auth.GetSessionUserID(c.Request())
+			if !authenticated {
+				return c.Redirect(http.StatusSeeOther, "/login")
+			}
+
+			ctx := context.WithValue(c.Request().Context(), "user_id", userID)
+
+			c.SetRequest(c.Request().WithContext(ctx))
+			return next(c)
+		}
+	}
+}
+
+func IsDeveloperRoleMiddleware() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			_, role, _ := auth.GetSessionUserID(c.Request())
+			if role != "DEVELOPER" {
+				return c.Redirect(http.StatusSeeOther, "/")
+			}
+			return next(c)
+		}
+	}
+}
+
+func IsAdminRoleMiddleware() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			_, role, _ := auth.GetSessionUserID(c.Request())
+			if role != "ADMIN" {
+				return c.Redirect(http.StatusSeeOther, "/")
+			}
+			return next(c)
+		}
+	}
+}

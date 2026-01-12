@@ -1,0 +1,114 @@
+package components
+
+import (
+	"github.com/Francesco99975/authpoc/internal/models"
+	"github.com/Francesco99975/authpoc/views/icons"
+)
+
+templ Header(site models.Site) {
+	<header class="sticky top-0 z-50 bg-primary/95 backdrop-blur-md text-std shadow-lg border-b border-accent/20" hx-boost="true">
+		<div class="container mx-auto px-4 lg:px-6">
+			<div
+				class="flex items-center justify-between h-16"
+				x-data="{
+							mobileMenuOpen: false,
+							darkMode: localStorage.getItem('darkMode') === 'true' ? true :
+									(localStorage.getItem('darkMode') === 'false' ? false :
+									window.matchMedia('(prefers-color-scheme: dark)').matches)
+  						}"
+				x-init="
+					if(darkMode) {
+						document.documentElement.classList.add('dark');
+					} else {
+						document.documentElement.classList.remove('dark');
+					}
+
+					$watch('darkMode', val => {
+						localStorage.setItem('darkMode', val);
+						if(val) {
+							document.documentElement.classList.add('dark');
+						} else {
+							document.documentElement.classList.remove('dark');
+						}
+					});
+
+
+					window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+						if (localStorage.getItem('darkMode') === null) {
+							darkMode = e.matches;
+						}
+						});
+					"
+			>
+				<div class="flex items-center gap-3 group">
+					<div class="transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6 bg-std p-2 rounded-full">
+						// @icons.Logo("stroke-accent stroke-[32px] fill-none w-8 h-8")
+						<img src="/assets/dist/icon-optimized.svg" alt="Go App Logo" class="w-8 h-8"/>
+					</div>
+					<h1 class="text-xl lg:text-2xl font-bold text-std tracking-tight">{ site.AppName }</h1>
+				</div>
+				<div class="hidden md:flex items-center gap-8">
+					<nav class="flex items-center gap-1">
+						<a href="/" class="relative px-4 py-2 text-std font-medium rounded-lg transition-all duration-200 hover:bg-accent/20 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-accent/50 group">
+							<span class="relative z-10">Home</span>
+							<span class="absolute inset-x-0 bottom-0 h-0.5 bg-accent scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left"></span>
+						</a>
+						<a href="/examples" class="relative px-4 py-2 text-std font-medium rounded-lg transition-all duration-200 hover:bg-accent/20 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-accent/50 group">
+							<span class="relative z-10">Examples</span>
+							<span class="absolute inset-x-0 bottom-0 h-0.5 bg-accent scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left"></span>
+						</a>
+						<a href="/about" class="relative px-4 py-2 text-std font-medium rounded-lg transition-all duration-200 hover:bg-accent/20 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-accent/50 group">
+							<span class="relative z-10">About</span>
+							<span class="absolute inset-x-0 bottom-0 h-0.5 bg-accent scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left"></span>
+						</a>
+					</nav>
+					<button
+						@click="darkMode = !darkMode"
+						class="p-2.5 rounded-full bg-accent/10 hover:bg-accent/20 transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-accent/50 focus:ring-offset-2 focus:ring-offset-primary"
+						aria-label="Toggle dark mode"
+					>
+						@icons.Sun("stroke-std w-5 h-5")
+						@icons.Moon("stroke-std w-5 h-5")
+					</button>
+				</div>
+				<div class="flex items-center gap-2 md:hidden">
+					<button
+						@click="darkMode = !darkMode"
+						class="p-2.5 rounded-full bg-accent/10 hover:bg-accent/20 transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-accent/50"
+						aria-label="Toggle dark mode"
+					>
+						@icons.Sun("stroke-std w-5 h-5")
+						@icons.Moon("stroke-std w-5 h-5")
+					</button>
+					<button
+						@click="mobileMenuOpen = !mobileMenuOpen"
+						class="p-2.5 rounded-lg bg-accent/10 hover:bg-accent/20 transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-accent/50"
+						aria-label="Toggle menu"
+					>
+						@icons.Hamburger("stroke-std w-6 h-6")
+						@icons.Close("stroke-std w-6 h-6")
+					</button>
+				</div>
+				<div
+					x-show="mobileMenuOpen"
+					x-transition:enter="transition ease-out duration-200"
+					x-transition:enter-start="opacity-0 -translate-y-4"
+					x-transition:enter-end="opacity-100 translate-y-0"
+					x-transition:leave="transition ease-in duration-150"
+					x-transition:leave-start="opacity-100 translate-y-0"
+					x-transition:leave-end="opacity-0 -translate-y-4"
+					class="fixed inset-x-0 top-[64px] bg-primary/95 backdrop-blur-md shadow-2xl z-40 border-b border-accent/20"
+					x-cloak
+				>
+					<nav class="container mx-auto px-4 py-6">
+						<div class="flex flex-col gap-2">
+							<a href="/" class="px-4 py-3 text-std font-medium rounded-lg hover:bg-accent/20 transition-all duration-200 hover:translate-x-2 focus:outline-none focus:ring-2 focus:ring-accent/50">Home</a>
+							<a href="/examples" class="px-4 py-3 text-std font-medium rounded-lg hover:bg-accent/20 transition-all duration-200 hover:translate-x-2 focus:outline-none focus:ring-2 focus:ring-accent/50">Examples</a>
+							<a href="/about" class="px-4 py-3 text-std font-medium rounded-lg hover:bg-accent/20 transition-all duration-200 hover:translate-x-2 focus:outline-none focus:ring-2 focus:ring-accent/50">About</a>
+						</div>
+					</nav>
+				</div>
+			</div>
+		</div>
+	</header>
+}

@@ -1,0 +1,61 @@
+package ui
+
+import "strconv"
+
+templ StringInput(id string, typology string, label string, required bool) {
+	<div class="flex flex-col w-full p-2 justify-around">
+		<label for={ id } class="w-fit p-1 backdrop-blur-xl rounded bg-opacity-20! text-green-900">
+			{ label }
+		</label>
+		<input class="border-b-2 border-solid bg-transparent outline-none mb-3 border-green-500 text-green-500" id={ id } name={ id } type={ typology } required?={ required }/>
+	</div>
+}
+
+templ SimpleCheckboxInput(id string, label string, required bool) {
+	<div class="m-1">
+		<input type="checkbox" id={ id } name={ id } required?={ required } class="h-4 w-4"/>
+		<label for={ id }>{ label }</label>
+	</div>
+}
+
+templ RadioInput(id string, name string, label string, value string, required bool) {
+	<div class="radio">
+		<input id={ id } name={ name } type="radio" value={ value } required?={ required }/>
+		<label for={ id } class="radio-label">{ label }</label>
+	</div>
+}
+
+templ RadioField(id string, label string, required bool) {
+	<fieldset>
+		<legend>{ label }</legend>
+		@RadioInput(id+"y", id, "Yes", "1", required)
+		@RadioInput(id+"n", id, "No", "0", required)
+	</fieldset>
+}
+
+templ SexRadioField(id string, label string, required bool) {
+	<fieldset>
+		<legend>{ label }</legend>
+		@RadioInput(id+"y", id, "Male", "male", required)
+		@RadioInput(id+"n", id, "Female", "female", required)
+	</fieldset>
+}
+
+templ BoolRadioField(id string, label string, required bool) {
+	<fieldset class="space-y-2">
+		<legend class="text-sm md:text-base font-medium text-gray-900 mb-3 leading-relaxed">{ label }</legend>
+		<div class="flex flex-wrap gap-3 md:gap-4">
+			@RadioInput(id+"y", id, "True", "1", required)
+			@RadioInput(id+"n", id, "False", "0", required)
+		</div>
+	</fieldset>
+}
+
+templ MultiRadioField(id string, label string, options []string, adjust int, required bool) {
+	<fieldset>
+		<legend>{ label }</legend>
+		for index, option := range options {
+			@RadioInput(id+strconv.Itoa(index), id, option, strconv.Itoa(index+adjust), required)
+		}
+	</fieldset>
+}

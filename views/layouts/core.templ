@@ -1,0 +1,18 @@
+package layouts
+
+import "github.com/Francesco99975/authpoc/internal/models"
+import "github.com/Francesco99975/authpoc/views/components"
+
+templ CoreHTML(site models.Site) {
+	<!DOCTYPE html>
+	<html lang="en">
+		@components.SEO(site)
+		<body class="bg-std antialiased min-h-screen transition-colors">
+			{ children... }
+		</body>
+		for _, script := range site.PageScripts {
+			@components.Script(script, site.Nonce, "")
+		}
+	</html>
+}
+

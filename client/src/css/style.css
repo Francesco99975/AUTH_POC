@@ -1,0 +1,92 @@
+@import "tailwindcss";
+
+@source "../../src/**/*.{js,ts}";
+@source "../../../views/**/*.templ";
+
+@theme {
+  --color-std: oklch(96.5% 0.005 240.5);
+  --color-primary: oklch(54.8% 0.223 218.5);
+  --color-accent: oklch(74.5% 0.243 173.2);
+
+  --color-success: oklch(64.2% 0.249 156.8);
+  --color-error: oklch(59.8% 0.282 25.3);
+  --color-warning: oklch(70.1% 0.254 45.2);
+  --color-info: oklch(67.9% 0.202 215.4);
+}
+
+/* Base layer for global and dark mode setup */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    transition: background-color 0.3s ease;
+    color-scheme: light; /* ensures system UI respects light mode */
+  }
+
+  html.dark {
+    color-scheme: dark; /* ensures system UI respects dark mode */
+  }
+
+  .dark {
+    /* Dark theme overrides */
+    --color-std: oklch(32.1% 0.045 230.5);
+    --color-primary: oklch(74.2% 0.223 218.5);
+    --color-accent: oklch(84.3% 0.243 173.2);
+
+    --color-success: oklch(83.5% 0.249 156.8);
+    --color-error: oklch(78.2% 0.282 25.3);
+    --color-warning: oklch(80.5% 0.254 45.2);
+    --color-info: oklch(87.1% 0.202 215.4);
+  }
+
+  [x-cloak] {
+    display: none !important;
+  }
+
+  .htmx-indicator {
+    opacity: 0;
+    transition: opacity 200ms ease-in;
+  }
+
+  .htmx-request .htmx-indicator,
+  .htmx-request.htmx-indicator {
+    opacity: 1;
+  }
+
+  /* Animations */
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+  .animate-pulse-slow {
+    animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes float {
+    0% { transform: translateY(0px); }
+    50% { transform: translateY(-20px); }
+    100% { transform: translateY(0px); }
+  }
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  @keyframes gradient {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  .animate-gradient {
+    background-size: 200% 200%;
+    animation: gradient 15s ease infinite;
+  }
+
+  .toc-link.active {
+    color: rgb(var(--color-primary));
+    font-weight: 600;
+  }
+
+  div:has(> button) {
+    cursor: pointer;
+  }
+}

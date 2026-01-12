@@ -1,0 +1,119 @@
+package components
+
+import (
+	"github.com/Francesco99975/authpoc/internal/models"
+	"github.com/Francesco99975/authpoc/views/icons"
+)
+
+templ AdminNav(site models.Site) {
+	<div class="flex items-center gap-3 group">
+		<div class="transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6 bg-std p-2 rounded-full">
+			<img src="/assets/dist/icon-optimized.svg" alt="Go App Logo" class="w-8 h-8"/>
+		</div>
+		<h1 class="text-xl lg:text-2xl font-bold text-std tracking-tight">{ site.AppName }</h1>
+	</div>
+	<div class="hidden md:flex items-center gap-8">
+		<nav class="flex items-center gap-1">
+			<a href="/dashboard" class="relative px-4 py-2 text-std font-medium rounded-lg transition-all duration-200 hover:bg-accent/20 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-accent/50 group">
+				<span class="relative z-10">Dashboard</span>
+				<span class="absolute inset-x-0 bottom-0 h-0.5 bg-accent scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left"></span>
+			</a>
+			<a href="/settings" class="relative px-4 py-2 text-std font-medium rounded-lg transition-all duration-200 hover:bg-accent/20 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-accent/50 group">
+				<span class="relative z-10">Settings</span>
+				<span class="absolute inset-x-0 bottom-0 h-0.5 bg-accent scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left"></span>
+			</a>
+		</nav>
+		<div class="flex items-center gap-2">
+			<button
+				@click="darkMode = !darkMode"
+				class="p-2.5 rounded-full bg-accent/10 hover:bg-accent/20 transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-accent/50 focus:ring-offset-2 focus:ring-offset-primary"
+				aria-label="Toggle dark mode"
+			>
+				@icons.Sun("stroke-std w-5 h-5")
+				@icons.Moon("stroke-std w-5 h-5")
+			</button>
+			<form
+				hx-post="/logout"
+				hx-swap="outerHTML"
+				hx-indicator="#logout-spinner"
+				hx-disabled-elt="button"
+				class="inline-block"
+			>
+				@CSRF(site.CSRF)
+				<button
+					type="submit"
+					class="relative px-5 py-2.5 bg-error text-white font-semibold rounded-lg transition-all duration-200 hover:bg-error/90 hover:shadow-lg hover:scale-105 focus:outline-none focus:ring-2 focus:ring-error/50 focus:ring-offset-2 flex items-center gap-2"
+				>
+					<div class="absolute inset-0 flex items-center justify-center">
+						<span id="logout-spinner" class="htmx-indicator">
+							@icons.Loading("w-4 h-4 animate-spin text-white")
+						</span>
+					</div>
+					<span class="htmx-indicator:opacity-0 flex items-center gap-2">
+						@icons.LogOut("w-4 h-4")
+						<span>Logout</span>
+					</span>
+				</button>
+			</form>
+		</div>
+	</div>
+	<div class="flex items-center gap-2 md:hidden">
+		<button
+			@click="darkMode = !darkMode"
+			class="p-2.5 rounded-full bg-accent/10 hover:bg-accent/20 transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-accent/50"
+			aria-label="Toggle dark mode"
+		>
+			@icons.Sun("stroke-std w-5 h-5")
+			@icons.Moon("stroke-std w-5 h-5")
+		</button>
+		<button
+			@click="mobileMenuOpen = !mobileMenuOpen"
+			class="p-2.5 rounded-lg bg-accent/10 hover:bg-accent/20 transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-accent/50"
+			aria-label="Toggle menu"
+		>
+			@icons.Hamburger("stroke-std w-6 h-6")
+			@icons.Close("stroke-std w-6 h-6")
+		</button>
+	</div>
+	<div
+		x-show="mobileMenuOpen"
+		x-transition:enter="transition ease-out duration-200"
+		x-transition:enter-start="opacity-0 -translate-y-4"
+		x-transition:enter-end="opacity-100 translate-y-0"
+		x-transition:leave="transition ease-in duration-150"
+		x-transition:leave-start="opacity-100 translate-y-0"
+		x-transition:leave-end="opacity-0 -translate-y-4"
+		class="fixed inset-x-0 top-[64px] bg-primary/95 backdrop-blur-md shadow-2xl z-40 border-b border-accent/20"
+		x-cloak
+	>
+		<nav class="container mx-auto px-4 py-6">
+			<div class="flex flex-col gap-2">
+				<a href="/dashboard" class="px-4 py-3 text-std font-medium rounded-lg hover:bg-accent/20 transition-all duration-200 hover:translate-x-2 focus:outline-none focus:ring-2 focus:ring-accent/50">Dashboard</a>
+				<a href="/settings" class="px-4 py-3 text-std font-medium rounded-lg hover:bg-accent/20 transition-all duration-200 hover:translate-x-2 focus:outline-none focus:ring-2 focus:ring-accent/50">Settings</a>
+				<form
+					hx-post="/logout"
+					hx-swap="outerHTML"
+					hx-indicator="#mobile-logout-spinner"
+					hx-disabled-elt="button"
+					class="mt-4"
+				>
+					@CSRF(site.CSRF)
+					<button
+						type="submit"
+						class="relative w-full px-5 py-3.5 bg-error text-white font-semibold rounded-lg transition-all duration-200 hover:bg-error/90 hover:shadow-lg hover:translate-x-2 focus:outline-none focus:ring-2 focus:ring-error/50"
+					>
+						<div class="absolute inset-0 flex items-center justify-center">
+							<span id="mobile-logout-spinner" class="htmx-indicator">
+								@icons.Loading("w-5 h-5 animate-spin text-white")
+							</span>
+						</div>
+						<span class="htmx-indicator:opacity-0 flex items-center justify-center gap-2">
+							@icons.LogOut("w-5 h-5")
+							<span>Logout</span>
+						</span>
+					</button>
+				</form>
+			</div>
+		</nav>
+	</div>
+}

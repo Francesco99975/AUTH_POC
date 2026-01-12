@@ -1,0 +1,23 @@
+-- name: CreateEmailVerification :one
+INSERT INTO email_verifications (
+    id, user_id, token, expires_at
+) VALUES (
+    $1, $2, $3, $4
+)
+RETURNING id, token, expires_at, created_at;
+
+-- name: GetEmailVerificationByToken :one
+SELECT id, user_id, token, expires_at, used, created_at
+FROM email_verifications
+WHERE token = $1
+  AND used = FALSE
+  AND expires_at > NOW();
+
+-- name: MarkEmailVerificationUsed :exec
+UPDATE email_verifications
+SET used = TRUE
+WHERE token = $1;
+
+-- name: CleanupExpiredEmailVerifications :exec
+DELETE FROM email_verifications
+WHERE expires_at < NOW();

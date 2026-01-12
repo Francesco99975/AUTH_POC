@@ -1,0 +1,107 @@
+package views
+
+import (
+	"github.com/Francesco99975/authpoc/internal/models"
+	"github.com/Francesco99975/authpoc/views/icons"
+	"github.com/Francesco99975/authpoc/views/layouts"
+)
+
+templ Dashboard(site models.Site, username string, email string) {
+	@layouts.AdminLayout(site) {
+		<div class="min-h-screen bg-std">
+			<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+				<!-- Welcome Section -->
+				<div class="mb-8">
+					<h1 class="text-3xl sm:text-4xl font-bold bg-linear-to-r from-primary to-accent bg-clip-text text-transparent mb-2">
+						Welcome back, { username }!
+					</h1>
+					<p class="text-gray-600 dark:text-gray-400">
+						{ email }
+					</p>
+				</div>
+				<!-- Stats Grid -->
+				<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
+					@StatCard("Total Projects", "12", "text-primary", icons.FolderIcon("w-5 h-5 text-accent"))
+					@StatCard("Active Tasks", "28", "text-accent", icons.CheckIcon("w-5 h-5 text-accent"))
+					@StatCard("Team Members", "6", "text-success", icons.UsersIcon("w-5 h-5 text-accent"))
+					@StatCard("Notifications", "4", "text-warning", icons.Bell("w-5 h-5 text-accent"))
+				</div>
+				<!-- Recent Activity -->
+				<div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-8">
+					<h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+						Recent Activity
+					</h2>
+					<div class="space-y-4">
+						@ActivityItem("Project Alpha updated", "2 hours ago", "primary")
+						@ActivityItem("New team member added", "5 hours ago", "success")
+						@ActivityItem("Task completed: Design review", "1 day ago", "accent")
+						@ActivityItem("Meeting scheduled for tomorrow", "2 days ago", "warning")
+					</div>
+				</div>
+				<!-- Quick Actions -->
+				<div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+					<h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+						Quick Actions
+					</h2>
+					<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+						<button class="flex items-center gap-3 p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:border-primary dark:hover:border-primary transition-colors">
+							<div class="w-10 h-10 bg-primary bg-opacity-10 rounded-lg flex items-center justify-center">
+								@icons.PlusIcon("w-5 h-5 text-primary")
+							</div>
+							<span class="font-medium text-gray-900 dark:text-white">New Project</span>
+						</button>
+						<button class="flex items-center gap-3 p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:border-accent dark:hover:border-accent transition-colors">
+							<div class="w-10 h-10 bg-accent bg-opacity-10 rounded-lg flex items-center justify-center">
+								@icons.UsersIcon("w-5 h-5 text-accent")
+							</div>
+							<span class="font-medium text-gray-900 dark:text-white">Invite Team</span>
+						</button>
+						<button class="flex items-center gap-3 p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:border-success dark:hover:border-success transition-colors">
+							<div class="w-10 h-10 bg-success bg-opacity-10 rounded-lg flex items-center justify-center">
+								@icons.SettingsIcon("w-5 h-5 text-success")
+							</div>
+							<span class="font-medium text-gray-900 dark:text-white">Settings</span>
+						</button>
+					</div>
+				</div>
+			</main>
+		</div>
+	}
+}
+
+templ StatCard(label string, value string, colorClass string, icon templ.Component) {
+	<div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+		<div class="flex items-center justify-between mb-2">
+			<span class="text-sm font-medium text-gray-600 dark:text-gray-400">{ label }</span>
+			<div class={ "w-8 h-8 rounded-lg flex items-center justify-center", colorClass, "bg-opacity-10" }>
+				@icon
+			</div>
+		</div>
+		<p class={ "text-3xl font-bold", colorClass }>{ value }</p>
+	</div>
+}
+
+templ ActivityItem(title string, time string, colorType string) {
+	<div class="flex items-start gap-3 pb-4 border-b border-gray-200 dark:border-gray-700 last:border-0 last:pb-0">
+		<div class={ "w-2 h-2 rounded-full mt-2", getBgColorClass(colorType) }></div>
+		<div class="flex-1">
+			<p class="text-gray-900 dark:text-white font-medium">{ title }</p>
+			<p class="text-sm text-gray-500 dark:text-gray-400">{ time }</p>
+		</div>
+	</div>
+}
+
+func getBgColorClass(colorType string) string {
+	switch colorType {
+	case "primary":
+		return "bg-primary"
+	case "accent":
+		return "bg-accent"
+	case "success":
+		return "bg-success"
+	case "warning":
+		return "bg-warning"
+	default:
+		return "bg-primary"
+	}
+}

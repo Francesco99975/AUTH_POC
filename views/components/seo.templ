@@ -1,0 +1,50 @@
+package components
+
+import "github.com/Francesco99975/authpoc/internal/models"
+import "github.com/Francesco99975/authpoc/cmd/boot"
+import "fmt"
+
+templ SEO(site models.Site) {
+	<head hx-swap="outerHTML">
+		<title>{ site.AppName } | { site.Title }</title>
+		<meta name="description" content={ site.Metatags.Description }/>
+		<!-- PWA Manifest -->
+		<link rel="manifest" href="/assets/dist/manifest.webmanifest"/>
+		<!-- Apple Touch Icon (for iOS reliability) -->
+		<link rel="apple-touch-icon" href="/assets/dist/apple-touch-icon-180x180.png"/>
+		<!-- Theme Color -->
+		<meta name="theme-color" content="#ffffff"/>
+		<link rel="icon" href="/assets/dist/icon-optimized.svg" type="image/svg+xml"/>
+		<link rel="icon" href="/assets/dist/favicon-32x32.png" type="image/png" sizes="32x32"/>
+		<link rel="icon" href="/assets/dist/favicon.ico" type="image/x-icon" sizes="64x64"/>
+		<meta charset="utf-8"/>
+		<meta name="viewport" content="width=device-width, initial-scale=1"/>
+		<meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+		<meta name="keywords" content={ site.Metatags.Keywords }/>
+		<meta name="author" content={ site.Metatags.Author }/>
+		<meta name="robots" content="index, follow"/>
+		<link rel="robots" href="/assets/robots.txt"/>
+		<link rel="canonical" href={ boot.Environment.URL }/>
+		<meta property="og:locale" content="en_US"/>
+		<meta property="og:type" content="website"/>
+		<meta property="og:title" content={ site.Title }/>
+		<meta property="og:description" content={ site.Metatags.Description }/>
+		<meta property="og:url" content={ boot.Environment.URL }/>
+		<meta property="og:site_name" content={ site.AppName }/>
+		// <meta property="article:modified_time" content=""/>
+		<meta property="og:image" content="/assets/images/pwa-512x512.png"/>
+		<meta property="og:image:width" content="512"/>
+		<meta property="og:image:height" content="512"/>
+		<meta property="og:image:type" content="image/png"/>
+		<meta name="twitter:card" content="summary_large_image"/>
+		// <link rel="sitemap" type="application/xml" title="Sitemap" href="/assets/sitemap.xml"/>
+		<script type="application/ld+json" nonce={ site.Nonce }>
+			{{ site.Organization }}
+        </script>
+		@DeferredScript(fmt.Sprintf("/assets/dist/%s", site.JSFile), site.Nonce, site.JSIntegrity)
+		@Stylesheet(fmt.Sprintf("/assets/dist/%s", site.CSSFile), site.CSSIntegrity)
+		for _, style := range site.Styles {
+			@Stylesheet(style, "")
+		}
+	</head>
+}

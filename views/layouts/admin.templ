@@ -1,0 +1,20 @@
+package layouts
+
+import (
+	"github.com/Francesco99975/authpoc/internal/models"
+	"github.com/Francesco99975/authpoc/views/components"
+	"strconv"
+)
+
+// Base layout for unauthenticated pages
+templ AdminLayout(site models.Site) {
+	@CoreHTML(site) {
+		<div class="min-h-screen flex flex-col">
+			@components.HeaderCore(site) {
+				@components.AdminNav(site)
+			}
+			{ children... }
+			@components.Footer(site.AppName, strconv.Itoa(site.Year))
+		</div>
+	}
+}
