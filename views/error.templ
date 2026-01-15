@@ -8,11 +8,11 @@ import (
 templ Error(site models.Site, code string, message string) {
 	@layouts.Error(site) {
 		<!-- Main Content -->
-		<main class="flex-grow container mx-auto px-4 py-8 flex items-center justify-center">
+		<main class="grow container mx-auto px-4 py-8 flex items-center justify-center">
 			<div class="w-full max-w-lg">
 				<div class="bg-white dark:bg-bg-dark rounded-2xl shadow-xl overflow-hidden">
 					<!-- Top Gradient Bar -->
-					<div class="h-3 bg-gradient-to-r from-primary via-accent to-primary"></div>
+					<div class="h-3 bg-linear-to-r from-primary via-accent to-primary"></div>
 					<div class="p-8 md:p-12">
 						<!-- Error Code and Icon -->
 						<div class="flex flex-col md:flex-row items-center justify-center gap-6 mb-8">

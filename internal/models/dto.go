@@ -101,3 +101,52 @@ func (r VerifyEmailRequest) Validate() error {
 	}
 	return nil
 }
+
+type ResetPasswordRequest struct {
+	Token    string `form:"token"`
+	Password string `form:"password"`
+	Confirm  string `form:"confirm"`
+}
+
+func (r ResetPasswordRequest) Validate(passwordSecurityLevel int) error {
+	if r.Token == "" {
+		return errors.New("token is required")
+	}
+	if r.Password == "" {
+		return errors.New("password is required")
+	}
+	if r.Password != r.Confirm {
+		return errors.New("passwords do not match")
+	}
+
+	if boot.Environment.GoEnv == enums.Environments.PRODUCTION {
+
+		switch passwordSecurityLevel {
+		case 0:
+			if len(r.Password) < 8 {
+				return errors.New("password must be at least 8 characters")
+			}
+		case 1:
+			if len(r.Password) < 8 {
+				return errors.New("password must be at least 12 characters")
+			}
+
+			if !strings.ContainsAny(r.Password, "0123456789") {
+				return errors.New("password must contain at least one number")
+			}
+		case 2:
+			if len(r.Password) < 12 {
+				return errors.New("password must be at least 16 characters")
+			}
+
+			if !strings.ContainsAny(r.Password, "0123456789") {
+				return errors.New("password must contain at least one number")
+			}
+
+			if !strings.ContainsAny(r.Password, "!@#$%") {
+				return errors.New("password must contain at least one special character: !@#$%")
+			}
+		}
+	}
+	return nil
+}

@@ -48,3 +48,28 @@ func ResendEmailVerificationTemplate(email string, token string) {
 
 	log.Infof("Email sent to %s with ID: %s", email, sent.Id)
 }
+
+func ResendPasswordResetTemplate(email, token string) {
+	client := resend.NewClient(boot.Environment.ResendApiKey)
+
+	params := &resend.SendEmailRequest{
+		From: "Reset Password <resets@auth.urx.ink>",
+		To:   []string{email},
+		Template: &resend.EmailTemplate{
+			Id: "password-reset-request",
+			Variables: map[string]any{
+				"app_name":  "AUTH POC",
+				"reset_url": fmt.Sprintf("%s/reset/%s", boot.Environment.URL, token),
+				"token":     token,
+			},
+		},
+	}
+
+	sent, err := client.Emails.Send(params)
+	if err != nil {
+		log.Errorf("Failed to send email: %v", err)
+		return
+	}
+
+	log.Infof("Email sent to %s with ID: %s", email, sent.Id)
+}

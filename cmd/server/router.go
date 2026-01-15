@@ -110,9 +110,9 @@ func createRouter(ctx context.Context) *echo.Echo {
 	// web.POST("/verification/resend")
 	web.POST("/login", controllers.SessionLogin())
 	web.POST("/logout", controllers.SessionLogout())
-	// web.GET("/reset")
-	// web.POST("/reset")
-	// web.POST("/reset/confirm")
+	web.GET("/reset", controllers.ResetPage())
+	web.POST("/reset/check", controllers.ResetCheck())
+	web.POST("/reset/confirm", controllers.ResetUserPassword())
 	// web.POST("/reset/resend")
 
 	e.HTTPErrorHandler = serverErrorHandler
@@ -140,9 +140,6 @@ func serverErrorHandler(err error, c echo.Context) {
 			"status":  code,
 		})
 	} else {
-		if code == 404 {
-			message = "Page Not Found"
-		}
 		// Prepare data for rendering the error page (HTML)
 		data := models.GetDefaultSite("Error")
 
