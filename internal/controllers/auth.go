@@ -76,6 +76,52 @@ func SessionSignup() echo.HandlerFunc {
 	}
 }
 
+func ResendEmailVerification() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		email := c.FormValue("email")
+
+		ctx := c.Request().Context()
+		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "Failed to open database on signup", Message: fmt.Errorf("Failed to open database on signup: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+		defer database.HandleTransaction(ctx, tx, &err)
+		repo := repository.New(tx)
+
+		user, err := repo.GetUserByEmail(ctx, email)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "User not found", Message: fmt.Errorf("User not found: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		if user.IsEmailVerified {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusConflict, UserMessage: "User is already verified", Message: fmt.Errorf("User is already verified: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		err = repo.DeleteEmailVerificationByUserID(ctx, user.ID)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "Failed to delete old email verification", Message: fmt.Errorf("Failed to delete old email verification: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		token, err := helpers.GenerateBase62Token(8)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "Failed to generate token", Message: fmt.Errorf("Failed to generate token: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+		log.Debugf("Generated token: %v", token)
+
+		ev, err := repo.CreateEmailVerification(ctx, repository.CreateEmailVerificationParams{ID: uuid.New(), UserID: user.ID, Token: token, ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(time.Duration(30 * time.Minute)), Valid: true}})
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "Failed to Create email verification", Message: fmt.Errorf("Failed to Create email verification: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		helpers.ResendEmailVerificationTemplate(user.Email, ev.Token)
+
+		html := helpers.MustRenderHTML(components.SuccessMsg("Verification Email Resent"))
+
+		return c.Blob(http.StatusOK, "text/html", html)
+
+	}
+}
+
 func EmailVerification() echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var payload models.VerifyEmailRequest = models.VerifyEmailRequest{Token: c.Param("token")}

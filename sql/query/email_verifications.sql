@@ -18,6 +18,10 @@ UPDATE email_verifications
 SET used = TRUE
 WHERE token = $1;
 
+-- name: DeleteEmailVerificationByUserID :exec
+DELETE FROM email_verifications
+WHERE user_id = $1;
+
 -- name: CleanupExpiredEmailVerifications :exec
 DELETE FROM email_verifications
 WHERE expires_at < NOW();

@@ -18,6 +18,10 @@ UPDATE password_resets
 SET used = TRUE
 WHERE token = $1;
 
+-- name: DeletePasswordResetByUserID :exec
+DELETE FROM password_resets
+WHERE user_id = $1;
+
 -- name: CleanupExpiredPasswordResets :exec
 DELETE FROM password_resets
 WHERE expires_at < NOW();

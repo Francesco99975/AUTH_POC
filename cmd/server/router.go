@@ -107,13 +107,13 @@ func createRouter(ctx context.Context) *echo.Echo {
 	web.POST("/signup", controllers.SessionSignup())
 	web.POST("/verification/manual", controllers.ManualEmailVerification())
 	web.GET("/verification/:token", controllers.EmailVerification())
-	// web.POST("/verification/resend")
+	web.POST("/verification/resend", controllers.ResendEmailVerification())
 	web.POST("/login", controllers.SessionLogin())
 	web.POST("/logout", controllers.SessionLogout())
 	web.GET("/reset", controllers.ResetPage())
 	web.POST("/reset/check", controllers.ResetCheck())
 	web.POST("/reset/confirm", controllers.ResetUserPassword())
-	// web.POST("/reset/resend")
+	web.POST("/reset/resend", controllers.ResendReset())
 
 	e.HTTPErrorHandler = serverErrorHandler
 

@@ -20,6 +20,8 @@ type Querier interface {
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) error
 	CreateUser(ctx context.Context, arg CreateUserParams) (*CreateUserRow, error)
 	DeactivateUser(ctx context.Context, id uuid.UUID) error
+	DeleteEmailVerificationByUserID(ctx context.Context, userID uuid.UUID) error
+	DeletePasswordResetByUserID(ctx context.Context, userID uuid.UUID) error
 	DeleteUserBackupCodes(ctx context.Context, userID uuid.UUID) error
 	DisableUser2FA(ctx context.Context, id uuid.UUID) error
 	EnableUser2FA(ctx context.Context, arg EnableUser2FAParams) error
