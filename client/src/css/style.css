@@ -86,7 +86,7 @@
     font-weight: 600;
   }
 
-  div:has(> button) {
+  button{
     cursor: pointer;
   }
 }

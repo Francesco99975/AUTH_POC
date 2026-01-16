@@ -111,6 +111,7 @@ func createRouter(ctx context.Context) *echo.Echo {
 	web.POST("/login", controllers.SessionLogin())
 	web.POST("/logout", controllers.SessionLogout())
 	web.GET("/reset", controllers.ResetPage())
+	web.GET("/reset/:token", controllers.ResetPageExpress())
 	web.POST("/reset/check", controllers.ResetCheck())
 	web.POST("/reset/confirm", controllers.ResetUserPassword())
 	web.POST("/reset/resend", controllers.ResendReset())

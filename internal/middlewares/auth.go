@@ -8,15 +8,21 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+type UserIDKey string
+
+const (
+	UserKey UserIDKey = "user_id"
+)
+
 func AuthMiddleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			userID, _, authenticated := auth.GetSessionUserID(c.Request())
 			if !authenticated {
-				return c.Redirect(http.StatusSeeOther, "/login")
+				return c.Redirect(http.StatusSeeOther, "/auth")
 			}
 
-			ctx := context.WithValue(c.Request().Context(), "user_id", userID)
+			ctx := context.WithValue(c.Request().Context(), UserKey, userID)
 
 			c.SetRequest(c.Request().WithContext(ctx))
 			return next(c)

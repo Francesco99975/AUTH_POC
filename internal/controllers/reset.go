@@ -31,6 +31,20 @@ func ResetPage() echo.HandlerFunc {
 	}
 }
 
+func ResetPageExpress() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		token := c.Param("token")
+		data := models.GetDefaultSite("Reset Password")
+
+		data.Nonce = c.Get("nonce").(string)
+		data.CSRF = c.Get("csrf").(string)
+
+		html := helpers.MustRenderHTML(views.PasswordResetExpress(data, token))
+
+		return c.Blob(http.StatusOK, "text/html", html)
+	}
+}
+
 func ResetCheck() echo.HandlerFunc {
 	return func(c echo.Context) error {
 		email := c.FormValue("email")
