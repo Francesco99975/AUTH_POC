@@ -15,3 +15,9 @@ dbp.*
 reports
 static
 *templ.go
+.git
+node_modules
+**/*.templ.go
+tmp
+dist
+bin

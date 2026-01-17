@@ -11,11 +11,6 @@ WORKDIR /go/src/app
 # Copy everything for build
 COPY . .
 
-# Prepare Go modules
-RUN go mod tidy
-
-
-
 # -----------------------------
 # Client Build
 # -----------------------------
@@ -37,7 +32,7 @@ RUN templ generate
 # -----------------------------
 WORKDIR /go/src/app
 
-RUN GOOS=linux go build -ldflags="-s -w" -o ./bin/prj ./cmd/server/*.go
+RUN GOOS=linux go build -ldflags="-s -w" -o ./bin/authpoc ./cmd/server/*.go
 
 # -----------------------------
 # Release Phase
@@ -52,6 +47,6 @@ COPY --from=build /go/src/app/bin /go/bin
 COPY --from=build /go/src/app/static /go/bin/static
 COPY --from=build /go/src/app/sql /go/bin/sql
 
-EXPOSE 8989
+EXPOSE 3269
 
-ENTRYPOINT ["/go/bin/prj", "--port", "8989"]
+ENTRYPOINT ["/go/bin/authpoc", "--port", "3269"]
