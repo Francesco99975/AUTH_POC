@@ -14,7 +14,7 @@ import (
 
 const cleanupExpiredPasswordResets = `-- name: CleanupExpiredPasswordResets :exec
 DELETE FROM password_resets
-WHERE expires_at < NOW()
+WHERE expires_at < NOW() OR used = TRUE
 `
 
 func (q *Queries) CleanupExpiredPasswordResets(ctx context.Context) error {

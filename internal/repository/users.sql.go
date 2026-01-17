@@ -12,6 +12,16 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const cleanupInactiveUsers = `-- name: CleanupInactiveUsers :exec
+DELETE FROM users
+WHERE is_active = FALSE
+`
+
+func (q *Queries) CleanupInactiveUsers(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, cleanupInactiveUsers)
+	return err
+}
+
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (
     id, role, username, email, password_hash
@@ -19,7 +29,7 @@ INSERT INTO users (
     $1, $2, $3, $4, $5
 )
 RETURNING id, role, username, email, is_active, is_email_verified,
-          twofa_secret, twofa_enabled, last_login, created_at, updated_at
+         twofa_enabled, last_login, created_at, updated_at
 `
 
 type CreateUserParams struct {
@@ -37,7 +47,6 @@ type CreateUserRow struct {
 	Email           string             `json:"email"`
 	IsActive        bool               `json:"is_active"`
 	IsEmailVerified bool               `json:"is_email_verified"`
-	TwofaSecret     *string            `json:"twofa_secret"`
 	TwofaEnabled    bool               `json:"twofa_enabled"`
 	LastLogin       pgtype.Timestamptz `json:"last_login"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
@@ -60,7 +69,6 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (*Create
 		&i.Email,
 		&i.IsActive,
 		&i.IsEmailVerified,
-		&i.TwofaSecret,
 		&i.TwofaEnabled,
 		&i.LastLogin,
 		&i.CreatedAt,
@@ -77,6 +85,16 @@ WHERE id = $1
 
 func (q *Queries) DeactivateUser(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deactivateUser, id)
+	return err
+}
+
+const deleteUser = `-- name: DeleteUser :exec
+DELETE FROM users
+WHERE id = $1
+`
+
+func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteUser, id)
 	return err
 }
 
@@ -107,17 +125,44 @@ func (q *Queries) EnableUser2FA(ctx context.Context, arg EnableUser2FAParams) er
 	return err
 }
 
+const getUser2FASecret = `-- name: GetUser2FASecret :one
+SELECT twofa_secret
+FROM users
+WHERE id = $1 AND twofa_enabled = TRUE
+`
+
+func (q *Queries) GetUser2FASecret(ctx context.Context, id uuid.UUID) (*string, error) {
+	row := q.db.QueryRow(ctx, getUser2FASecret, id)
+	var twofa_secret *string
+	err := row.Scan(&twofa_secret)
+	return twofa_secret, err
+}
+
 const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT id, role, username, email, password_hash, is_active,
-       is_email_verified, twofa_secret, twofa_enabled, last_login,
+       is_email_verified, twofa_enabled, last_login,
        created_at, updated_at
 FROM users
 WHERE email = $1
 `
 
-func (q *Queries) GetUserByEmail(ctx context.Context, email string) (*User, error) {
+type GetUserByEmailRow struct {
+	ID              uuid.UUID          `json:"id"`
+	Role            string             `json:"role"`
+	Username        string             `json:"username"`
+	Email           string             `json:"email"`
+	PasswordHash    string             `json:"password_hash"`
+	IsActive        bool               `json:"is_active"`
+	IsEmailVerified bool               `json:"is_email_verified"`
+	TwofaEnabled    bool               `json:"twofa_enabled"`
+	LastLogin       pgtype.Timestamptz `json:"last_login"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetUserByEmail(ctx context.Context, email string) (*GetUserByEmailRow, error) {
 	row := q.db.QueryRow(ctx, getUserByEmail, email)
-	var i User
+	var i GetUserByEmailRow
 	err := row.Scan(
 		&i.ID,
 		&i.Role,
@@ -126,7 +171,6 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (*User, erro
 		&i.PasswordHash,
 		&i.IsActive,
 		&i.IsEmailVerified,
-		&i.TwofaSecret,
 		&i.TwofaEnabled,
 		&i.LastLogin,
 		&i.CreatedAt,
@@ -144,7 +188,6 @@ SELECT
     password_hash,
     is_active,
     is_email_verified,
-    twofa_secret,
     twofa_enabled,
     last_login,
     created_at,
@@ -154,9 +197,23 @@ WHERE (email = $1 OR username = $1)
   AND is_active = TRUE
 `
 
-func (q *Queries) GetUserByEmailOrUsername(ctx context.Context, email string) (*User, error) {
+type GetUserByEmailOrUsernameRow struct {
+	ID              uuid.UUID          `json:"id"`
+	Role            string             `json:"role"`
+	Username        string             `json:"username"`
+	Email           string             `json:"email"`
+	PasswordHash    string             `json:"password_hash"`
+	IsActive        bool               `json:"is_active"`
+	IsEmailVerified bool               `json:"is_email_verified"`
+	TwofaEnabled    bool               `json:"twofa_enabled"`
+	LastLogin       pgtype.Timestamptz `json:"last_login"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetUserByEmailOrUsername(ctx context.Context, email string) (*GetUserByEmailOrUsernameRow, error) {
 	row := q.db.QueryRow(ctx, getUserByEmailOrUsername, email)
-	var i User
+	var i GetUserByEmailOrUsernameRow
 	err := row.Scan(
 		&i.ID,
 		&i.Role,
@@ -165,7 +222,6 @@ func (q *Queries) GetUserByEmailOrUsername(ctx context.Context, email string) (*
 		&i.PasswordHash,
 		&i.IsActive,
 		&i.IsEmailVerified,
-		&i.TwofaSecret,
 		&i.TwofaEnabled,
 		&i.LastLogin,
 		&i.CreatedAt,
@@ -176,15 +232,29 @@ func (q *Queries) GetUserByEmailOrUsername(ctx context.Context, email string) (*
 
 const getUserByID = `-- name: GetUserByID :one
 SELECT id, role, username, email, password_hash, is_active,
-       is_email_verified, twofa_secret, twofa_enabled, last_login,
+       is_email_verified, twofa_enabled, last_login,
        created_at, updated_at
 FROM users
 WHERE id = $1
 `
 
-func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (*User, error) {
+type GetUserByIDRow struct {
+	ID              uuid.UUID          `json:"id"`
+	Role            string             `json:"role"`
+	Username        string             `json:"username"`
+	Email           string             `json:"email"`
+	PasswordHash    string             `json:"password_hash"`
+	IsActive        bool               `json:"is_active"`
+	IsEmailVerified bool               `json:"is_email_verified"`
+	TwofaEnabled    bool               `json:"twofa_enabled"`
+	LastLogin       pgtype.Timestamptz `json:"last_login"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (*GetUserByIDRow, error) {
 	row := q.db.QueryRow(ctx, getUserByID, id)
-	var i User
+	var i GetUserByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.Role,
@@ -193,7 +263,6 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (*User, error) 
 		&i.PasswordHash,
 		&i.IsActive,
 		&i.IsEmailVerified,
-		&i.TwofaSecret,
 		&i.TwofaEnabled,
 		&i.LastLogin,
 		&i.CreatedAt,
@@ -204,15 +273,29 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (*User, error) 
 
 const getUserByUsername = `-- name: GetUserByUsername :one
 SELECT id, role, username, email, password_hash, is_active,
-       is_email_verified, twofa_secret, twofa_enabled, last_login,
+       is_email_verified, twofa_enabled, last_login,
        created_at, updated_at
 FROM users
 WHERE username = $1
 `
 
-func (q *Queries) GetUserByUsername(ctx context.Context, username string) (*User, error) {
+type GetUserByUsernameRow struct {
+	ID              uuid.UUID          `json:"id"`
+	Role            string             `json:"role"`
+	Username        string             `json:"username"`
+	Email           string             `json:"email"`
+	PasswordHash    string             `json:"password_hash"`
+	IsActive        bool               `json:"is_active"`
+	IsEmailVerified bool               `json:"is_email_verified"`
+	TwofaEnabled    bool               `json:"twofa_enabled"`
+	LastLogin       pgtype.Timestamptz `json:"last_login"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetUserByUsername(ctx context.Context, username string) (*GetUserByUsernameRow, error) {
 	row := q.db.QueryRow(ctx, getUserByUsername, username)
-	var i User
+	var i GetUserByUsernameRow
 	err := row.Scan(
 		&i.ID,
 		&i.Role,
@@ -221,13 +304,164 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (*User
 		&i.PasswordHash,
 		&i.IsActive,
 		&i.IsEmailVerified,
-		&i.TwofaSecret,
 		&i.TwofaEnabled,
 		&i.LastLogin,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return &i, err
+}
+
+const getUsers = `-- name: GetUsers :many
+SELECT id, role, username, email, is_active, is_email_verified, twofa_enabled, last_login, created_at, updated_at
+FROM users
+ORDER BY username
+LIMIT $1
+OFFSET $2
+`
+
+type GetUsersParams struct {
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+type GetUsersRow struct {
+	ID              uuid.UUID          `json:"id"`
+	Role            string             `json:"role"`
+	Username        string             `json:"username"`
+	Email           string             `json:"email"`
+	IsActive        bool               `json:"is_active"`
+	IsEmailVerified bool               `json:"is_email_verified"`
+	TwofaEnabled    bool               `json:"twofa_enabled"`
+	LastLogin       pgtype.Timestamptz `json:"last_login"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetUsers(ctx context.Context, arg GetUsersParams) ([]*GetUsersRow, error) {
+	rows, err := q.db.Query(ctx, getUsers, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*GetUsersRow
+	for rows.Next() {
+		var i GetUsersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Role,
+			&i.Username,
+			&i.Email,
+			&i.IsActive,
+			&i.IsEmailVerified,
+			&i.TwofaEnabled,
+			&i.LastLogin,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getUsersByRole = `-- name: GetUsersByRole :many
+SELECT id, role, username, email, is_active, is_email_verified, twofa_enabled, last_login, created_at, updated_at
+FROM users
+WHERE role = $1
+ORDER BY username
+LIMIT $2
+OFFSET $3
+`
+
+type GetUsersByRoleParams struct {
+	Role   string `json:"role"`
+	Limit  int32  `json:"limit"`
+	Offset int32  `json:"offset"`
+}
+
+type GetUsersByRoleRow struct {
+	ID              uuid.UUID          `json:"id"`
+	Role            string             `json:"role"`
+	Username        string             `json:"username"`
+	Email           string             `json:"email"`
+	IsActive        bool               `json:"is_active"`
+	IsEmailVerified bool               `json:"is_email_verified"`
+	TwofaEnabled    bool               `json:"twofa_enabled"`
+	LastLogin       pgtype.Timestamptz `json:"last_login"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetUsersByRole(ctx context.Context, arg GetUsersByRoleParams) ([]*GetUsersByRoleRow, error) {
+	rows, err := q.db.Query(ctx, getUsersByRole, arg.Role, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*GetUsersByRoleRow
+	for rows.Next() {
+		var i GetUsersByRoleRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Role,
+			&i.Username,
+			&i.Email,
+			&i.IsActive,
+			&i.IsEmailVerified,
+			&i.TwofaEnabled,
+			&i.LastLogin,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getUsersByRoleCount = `-- name: GetUsersByRoleCount :one
+SELECT COUNT(*)
+FROM users
+WHERE role = $1
+`
+
+func (q *Queries) GetUsersByRoleCount(ctx context.Context, role string) (int64, error) {
+	row := q.db.QueryRow(ctx, getUsersByRoleCount, role)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const getUsersCount = `-- name: GetUsersCount :one
+SELECT COUNT(*)
+FROM users
+`
+
+func (q *Queries) GetUsersCount(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, getUsersCount)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const reactivateUser = `-- name: ReactivateUser :exec
+UPDATE users
+SET is_active = TRUE, updated_at = NOW()
+WHERE id = $1
+`
+
+func (q *Queries) ReactivateUser(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, reactivateUser, id)
+	return err
 }
 
 const updateUserLastLogin = `-- name: UpdateUserLastLogin :exec

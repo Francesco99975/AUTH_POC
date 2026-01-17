@@ -24,4 +24,14 @@ WHERE user_id = $1;
 
 -- name: CleanupExpiredEmailVerifications :exec
 DELETE FROM email_verifications
-WHERE expires_at < NOW();
+WHERE expires_at < NOW() OR used = TRUE;
+
+-- name: GetEmailVerificationByID :one
+SELECT id, user_id, token, expires_at, used, created_at
+FROM email_verifications
+WHERE id = $1;
+
+-- name: GetEmailVerificationByUserID :one
+SELECT id, user_id, token, expires_at, used, created_at
+FROM email_verifications
+WHERE user_id = $1;

@@ -88,6 +88,7 @@ CREATE TABLE password_resets (
 );
 
 CREATE INDEX idx_password_resets_user_id ON password_resets(user_id);
+CREATE INDEX idx_password_resets_token ON password_resets(token);
 CREATE INDEX idx_password_resets_expires_at ON password_resets(expires_at);
 
 -- Email verifications
@@ -101,6 +102,7 @@ CREATE TABLE email_verifications (
 );
 
 CREATE INDEX idx_email_verifications_user_id ON email_verifications(user_id);
+CREATE INDEX idx_email_verifications_token ON email_verifications(token);
 CREATE INDEX idx_email_verifications_expires_at ON email_verifications(expires_at);
 
 -- 2FA backup codes

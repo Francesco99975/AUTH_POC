@@ -14,7 +14,7 @@ import (
 
 const cleanupExpiredEmailVerifications = `-- name: CleanupExpiredEmailVerifications :exec
 DELETE FROM email_verifications
-WHERE expires_at < NOW()
+WHERE expires_at < NOW() OR used = TRUE
 `
 
 func (q *Queries) CleanupExpiredEmailVerifications(ctx context.Context) error {
@@ -72,6 +72,26 @@ func (q *Queries) DeleteEmailVerificationByUserID(ctx context.Context, userID uu
 	return err
 }
 
+const getEmailVerificationByID = `-- name: GetEmailVerificationByID :one
+SELECT id, user_id, token, expires_at, used, created_at
+FROM email_verifications
+WHERE id = $1
+`
+
+func (q *Queries) GetEmailVerificationByID(ctx context.Context, id uuid.UUID) (*EmailVerification, error) {
+	row := q.db.QueryRow(ctx, getEmailVerificationByID, id)
+	var i EmailVerification
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Token,
+		&i.ExpiresAt,
+		&i.Used,
+		&i.CreatedAt,
+	)
+	return &i, err
+}
+
 const getEmailVerificationByToken = `-- name: GetEmailVerificationByToken :one
 SELECT id, user_id, token, expires_at, used, created_at
 FROM email_verifications
@@ -82,6 +102,26 @@ WHERE token = $1
 
 func (q *Queries) GetEmailVerificationByToken(ctx context.Context, token string) (*EmailVerification, error) {
 	row := q.db.QueryRow(ctx, getEmailVerificationByToken, token)
+	var i EmailVerification
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Token,
+		&i.ExpiresAt,
+		&i.Used,
+		&i.CreatedAt,
+	)
+	return &i, err
+}
+
+const getEmailVerificationByUserID = `-- name: GetEmailVerificationByUserID :one
+SELECT id, user_id, token, expires_at, used, created_at
+FROM email_verifications
+WHERE user_id = $1
+`
+
+func (q *Queries) GetEmailVerificationByUserID(ctx context.Context, userID uuid.UUID) (*EmailVerification, error) {
+	row := q.db.QueryRow(ctx, getEmailVerificationByUserID, userID)
 	var i EmailVerification
 	err := row.Scan(
 		&i.ID,

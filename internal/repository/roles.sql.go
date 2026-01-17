@@ -7,7 +7,58 @@ package repository
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const countRoles = `-- name: CountRoles :one
+SELECT COUNT(*) FROM roles
+`
+
+func (q *Queries) CountRoles(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countRoles)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const createRole = `-- name: CreateRole :one
+INSERT INTO roles (id, created_at, updated_at)
+VALUES ($1, $2, $3)
+RETURNING id, created_at, updated_at
+`
+
+type CreateRoleParams struct {
+	ID        string             `json:"id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) CreateRole(ctx context.Context, arg CreateRoleParams) (*Role, error) {
+	row := q.db.QueryRow(ctx, createRole, arg.ID, arg.CreatedAt, arg.UpdatedAt)
+	var i Role
+	err := row.Scan(&i.ID, &i.CreatedAt, &i.UpdatedAt)
+	return &i, err
+}
+
+const deleteAllRoles = `-- name: DeleteAllRoles :exec
+DELETE FROM roles
+`
+
+func (q *Queries) DeleteAllRoles(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deleteAllRoles)
+	return err
+}
+
+const deleteRole = `-- name: DeleteRole :exec
+DELETE FROM roles
+WHERE id = $1
+`
+
+func (q *Queries) DeleteRole(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, deleteRole, id)
+	return err
+}
 
 const getRoleByID = `-- name: GetRoleByID :one
 SELECT id, created_at, updated_at
@@ -17,6 +68,19 @@ WHERE id = $1
 
 func (q *Queries) GetRoleByID(ctx context.Context, id string) (*Role, error) {
 	row := q.db.QueryRow(ctx, getRoleByID, id)
+	var i Role
+	err := row.Scan(&i.ID, &i.CreatedAt, &i.UpdatedAt)
+	return &i, err
+}
+
+const getRoleById = `-- name: GetRoleById :one
+SELECT id, created_at, updated_at
+FROM roles
+WHERE id = $1
+`
+
+func (q *Queries) GetRoleById(ctx context.Context, id string) (*Role, error) {
+	row := q.db.QueryRow(ctx, getRoleById, id)
 	var i Role
 	err := row.Scan(&i.ID, &i.CreatedAt, &i.UpdatedAt)
 	return &i, err
@@ -46,4 +110,23 @@ func (q *Queries) ListRoles(ctx context.Context) ([]*Role, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateRole = `-- name: UpdateRole :one
+UPDATE roles
+SET updated_at = $2
+WHERE id = $1
+RETURNING id, created_at, updated_at
+`
+
+type UpdateRoleParams struct {
+	ID        string             `json:"id"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) UpdateRole(ctx context.Context, arg UpdateRoleParams) (*Role, error) {
+	row := q.db.QueryRow(ctx, updateRole, arg.ID, arg.UpdatedAt)
+	var i Role
+	err := row.Scan(&i.ID, &i.CreatedAt, &i.UpdatedAt)
+	return &i, err
 }

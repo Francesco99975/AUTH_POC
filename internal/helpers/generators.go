@@ -15,7 +15,7 @@ func GenerateUniqueID() uint {
 	return uint(binary.BigEndian.Uint64(hash[:8]))
 }
 
-const charset = "abcdefghkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ123456789"
+const charset = "abcdefghkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ123456789%$#@"
 
 func GenerateBase62Token(length int) (string, error) {
 	token := make([]byte, length)

@@ -24,4 +24,4 @@ WHERE user_id = $1;
 
 -- name: CleanupExpiredPasswordResets :exec
 DELETE FROM password_resets
-WHERE expires_at < NOW();
+WHERE expires_at < NOW() OR used = TRUE;

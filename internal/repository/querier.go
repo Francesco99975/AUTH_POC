@@ -14,33 +14,49 @@ type Querier interface {
 	CleanupExpiredEmailVerifications(ctx context.Context) error
 	CleanupExpiredPasswordResets(ctx context.Context) error
 	CleanupExpiredRefreshTokens(ctx context.Context) error
+	CleanupInactiveUsers(ctx context.Context) error
+	CountRoles(ctx context.Context) (int64, error)
 	CreateBackupCodes(ctx context.Context, arg CreateBackupCodesParams) error
 	CreateEmailVerification(ctx context.Context, arg CreateEmailVerificationParams) (*CreateEmailVerificationRow, error)
 	CreatePasswordReset(ctx context.Context, arg CreatePasswordResetParams) (*CreatePasswordResetRow, error)
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) error
+	CreateRole(ctx context.Context, arg CreateRoleParams) (*Role, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (*CreateUserRow, error)
 	DeactivateUser(ctx context.Context, id uuid.UUID) error
+	DeleteAllRoles(ctx context.Context) error
 	DeleteEmailVerificationByUserID(ctx context.Context, userID uuid.UUID) error
 	DeletePasswordResetByUserID(ctx context.Context, userID uuid.UUID) error
+	DeleteRole(ctx context.Context, id string) error
+	DeleteUser(ctx context.Context, id uuid.UUID) error
 	DeleteUserBackupCodes(ctx context.Context, userID uuid.UUID) error
 	DisableUser2FA(ctx context.Context, id uuid.UUID) error
 	EnableUser2FA(ctx context.Context, arg EnableUser2FAParams) error
 	GetBackupCodeByHash(ctx context.Context, codeHash string) (*GetBackupCodeByHashRow, error)
+	GetEmailVerificationByID(ctx context.Context, id uuid.UUID) (*EmailVerification, error)
 	GetEmailVerificationByToken(ctx context.Context, token string) (*EmailVerification, error)
+	GetEmailVerificationByUserID(ctx context.Context, userID uuid.UUID) (*EmailVerification, error)
 	GetPasswordResetByToken(ctx context.Context, token string) (*PasswordReset, error)
 	GetRefreshTokenByHash(ctx context.Context, tokenHash string) (*GetRefreshTokenByHashRow, error)
 	GetRoleByID(ctx context.Context, id string) (*Role, error)
+	GetRoleById(ctx context.Context, id string) (*Role, error)
 	GetUnusedBackupCodesForUser(ctx context.Context, userID uuid.UUID) ([]*GetUnusedBackupCodesForUserRow, error)
-	GetUserByEmail(ctx context.Context, email string) (*User, error)
-	GetUserByEmailOrUsername(ctx context.Context, email string) (*User, error)
-	GetUserByID(ctx context.Context, id uuid.UUID) (*User, error)
-	GetUserByUsername(ctx context.Context, username string) (*User, error)
+	GetUser2FASecret(ctx context.Context, id uuid.UUID) (*string, error)
+	GetUserByEmail(ctx context.Context, email string) (*GetUserByEmailRow, error)
+	GetUserByEmailOrUsername(ctx context.Context, email string) (*GetUserByEmailOrUsernameRow, error)
+	GetUserByID(ctx context.Context, id uuid.UUID) (*GetUserByIDRow, error)
+	GetUserByUsername(ctx context.Context, username string) (*GetUserByUsernameRow, error)
+	GetUsers(ctx context.Context, arg GetUsersParams) ([]*GetUsersRow, error)
+	GetUsersByRole(ctx context.Context, arg GetUsersByRoleParams) ([]*GetUsersByRoleRow, error)
+	GetUsersByRoleCount(ctx context.Context, role string) (int64, error)
+	GetUsersCount(ctx context.Context) (int64, error)
 	ListRoles(ctx context.Context) ([]*Role, error)
 	MarkBackupCodeUsed(ctx context.Context, id uuid.UUID) error
 	MarkEmailVerificationUsed(ctx context.Context, token string) error
 	MarkPasswordResetUsed(ctx context.Context, token string) error
+	ReactivateUser(ctx context.Context, id uuid.UUID) error
 	RevokeAllUserRefreshTokens(ctx context.Context, userID uuid.UUID) error
 	RevokeRefreshToken(ctx context.Context, id uuid.UUID) error
+	UpdateRole(ctx context.Context, arg UpdateRoleParams) (*Role, error)
 	UpdateUserLastLogin(ctx context.Context, id uuid.UUID) error
 	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error
 	VerifyUserEmail(ctx context.Context, id uuid.UUID) error
