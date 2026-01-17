@@ -68,7 +68,7 @@ jobs:
       - name: Set up SSH
         uses: webfactory/ssh-agent@v0.9.1
         with:
-          ssh-private-key: ${{ secrets.SERVER_SSH_KEY }}
+          ssh-private-key: ${{ secrets.AVALON_SSH_KEY }}
 
       - name: Add host key
         run: |
