@@ -81,7 +81,7 @@ jobs:
           scp authpoc.tar docker-compose.yml user@server:~/apps/authpoc/
 
           # SSH into server and deploy
-          ssh user@server << 'EOF'
+          ssh kalairen@avalon << 'EOF'
             cd ~/apps/authpoc
             pwd
             docker load < authpoc.tar
