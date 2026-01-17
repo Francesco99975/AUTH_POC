@@ -1,4 +1,22 @@
 services:
+  authpocdb:
+    container_name: authpocdb
+    image: postgres:15.3-alpine
+    restart: unless-stopped
+    labels:
+      - traefik.enable=false
+    networks:
+      - authpocnet
+    environment:
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+      - POSTGRES_DB
+    ports:
+      - "5468:5432"
+    volumes:
+      - authpocpgdata:/var/lib/postgresql/data
+      - authpocpgconf:/etc/postgresql
+      - authpocpglog:/var/log/postgresql
   authpoc:
     container_name: authpoc
     image: authpoc
@@ -9,22 +27,22 @@ services:
       - PORT
       - DSN
       - NTFY
+      - NTFY_TOKEN
       - METRICS_SECRET
       - PROMETHEUS
+      - RESEND_API_KEY
+      - SESSION_AUTH_KEY
+      - SESSION_ENCRYPTION_KEY
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3269/healthcheck"]
     labels:
       - traefik.enable=true
-      - traefik.http.routers.authpoc.rule=Host(`authpoc.example.com`)
+      - traefik.http.routers.authpoc.rule=Host(`auth.poc.urx.ink`)
       - traefik.http.routers.authpoc.entrypoints=web,websecure
       - traefik.http.routers.authpoc.service=authpoc
       - traefik.http.services.authpoc.loadbalancer.server.port=3269
       - traefik.http.routers.authpoc.tls=true
       - traefik.http.routers.authpoc.tls.certresolver=letsencrypt
-      - traefik.http.middlewares.forwardedheaders.headers.customrequestheaders.X-Forwarded-Proto=https
-      - traefik.http.middlewares.forwardedheaders.headers.customrequestheaders.X-Forwarded-For={ip}
-      - traefik.http.middlewares.websocket-headers.headers.customrequestheaders.Upgrade=websocket
-      - traefik.http.middlewares.websocket-headers.headers.customrequestheaders.Connection=Upgrade
       - traefik.http.routers.authpoc.middlewares=websocket-headers,forwardedheaders
     networks:
       - authpocnet
