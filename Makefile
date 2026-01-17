@@ -94,7 +94,7 @@ run: ## Run the app (non-development mode)
 
 .PHONY: lint
 lint: ## Run linters (requires golangci-lint)
-	golangci-lint run --exclude-dirs=views
+	golangci-lint run
 
 .PHONY: clean
 clean: ## Clean up build artifacts
