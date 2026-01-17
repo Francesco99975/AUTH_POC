@@ -29,8 +29,8 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v6
         with:
-          name: reviews-image
-          path: reviews.tar
+          name: authpoc-image
+          path: authpoc.tar
           retention-days: 1
       - name: Upload docker-compose file
         uses: actions/upload-artifact@v6
@@ -46,12 +46,12 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     environment:
       name: production
-      url: https://poc.reviews.urx.ink
+      url: https://auth.poc.urx.ink
     steps:
       - name: Download Docker image
         uses: actions/download-artifact@v7
         with:
-          name: reviews-image
+          name: authpoc-image
 
       - name: Download docker-compose
         uses: actions/download-artifact@v7
@@ -78,14 +78,14 @@ jobs:
       - name: Deploy to production
         run: |
           # Transfer files to production server
-          scp reviews.tar docker-compose.yml user@server:~/apps/reviews/
+          scp authpoc.tar docker-compose.yml user@server:~/apps/authpoc/
 
           # SSH into server and deploy
           ssh user@server << 'EOF'
-            cd ~/apps/reviews
+            cd ~/apps/authpoc
             pwd
-            docker load < reviews.tar
-                        doppler run -- docker compose up -d
-            rm reviews.tar
+            docker load < authpoc.tar
+            doppler run -- docker compose up -d
+            rm authpoc.tar
             docker system prune -f
           EOF

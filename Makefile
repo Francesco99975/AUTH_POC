@@ -29,7 +29,7 @@ test: ## Run all tests
 
 .PHONY: coverage
 coverage: ## Run tests with coverage
-	go test -race -count=3 -timeout=30m  -bench=. -benchmem -coverprofile=coverage.out ./...
+	go test -race -count=3 -timeout=30m -coverprofile=coverage.out ./...
 	go tool cover -html=coverage.out
 
 .PHONY: dev
