@@ -78,7 +78,7 @@ jobs:
       - name: Deploy to production
         run: |
           # Transfer files to production server
-          scp authpoc.tar docker-compose.yml user@server:~/apps/authpoc/
+          scp authpoc.tar docker-compose.yml kalairen@avalon:~/apps/authpoc/
 
           # SSH into server and deploy
           ssh kalairen@avalon << 'EOF'
