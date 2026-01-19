@@ -49,7 +49,7 @@ func SessionSignup() echo.HandlerFunc {
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
-		newUser, err := repo.CreateUser(ctx, repository.CreateUserParams{ID: uuid.New(), Role: "user", Username: payload.Username, Email: payload.Email, PasswordHash: hashedPassword})
+		newUser, err := repo.CreateUser(ctx, repository.CreateUserParams{ID: uuid.New(), Role: "USER", Username: payload.Username, Email: payload.Email, PasswordHash: hashedPassword})
 		if err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to create user", Message: fmt.Errorf("failed to create user: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
