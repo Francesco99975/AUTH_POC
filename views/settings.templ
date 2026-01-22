@@ -1,0 +1,15 @@
+package views
+
+import (
+	"github.com/Francesco99975/authpoc/internal/models"
+	"github.com/Francesco99975/authpoc/views/components"
+	"github.com/Francesco99975/authpoc/views/layouts"
+)
+
+templ Settings(site models.Site, tabProps layouts.TabLayoutProps, profileProps components.ProfileProps) {
+	@layouts.AdminLayout(site) {
+		@layouts.TabLayout(tabProps) {
+			@components.SettingsProfileTab(profileProps)
+		}
+	}
+}

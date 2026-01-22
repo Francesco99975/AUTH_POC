@@ -1,0 +1,161 @@
+package components
+
+import "github.com/Francesco99975/authpoc/views/icons"
+
+type SecurityProps struct {
+	TwoFAEnabled bool
+	Sessions     []SessionInfo
+	CSRF         string
+}
+
+type SessionInfo struct {
+	Device    string
+	Icon      string
+	LastUsed  string
+	IsCurrent bool
+	SessionID string
+}
+
+templ SettingsSecurityTab(props SecurityProps) {
+	<div x-show="activeTab === 'security'" x-cloak x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" class="space-y-4">
+		@ChangePasswordCard(props.CSRF)
+		@TwoFactorCard(props.TwoFAEnabled, props.CSRF)
+		@ActiveSessionsCard(props.Sessions, props.CSRF)
+	</div>
+}
+
+templ ChangePasswordCard(csrf string) {
+	<div class="rounded-xl border border-primary/10 bg-std shadow-sm">
+		<div class="border-b border-primary/10 px-4 sm:px-6 py-4">
+			<h2 class="text-base sm:text-lg font-semibold text-primary">Change Password</h2>
+			<p class="text-sm text-primary/60">Update your password</p>
+		</div>
+		<form
+			hx-post="/settings/password"
+			hx-target="#password-response"
+			hx-swap="innerHTML"
+			hx-indicator="#password-indicator"
+			hx-disabled-elt="find input, find button"
+			class="p-4 sm:p-6 space-y-4"
+		>
+			<input type="hidden" name="csrf" value={ csrf }/>
+			<div>
+				<label class="block text-sm font-medium text-primary mb-1.5">Current Password</label>
+				<input type="password" name="current_password" placeholder="Enter current password" class="w-full px-4 py-2.5 rounded-lg border border-primary/20 bg-std text-primary placeholder-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"/>
+			</div>
+			<div>
+				<label class="block text-sm font-medium text-primary mb-1.5">New Password</label>
+				<input type="password" name="new_password" placeholder="Enter new password" class="w-full px-4 py-2.5 rounded-lg border border-primary/20 bg-std text-primary placeholder-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"/>
+			</div>
+			<div>
+				<label class="block text-sm font-medium text-primary mb-1.5">Confirm Password</label>
+				<input type="password" name="confirm_password" placeholder="Confirm new password" class="w-full px-4 py-2.5 rounded-lg border border-primary/20 bg-std text-primary placeholder-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"/>
+			</div>
+			<div id="password-response"></div>
+			<div class="flex justify-end pt-4 border-t border-primary/10">
+				<button type="submit" class="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-primary text-white font-medium hover:bg-primary/90 transition-all relative">
+					<span>Update Password</span>
+					<div id="password-indicator" class="htmx-indicator absolute inset-0 flex items-center justify-center bg-primary rounded-lg">
+						@icons.Loading("w-5 h-5 text-white animate-spin")
+					</div>
+				</button>
+			</div>
+		</form>
+	</div>
+}
+
+templ TwoFactorCard(enabled bool, csrf string) {
+	<div class="rounded-xl border border-primary/10 bg-std shadow-sm" x-data={ "{ twoFAEnabled: " + boolStr(enabled) + " }" }>
+		<div class="border-b border-primary/10 px-4 sm:px-6 py-4">
+			<h2 class="text-base sm:text-lg font-semibold text-primary">Two-Factor Authentication</h2>
+			<p class="text-sm text-primary/60">Extra security for your account</p>
+		</div>
+		<div class="p-4 sm:p-6">
+			<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+				<div class="flex items-start gap-3">
+					<div class="shrink-0 h-10 w-10 sm:h-12 sm:w-12 rounded-xl flex items-center justify-center" :class="twoFAEnabled ? 'bg-success/10' : 'bg-primary/5'">
+						@icons.Shield("w-5 h-5 sm:w-6 sm:h-6 :class=\"twoFAEnabled ? 'text-success' : 'text-primary/40'\"")
+					</div>
+					<div>
+						<h3 class="text-sm font-semibold text-primary">Authenticator App</h3>
+						<p class="text-sm text-primary/60 mt-0.5" x-text="twoFAEnabled ? '2FA is enabled' : 'Protect your account'"></p>
+					</div>
+				</div>
+				<form
+					hx-post="/settings/2fa/toggle"
+					hx-target="#twofa-response"
+					hx-swap="innerHTML"
+					hx-indicator="#twofa-indicator"
+				>
+					<input type="hidden" name="csrf" value={ csrf }/>
+					<input type="hidden" name="enable" :value="!twoFAEnabled"/>
+					<button
+						type="submit"
+						@htmx:after-request="twoFAEnabled = !twoFAEnabled"
+						class="w-full sm:w-auto px-4 py-2.5 rounded-lg font-medium text-sm transition-all relative"
+						:class="twoFAEnabled ? 'bg-error/10 text-error hover:bg-error/20' : 'bg-primary text-white hover:bg-primary/90'"
+					>
+						<span x-text="twoFAEnabled ? 'Disable 2FA' : 'Enable 2FA'"></span>
+						<div id="twofa-indicator" class="htmx-indicator absolute inset-0 flex items-center justify-center rounded-lg" :class="twoFAEnabled ? 'bg-error/10' : 'bg-primary'">
+							@icons.Loading("w-4 h-4 animate-spin :class=\"twoFAEnabled ? 'text-error' : 'text-white'\"")
+						</div>
+					</button>
+				</form>
+			</div>
+			<div id="twofa-response" class="mt-4"></div>
+		</div>
+	</div>
+}
+
+func boolStr(b bool) string {
+	if b {
+		return "true"
+	}
+	return "false"
+}
+
+templ ActiveSessionsCard(sessions []SessionInfo, csrf string) {
+	<div class="rounded-xl border border-primary/10 bg-std shadow-sm">
+		<div class="border-b border-primary/10 px-4 sm:px-6 py-4">
+			<h2 class="text-base sm:text-lg font-semibold text-primary">Active Sessions</h2>
+			<p class="text-sm text-primary/60">Manage your login sessions</p>
+		</div>
+		<div class="divide-y divide-primary/10" id="sessions-list">
+			for _, session := range sessions {
+				@SessionItem(session, csrf)
+			}
+		</div>
+	</div>
+}
+
+templ SessionItem(session SessionInfo, csrf string) {
+	<div class="p-4 flex items-center justify-between gap-3">
+		<div class="flex items-center gap-3 min-w-0">
+			<div class="shrink-0 h-10 w-10 rounded-lg bg-primary/5 flex items-center justify-center">
+				if session.Icon == "desktop" {
+					@icons.Desktop("w-5 h-5 text-primary")
+				} else {
+					@icons.Smartphone("w-5 h-5 text-primary")
+				}
+			</div>
+			<div class="min-w-0">
+				<p class="text-sm font-medium text-primary truncate">{ session.Device }</p>
+				<p class="text-xs text-primary/60">{ session.LastUsed }</p>
+			</div>
+		</div>
+		if session.IsCurrent {
+			<span class="shrink-0 inline-flex items-center rounded-full bg-success/10 px-2 py-1 text-xs font-medium text-success">Active</span>
+		} else {
+			<form
+				hx-post="/settings/sessions/revoke"
+				hx-target="closest div"
+				hx-swap="outerHTML"
+				hx-confirm="Are you sure you want to revoke this session?"
+			>
+				<input type="hidden" name="csrf" value={ csrf }/>
+				<input type="hidden" name="session_id" value={ session.SessionID }/>
+				<button type="submit" class="shrink-0 text-sm font-medium text-error hover:text-error/80 transition-colors">Revoke</button>
+			</form>
+		}
+	</div>
+}

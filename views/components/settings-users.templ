@@ -1,0 +1,272 @@
+package components
+
+import "github.com/Francesco99975/authpoc/views/icons"
+import "strconv"
+
+type UsersProps struct {
+	Users      []UserInfo
+	TotalUsers int
+	Page       int
+	PerPage    int
+	CanCreate  bool
+	CanEdit    bool
+	CanDelete  bool
+	CSRF       string
+}
+
+type UserInfo struct {
+	ID        string
+	Username  string
+	Email     string
+	Initials  string
+	Role      string
+	Status    string
+	TwoFA     bool
+	LastLogin string
+	Gradient  string
+}
+
+templ SettingsUsersTab(props UsersProps) {
+	<div x-show="activeTab === 'users'" x-cloak x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" class="space-y-4">
+		@UserManagementCard(props)
+	</div>
+}
+
+templ UserManagementCard(props UsersProps) {
+	<div class="rounded-xl border border-primary/10 bg-std shadow-sm" x-data="{ showCreateForm: false }">
+		<div class="border-b border-primary/10 px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+			<div>
+				<h2 class="text-base sm:text-lg font-semibold text-primary">User Management</h2>
+				<p class="text-sm text-primary/60">Create and manage users</p>
+			</div>
+			if props.CanCreate {
+				<button
+					@click="showCreateForm = !showCreateForm"
+					class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-white font-medium text-sm hover:bg-primary/90 transition-all"
+				>
+					@icons.PlusIcon("w-4 h-4")
+					Create User
+				</button>
+			}
+		</div>
+		<!-- Create User Form -->
+		if props.CanCreate {
+			@CreateUserForm(props.CSRF)
+		}
+		<!-- Filters -->
+		@UserFilters()
+		<!-- Users List -->
+		<div class="divide-y divide-primary/10" id="users-list">
+			for _, user := range props.Users {
+				@SettingsUserItem(user, props.CanEdit, props.CanDelete, props.CSRF)
+			}
+		</div>
+		<!-- Pagination -->
+		@UsersPagination(props.TotalUsers, props.Page, props.PerPage)
+	</div>
+}
+
+templ CreateUserForm(csrf string) {
+	<div x-show="showCreateForm" x-collapse class="border-b border-primary/10 bg-primary/5">
+		<form
+			hx-post="/settings/users/create"
+			hx-target="#create-user-response"
+			hx-swap="innerHTML"
+			hx-indicator="#create-user-indicator"
+			hx-disabled-elt="find input, find select, find button"
+			@htmx:after-request="if(event.detail.successful) showCreateForm = false"
+			class="p-4 sm:p-6 space-y-4"
+		>
+			<input type="hidden" name="csrf" value={ csrf }/>
+			<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+				<div>
+					<label class="block text-sm font-medium text-primary mb-1.5">Username</label>
+					<input type="text" name="username" placeholder="Enter username" required class="w-full px-4 py-2.5 rounded-lg border border-primary/20 bg-std text-primary placeholder-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"/>
+				</div>
+				<div>
+					<label class="block text-sm font-medium text-primary mb-1.5">Email</label>
+					<input type="email" name="email" placeholder="Enter email" required class="w-full px-4 py-2.5 rounded-lg border border-primary/20 bg-std text-primary placeholder-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"/>
+				</div>
+				<div>
+					<label class="block text-sm font-medium text-primary mb-1.5">Password</label>
+					<input type="password" name="password" placeholder="Enter password" required class="w-full px-4 py-2.5 rounded-lg border border-primary/20 bg-std text-primary placeholder-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"/>
+				</div>
+				<div>
+					<label class="block text-sm font-medium text-primary mb-1.5">Role</label>
+					<select name="role" required class="w-full px-4 py-2.5 rounded-lg border border-primary/20 bg-std text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all">
+						<option value="USER">USER</option>
+						<option value="ADMIN">ADMIN</option>
+						<option value="DEVELOPER">DEVELOPER</option>
+					</select>
+				</div>
+			</div>
+			<div id="create-user-response"></div>
+			<div class="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4">
+				<button type="button" @click="showCreateForm = false" class="px-4 py-2.5 rounded-lg border border-primary/20 text-primary font-medium text-sm hover:bg-primary/5 transition-all">
+					Cancel
+				</button>
+				<button type="submit" class="px-5 py-2.5 rounded-lg bg-primary text-white font-medium text-sm hover:bg-primary/90 transition-all relative">
+					<span>Create User</span>
+					<div id="create-user-indicator" class="htmx-indicator absolute inset-0 flex items-center justify-center bg-primary rounded-lg">
+						@icons.Loading("w-5 h-5 text-white animate-spin")
+					</div>
+				</button>
+			</div>
+		</form>
+	</div>
+}
+
+templ UserFilters() {
+	<div class="px-4 sm:px-6 py-4 border-b border-primary/10 flex flex-col sm:flex-row gap-3">
+		<div class="flex-1">
+			<input
+				type="text"
+				name="search"
+				placeholder="Search users..."
+				hx-get="/settings/users"
+				hx-trigger="keyup changed delay:300ms"
+				hx-target="#users-list"
+				hx-swap="innerHTML"
+				hx-include="[name='role_filter']"
+				class="w-full px-4 py-2.5 rounded-lg border border-primary/20 bg-std text-primary placeholder-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all text-sm"
+			/>
+		</div>
+		<select
+			name="role_filter"
+			hx-get="/settings/users"
+			hx-trigger="change"
+			hx-target="#users-list"
+			hx-swap="innerHTML"
+			hx-include="[name='search']"
+			class="px-4 py-2.5 rounded-lg border border-primary/20 bg-std text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all text-sm"
+		>
+			<option value="">All Roles</option>
+			<option value="USER">USER</option>
+			<option value="ADMIN">ADMIN</option>
+			<option value="DEVELOPER">DEVELOPER</option>
+		</select>
+	</div>
+}
+
+templ SettingsUserItem(user UserInfo, canEdit bool, canDelete bool, csrf string) {
+	<div class="p-4 hover:bg-primary/5 transition-colors">
+		<div class="flex items-start justify-between gap-3">
+			<div class="flex items-center gap-3 min-w-0">
+				<div class={ "shrink-0 h-10 w-10 rounded-full flex items-center justify-center", user.Gradient }>
+					<span class="text-xs font-medium text-white">{ user.Initials }</span>
+				</div>
+				<div class="min-w-0">
+					<p class="text-sm font-medium text-primary truncate">{ user.Username }</p>
+					<p class="text-xs text-primary/60 truncate">{ user.Email }</p>
+				</div>
+			</div>
+			<div class="flex items-center gap-2">
+				if user.Status == "Inactive" {
+					<form
+						hx-post="/settings/users/reactivate"
+						hx-target="closest div.p-4"
+						hx-swap="outerHTML"
+					>
+						<input type="hidden" name="csrf" value={ csrf }/>
+						<input type="hidden" name="user_id" value={ user.ID }/>
+						<button type="submit" class="p-2 rounded-lg hover:bg-success/10 text-primary/60 hover:text-success transition-all" title="Reactivate">
+							@icons.Refresh("w-4 h-4")
+						</button>
+					</form>
+				}
+				if canEdit {
+					<button
+						hx-get={ "/settings/users/" + user.ID + "/edit" }
+						hx-target="#edit-user-modal"
+						hx-swap="innerHTML"
+						class="p-2 rounded-lg hover:bg-primary/10 text-primary/60 hover:text-primary transition-all"
+					>
+						@icons.Edit("w-4 h-4")
+					</button>
+				}
+				if canDelete {
+					<form
+						hx-post="/settings/users/delete"
+						hx-target="closest div.p-4"
+						hx-swap="outerHTML"
+						hx-confirm="Are you sure you want to delete this user?"
+					>
+						<input type="hidden" name="csrf" value={ csrf }/>
+						<input type="hidden" name="user_id" value={ user.ID }/>
+						<button type="submit" class="p-2 rounded-lg hover:bg-error/10 text-primary/60 hover:text-error transition-all">
+							@icons.Trash("w-4 h-4")
+						</button>
+					</form>
+				}
+			</div>
+		</div>
+		<div class="mt-3 flex flex-wrap items-center gap-2">
+			@RoleBadge(user.Role)
+			@StatusBadge(user.Status)
+			if user.TwoFA {
+				<span class="inline-flex items-center gap-1 text-xs text-success">
+					@icons.Shield("w-3.5 h-3.5")
+					2FA
+				</span>
+			}
+			<span class="text-xs text-primary/50 ml-auto">{ user.LastLogin }</span>
+		</div>
+	</div>
+}
+
+templ StatusBadge(status string) {
+	if status == "Active" {
+		<span class="inline-flex items-center rounded-full bg-success/10 px-2 py-0.5 text-xs font-medium text-success">{ status }</span>
+	} else {
+		<span class="inline-flex items-center rounded-full bg-error/10 px-2 py-0.5 text-xs font-medium text-error">{ status }</span>
+	}
+}
+
+templ UsersPagination(total int, page int, perPage int) {
+	<div class="px-4 sm:px-6 py-4 border-t border-primary/10 flex flex-col sm:flex-row items-center justify-between gap-3">
+		<p class="text-sm text-primary/60">
+			Showing <span class="font-medium text-primary">{ strconv.Itoa((page-1)*perPage + 1) }-{ strconv.Itoa(min(page*perPage, total)) }</span> of <span class="font-medium text-primary">{ strconv.Itoa(total) }</span>
+		</p>
+		<div class="flex items-center gap-1">
+			<button
+				hx-get={ "/settings/users?page=" + strconv.Itoa(page-1) }
+				hx-target="#users-list"
+				hx-swap="innerHTML"
+				class="px-3 py-1.5 rounded-lg border border-primary/20 text-sm font-medium text-primary/60 hover:bg-primary/5 transition-all disabled:opacity-50"
+				if page <= 1 {
+					disabled
+				}
+			>
+				@icons.ChevronLeft("w-4 h-4")
+			</button>
+			for i := 1; i <= (total+perPage-1)/perPage; i++ {
+				<button
+					hx-get={ "/settings/users?page=" + strconv.Itoa(i) }
+					hx-target="#users-list"
+					hx-swap="innerHTML"
+					class={ "px-3 py-1.5 rounded-lg text-sm font-medium transition-all", templ.KV("bg-primary text-white", i == page), templ.KV("border border-primary/20 text-primary hover:bg-primary/5", i != page) }
+				>
+					{ strconv.Itoa(i) }
+				</button>
+			}
+			<button
+				hx-get={ "/settings/users?page=" + strconv.Itoa(page+1) }
+				hx-target="#users-list"
+				hx-swap="innerHTML"
+				class="px-3 py-1.5 rounded-lg border border-primary/20 text-sm font-medium text-primary hover:bg-primary/5 transition-all disabled:opacity-50"
+				if page >= (total+perPage-1)/perPage {
+					disabled
+				}
+			>
+				@icons.ChevronRight("w-4 h-4")
+			</button>
+		</div>
+	</div>
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}

@@ -1,0 +1,121 @@
+package components
+
+import "github.com/Francesco99975/authpoc/views/icons"
+
+type ProfileProps struct {
+	Username      string
+	Email         string
+	EmailVerified bool
+	Initials      string
+	UserID        string
+	Role          string
+	Created       string
+	LastLogin     string
+	CSRF          string
+}
+
+templ SettingsProfileTab(props ProfileProps) {
+	<div x-show="activeTab === 'profile'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" class="space-y-4">
+		<!-- Profile Info Card -->
+		@ProfileInfoCard(props)
+		<!-- Account Details Card -->
+		@AccountDetailsCard(props)
+	</div>
+}
+
+templ ProfileInfoCard(props ProfileProps) {
+	<div class="rounded-xl border border-primary/10 bg-std shadow-sm">
+		<div class="border-b border-primary/10 px-4 sm:px-6 py-4">
+			<h2 class="text-base sm:text-lg font-semibold text-primary">Profile Information</h2>
+			<p class="text-sm text-primary/60">Update your personal information</p>
+		</div>
+		<form
+			hx-post="/settings/profile"
+			hx-target="#profile-response"
+			hx-swap="innerHTML"
+			hx-indicator="#profile-indicator"
+			hx-disabled-elt="find input, find button"
+			class="p-4 sm:p-6 space-y-5"
+		>
+			<input type="hidden" name="csrf" value={ props.CSRF }/>
+			<!-- Avatar Section -->
+			<div class="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+				<div class="relative">
+					<div class="h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-linear-to-br from-primary to-accent flex items-center justify-center">
+						<span class="text-xl sm:text-2xl font-bold text-white">{ props.Initials }</span>
+					</div>
+					<button type="button" class="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-std border-2 border-primary/20 flex items-center justify-center text-primary hover:bg-primary/5 transition-colors">
+						@icons.Camera("w-4 h-4")
+					</button>
+				</div>
+				<div class="text-center sm:text-left">
+					<p class="text-sm font-medium text-primary">Profile Photo</p>
+					<p class="text-xs text-primary/60 mt-0.5">JPG, PNG or GIF. Max 2MB</p>
+				</div>
+			</div>
+			<!-- Fields -->
+			<div class="space-y-4">
+				<div>
+					<label class="block text-sm font-medium text-primary mb-1.5">Username</label>
+					<input type="text" name="username" value={ props.Username } class="w-full px-4 py-2.5 rounded-lg border border-primary/20 bg-std text-primary placeholder-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"/>
+				</div>
+				<div>
+					<label class="block text-sm font-medium text-primary mb-1.5">Email</label>
+					<div class="flex flex-col sm:flex-row gap-2">
+						<input type="email" name="email" value={ props.Email } class="flex-1 px-4 py-2.5 rounded-lg border border-primary/20 bg-std text-primary placeholder-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"/>
+						if props.EmailVerified {
+							<span class="inline-flex items-center justify-center px-3 py-2 rounded-lg bg-success/10 text-success text-sm font-medium">
+								@icons.CheckIcon("w-4 h-4 mr-1.5")
+								Verified
+							</span>
+						} else {
+							<span class="inline-flex items-center justify-center px-3 py-2 rounded-lg bg-warning/10 text-warning text-sm font-medium">
+								Unverified
+							</span>
+						}
+					</div>
+				</div>
+			</div>
+			<div id="profile-response"></div>
+			<div class="flex justify-end pt-4 border-t border-primary/10">
+				<button type="submit" class="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-primary text-white font-medium hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 transition-all relative">
+					<span>Save Changes</span>
+					<div id="profile-indicator" class="htmx-indicator absolute inset-0 flex items-center justify-center bg-primary rounded-lg">
+						@icons.Loading("w-5 h-5 text-white animate-spin")
+					</div>
+				</button>
+			</div>
+		</form>
+	</div>
+}
+
+templ AccountDetailsCard(props ProfileProps) {
+	<div class="rounded-xl border border-primary/10 bg-std shadow-sm">
+		<div class="border-b border-primary/10 px-4 sm:px-6 py-4">
+			<h2 class="text-base sm:text-lg font-semibold text-primary">Account Details</h2>
+			<p class="text-sm text-primary/60">Your account information</p>
+		</div>
+		<div class="p-4 sm:p-6">
+			<dl class="grid grid-cols-2 gap-3 sm:gap-4">
+				<div class="rounded-lg bg-primary/5 p-3 sm:p-4">
+					<dt class="text-xs font-medium text-primary/60 uppercase tracking-wider">User ID</dt>
+					<dd class="mt-1 text-xs sm:text-sm font-mono text-primary truncate">{ props.UserID }</dd>
+				</div>
+				<div class="rounded-lg bg-primary/5 p-3 sm:p-4">
+					<dt class="text-xs font-medium text-primary/60 uppercase tracking-wider">Role</dt>
+					<dd class="mt-1">
+						@RoleBadge(props.Role)
+					</dd>
+				</div>
+				<div class="rounded-lg bg-primary/5 p-3 sm:p-4">
+					<dt class="text-xs font-medium text-primary/60 uppercase tracking-wider">Created</dt>
+					<dd class="mt-1 text-xs sm:text-sm text-primary">{ props.Created }</dd>
+				</div>
+				<div class="rounded-lg bg-primary/5 p-3 sm:p-4">
+					<dt class="text-xs font-medium text-primary/60 uppercase tracking-wider">Last Login</dt>
+					<dd class="mt-1 text-xs sm:text-sm text-primary">{ props.LastLogin }</dd>
+				</div>
+			</dl>
+		</div>
+	</div>
+}
