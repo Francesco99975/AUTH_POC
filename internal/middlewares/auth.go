@@ -6,6 +6,7 @@ import (
 
 	"github.com/Francesco99975/authpoc/internal/auth"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/gommon/log"
 )
 
 type UserIDKey string
@@ -21,6 +22,8 @@ func AuthMiddleware() echo.MiddlewareFunc {
 			if !authenticated {
 				return c.Redirect(http.StatusSeeOther, "/auth")
 			}
+
+			log.Debugf("Authenticated user: %s", userID)
 
 			ctx := context.WithValue(c.Request().Context(), UserKey, userID)
 

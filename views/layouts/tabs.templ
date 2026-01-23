@@ -17,7 +17,6 @@ templ TabLayout(props TabLayoutProps) {
 			class="antialiased min-h-screen bg-std transition-colors"
 			x-data={ "{ activeTab: '" + props.ActiveTab + "' }" }
 		>
-			@components.AdminNav(props.Site)
 			<!-- Main Content Area with padding for bottom navigation -->
 			<main class="pb-20 md:pb-20 min-h-screen" id="main-content">
 				{ children... }
@@ -30,35 +29,62 @@ templ TabLayout(props TabLayoutProps) {
 
 // Example usage helper function to generate default tabs
 
-func DefaultTabs() []components.TabConfig {
+func Tabs(role string) []components.TabConfig {
+	if role == "DEVELOPER" || role == "ADMIN" {
+		return []components.TabConfig{
+			{
+				ID:       "profile",
+				Label:    "Profile",
+				Icon:     icons.UsersIcon("w-full h-full"),
+				HasBadge: false,
+				Route:    "/settings/profile",
+			},
+			{
+				ID:       "security",
+				Label:    "Security",
+				Icon:     icons.Lock("w-full h-full"),
+				HasBadge: false,
+				Route:    "/settings/security",
+			},
+			{
+				ID:       "account",
+				Label:    "Account",
+				Icon:     icons.UsersIcon("w-full h-full"),
+				HasBadge: false,
+				Route:    "/settings/account",
+			},
+			{
+				ID:       "users",
+				Label:    "Users",
+				Icon:     icons.UsersIcon("w-full h-full"),
+				HasBadge: false,
+				Route:    "/settings/users",
+			},
+		}
+	}
+
 	return []components.TabConfig{
 		{
 			ID:       "profile",
 			Label:    "Profile",
 			Icon:     icons.UsersIcon("w-full h-full"),
 			HasBadge: false,
-			Route:    "/profile",
+			Route:    "/settings/profile",
 		},
 		{
 			ID:       "security",
 			Label:    "Security",
 			Icon:     icons.Lock("w-full h-full"),
 			HasBadge: false,
-			Route:    "/security",
+			Route:    "/settings/security",
 		},
 		{
 			ID:       "account",
 			Label:    "Account",
 			Icon:     icons.UsersIcon("w-full h-full"),
 			HasBadge: false,
-			Route:    "/settings",
-		},
-		{
-			ID:       "users",
-			Label:    "Users",
-			Icon:     icons.UsersIcon("w-full h-full"),
-			HasBadge: false,
-			Route:    "/users",
+			Route:    "/settings/account",
 		},
 	}
+
 }
