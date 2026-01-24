@@ -491,6 +491,58 @@ func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPassword
 	return err
 }
 
+const updateUserUsernameOrEmail = `-- name: UpdateUserUsernameOrEmail :one
+UPDATE users
+SET
+    username       = $1,
+    email          = $2,
+    is_email_verified = CASE
+        WHEN email IS DISTINCT FROM $2 THEN FALSE
+        ELSE is_email_verified
+    END,
+    updated_at     = NOW()
+WHERE id = $3
+RETURNING id, role, username, email, is_active, is_email_verified,
+         twofa_enabled, last_login, created_at, updated_at
+`
+
+type UpdateUserUsernameOrEmailParams struct {
+	Username string    `json:"username"`
+	Email    string    `json:"email"`
+	ID       uuid.UUID `json:"id"`
+}
+
+type UpdateUserUsernameOrEmailRow struct {
+	ID              uuid.UUID          `json:"id"`
+	Role            string             `json:"role"`
+	Username        string             `json:"username"`
+	Email           string             `json:"email"`
+	IsActive        bool               `json:"is_active"`
+	IsEmailVerified bool               `json:"is_email_verified"`
+	TwofaEnabled    bool               `json:"twofa_enabled"`
+	LastLogin       pgtype.Timestamptz `json:"last_login"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) UpdateUserUsernameOrEmail(ctx context.Context, arg UpdateUserUsernameOrEmailParams) (*UpdateUserUsernameOrEmailRow, error) {
+	row := q.db.QueryRow(ctx, updateUserUsernameOrEmail, arg.Username, arg.Email, arg.ID)
+	var i UpdateUserUsernameOrEmailRow
+	err := row.Scan(
+		&i.ID,
+		&i.Role,
+		&i.Username,
+		&i.Email,
+		&i.IsActive,
+		&i.IsEmailVerified,
+		&i.TwofaEnabled,
+		&i.LastLogin,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
 const verifyUserEmail = `-- name: VerifyUserEmail :exec
 UPDATE users
 SET is_email_verified = TRUE, updated_at = NOW()

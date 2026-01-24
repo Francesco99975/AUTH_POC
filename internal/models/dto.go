@@ -150,3 +150,73 @@ func (r ResetPasswordRequest) Validate(passwordSecurityLevel int) error {
 	}
 	return nil
 }
+
+type ChangeUsernameOrEmail struct {
+	Username string `form:"username"`
+	Email    string `form:"email"`
+}
+
+func (r ChangeUsernameOrEmail) Validate() error {
+	if r.Username == "" {
+		return errors.New("username is required")
+	}
+	if r.Email == "" {
+		return errors.New("email is required")
+	}
+
+	if boot.Environment.GoEnv == enums.Environments.PRODUCTION {
+		if !strings.Contains(r.Email, "@") {
+			return errors.New("invalid email")
+		}
+	}
+	return nil
+}
+
+type ChangePasswordRequest struct {
+	CurrentPassword string `form:"current_password"`
+	NewPassword     string `form:"new_password"`
+	Confirm         string `form:"confirm_password"`
+}
+
+func (r ChangePasswordRequest) Validate(passwordSecurityLevel int) error {
+	if r.CurrentPassword == "" {
+		return errors.New("current password is required")
+	}
+	if r.NewPassword == "" {
+		return errors.New("new password is required")
+	}
+	if r.NewPassword != r.Confirm {
+		return errors.New("passwords do not match")
+	}
+
+	if boot.Environment.GoEnv == enums.Environments.PRODUCTION {
+		switch passwordSecurityLevel {
+		case 0:
+			if len(r.NewPassword) < 8 {
+				return errors.New("password must be at least 8 characters")
+			}
+		case 1:
+			if len(r.NewPassword) < 8 {
+				return errors.New("password must be at least 12 characters")
+			}
+
+			if !strings.ContainsAny(r.NewPassword, "0123456789") {
+				return errors.New("password must contain at least one number")
+			}
+		case 2:
+			if len(r.NewPassword) < 12 {
+				return errors.New("password must be at least 16 characters")
+			}
+
+			if !strings.ContainsAny(r.NewPassword, "0123456789") {
+				return errors.New("password must contain at least one number")
+			}
+
+			if !strings.ContainsAny(r.NewPassword, "!@#$%") {
+				return errors.New("password must contain at least one special character: !@#$%")
+			}
+		}
+	}
+
+	return nil
+}

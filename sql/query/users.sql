@@ -45,6 +45,20 @@ SELECT id, role, username, email, password_hash, is_active,
 FROM users
 WHERE username = $1;
 
+-- name: UpdateUserUsernameOrEmail :one
+UPDATE users
+SET
+    username       = $1,
+    email          = $2,
+    is_email_verified = CASE
+        WHEN email IS DISTINCT FROM $2 THEN FALSE
+        ELSE is_email_verified
+    END,
+    updated_at     = NOW()
+WHERE id = $3
+RETURNING id, role, username, email, is_active, is_email_verified,
+         twofa_enabled, last_login, created_at, updated_at;
+
 -- name: UpdateUserLastLogin :exec
 UPDATE users
 SET last_login = NOW()

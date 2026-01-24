@@ -59,6 +59,7 @@ type Querier interface {
 	UpdateRole(ctx context.Context, arg UpdateRoleParams) (*Role, error)
 	UpdateUserLastLogin(ctx context.Context, id uuid.UUID) error
 	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error
+	UpdateUserUsernameOrEmail(ctx context.Context, arg UpdateUserUsernameOrEmailParams) (*UpdateUserUsernameOrEmailRow, error)
 	VerifyUserEmail(ctx context.Context, id uuid.UUID) error
 }
 
