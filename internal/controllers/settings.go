@@ -146,15 +146,12 @@ func UpdateUsernameOrEmail() echo.HandlerFunc {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse ID", Message: fmt.Errorf("could not parse ID: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
 
-		updatedUser, err := repo.UpdateUserUsernameOrEmail(ctx, repository.UpdateUserUsernameOrEmailParams{Username: payload.Username, Email: payload.Email, ID: userUUID})
+		_, err = repo.UpdateUserUsernameOrEmail(ctx, repository.UpdateUserUsernameOrEmailParams{Username: payload.Username, Email: payload.Email, ID: userUUID})
 		if err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not update username or email", Message: fmt.Errorf("could not update username or email: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
 
-		csrf := c.Get("csrf").(string)
-
-		html := helpers.MustRenderHTML(components.ChangeUserDetailsForm(updatedUser.Username, updatedUser.Email, updatedUser.IsEmailVerified, csrf))
-		html = append(html, helpers.MustRenderHTML(components.SuccessMsg("User Updated!"))...)
+		html := helpers.MustRenderHTML(components.SuccessMsg("User Updated!"))
 
 		return c.Blob(http.StatusOK, "text/html", html)
 
@@ -215,7 +212,7 @@ func UpdateUserPassword() echo.HandlerFunc {
 		ctx := c.Request().Context()
 		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "database error occurred", Message: fmt.Errorf("unable to get transaction: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "database error occurred", Message: fmt.Errorf("unable to get transaction: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
@@ -252,12 +249,10 @@ func UpdateUserPassword() echo.HandlerFunc {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "unexpected Error Occurred while trying to reset password", Message: fmt.Errorf("unable to update user password: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
 
-		csrf := c.Get("csrf").(string)
-
-		html := helpers.MustRenderHTML(components.ChangePasswordForm(csrf))
-		html = append(html, helpers.MustRenderHTML(components.SuccessMsg("User Password Updated!"))...)
+		html := helpers.MustRenderHTML(components.SuccessMsg("User Password Updated!"))
 
 		return c.Blob(http.StatusOK, "text/html", html)
+
 	}
 }
 
@@ -287,13 +282,127 @@ func Account() echo.HandlerFunc {
 		}
 
 		props := components.AccountProps{
-			IsActive: user.IsActive,
-			CSRF:     c.Get("csrf").(string),
+			IsActive:  user.IsActive,
+			UserEmail: user.Email,
+			CSRF:      c.Get("csrf").(string),
 		}
 
 		html := helpers.MustRenderHTML(components.SettingsAccountTab(props))
 
 		return c.Blob(http.StatusOK, "text/html", html)
+	}
+}
+
+func DeactivateUser() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		ctx := c.Request().Context()
+		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "database error occurred", Message: fmt.Errorf("unable to get transaction: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+		defer database.HandleTransaction(ctx, tx, &err)
+		repo := repository.New(tx)
+
+		userID, _, authenticated := auth.GetSessionUserID(c.Request())
+		if !authenticated {
+			return c.Redirect(http.StatusSeeOther, "/auth")
+		}
+
+		userUUID, err := uuid.Parse(userID)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse ID", Message: fmt.Errorf("could not parse ID: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		err = repo.DeactivateUser(ctx, userUUID)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not deactivate user", Message: fmt.Errorf("could not deactivate user: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		csrf := c.Get("csrf").(string)
+
+		html := helpers.MustRenderHTML(components.AccountStatusCard(false, true))
+		html = append(html, helpers.MustRenderHTML(components.DeactivateSection(false, csrf, true))...)
+
+		return c.Blob(http.StatusOK, "text/html", html)
+	}
+}
+
+func ActivateUser() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		ctx := c.Request().Context()
+		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "database error occurred", Message: fmt.Errorf("unable to get transaction: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+		defer database.HandleTransaction(ctx, tx, &err)
+		repo := repository.New(tx)
+
+		userID, _, authenticated := auth.GetSessionUserID(c.Request())
+		if !authenticated {
+			return c.Redirect(http.StatusSeeOther, "/auth")
+		}
+
+		userUUID, err := uuid.Parse(userID)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse ID", Message: fmt.Errorf("could not parse ID: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		err = repo.ReactivateUser(ctx, userUUID)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not reactivate user", Message: fmt.Errorf("could not reactivate user: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		csrf := c.Get("csrf").(string)
+
+		html := helpers.MustRenderHTML(components.AccountStatusCard(true, true))
+		html = append(html, helpers.MustRenderHTML(components.DeactivateSection(true, csrf, true))...)
+
+		return c.Blob(http.StatusOK, "text/html", html)
+	}
+}
+
+func PermanentlyDeleteUser() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		password := c.FormValue("password")
+
+		ctx := c.Request().Context()
+		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "database error occurred", Message: fmt.Errorf("unable to get transaction: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+		defer database.HandleTransaction(ctx, tx, &err)
+		repo := repository.New(tx)
+
+		userID, _, authenticated := auth.GetSessionUserID(c.Request())
+		if !authenticated {
+			return c.Redirect(http.StatusSeeOther, "/auth")
+		}
+
+		userUUID, err := uuid.Parse(userID)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse ID", Message: fmt.Errorf("could not parse ID: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		user, err := repo.GetUserByID(ctx, userUUID)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "user not found", Message: fmt.Errorf("user not found: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		if !helpers.CheckPasswordHash(password, user.PasswordHash) {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusUnauthorized, UserMessage: "invalid credentials", Message: fmt.Errorf("invalid credentials: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		if err := auth.ClearSession(c.Response(), c.Request()); err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to logout", Message: fmt.Errorf("failed to clear session: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		err = repo.DeleteUser(ctx, userUUID)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not delete user", Message: fmt.Errorf("could not delete user: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		c.Response().Header().Set("HX-Redirect", "/")
+		return c.NoContent(http.StatusOK)
 	}
 }
 

@@ -94,6 +94,7 @@ UPDATE users
 SET is_active = FALSE, updated_at = NOW()
 WHERE id = $1;
 
+
 -- name: ReactivateUser :exec
 UPDATE users
 SET is_active = TRUE, updated_at = NOW()

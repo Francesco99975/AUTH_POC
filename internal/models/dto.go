@@ -17,7 +17,7 @@ type SignupRequest struct {
 
 func (r SignupRequest) ValidateAndNormalize(passwordSecurityLevel int) error {
 	r.Email = strings.ToLower(strings.ReplaceAll(r.Email, " ", ""))
-	r.Username = strings.ReplaceAll(r.Username, " ", "")
+	r.Username = strings.ToLower(strings.ReplaceAll(r.Username, " ", ""))
 	r.Password = strings.ReplaceAll(r.Password, " ", "")
 	r.Confirm = strings.ReplaceAll(r.Confirm, " ", "")
 
@@ -82,6 +82,9 @@ type LoginRequest struct {
 }
 
 func (r LoginRequest) Validate() error {
+	r.EmailOrUsername = strings.ToLower(strings.ReplaceAll(r.EmailOrUsername, " ", ""))
+	r.Password = strings.ReplaceAll(r.Password, " ", "")
+
 	if r.EmailOrUsername == "" {
 		return errors.New("email or username is required")
 	}

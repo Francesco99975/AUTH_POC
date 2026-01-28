@@ -1,0 +1,239 @@
+package components
+
+import "github.com/Francesco99975/authpoc/views/icons"
+
+// ConfirmationModal - A reusable confirmation modal with Alpine.js
+// Usage: Include in page, control with x-data="{ showConfirmModal: false }"
+// Props: title, message, confirmText, cancelText, variant (danger/warning/info)
+type ConfirmModalProps struct {
+	ID          string
+	Title       string
+	Message     string
+	ConfirmText string
+	CancelText  string
+	Variant     string // "danger", "warning", "info"
+	FormAction  string
+	FormTarget  string
+	CSRF        string
+	ExtraFields templ.Component
+}
+
+templ ConfirmationModal(props ConfirmModalProps) {
+	<div
+		x-show={ "show" + props.ID }
+		x-cloak
+		class="fixed inset-0 z-50 overflow-y-auto"
+		aria-labelledby="modal-title"
+		role="dialog"
+		aria-modal="true"
+	>
+		<!-- Backdrop -->
+		<div
+			x-show={ "show" + props.ID }
+			x-transition:enter="transition ease-out duration-200"
+			x-transition:enter-start="opacity-0"
+			x-transition:enter-end="opacity-100"
+			x-transition:leave="transition ease-in duration-150"
+			x-transition:leave-start="opacity-100"
+			x-transition:leave-end="opacity-0"
+			class="fixed inset-0 bg-black/50 backdrop-blur-sm"
+			@click={ "show" + props.ID + " = false" }
+		></div>
+		<!-- Modal Panel -->
+		<div class="flex min-h-full items-center justify-center p-4">
+			<div
+				x-show={ "show" + props.ID }
+				x-transition:enter="transition ease-out duration-200"
+				x-transition:enter-start="opacity-0 scale-95 translate-y-4"
+				x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+				x-transition:leave="transition ease-in duration-150"
+				x-transition:leave-start="opacity-100 scale-100 translate-y-0"
+				x-transition:leave-end="opacity-0 scale-95 translate-y-4"
+				class="relative w-full max-w-md rounded-2xl bg-std shadow-2xl border border-primary/10"
+				@click.stop
+			>
+				<!-- Header -->
+				<div class={ "px-6 py-5 border-b rounded-t-2xl", templ.KV("border-error/20 bg-error/5", props.Variant == "danger"), templ.KV("border-warning/20 bg-warning/5", props.Variant == "warning"), templ.KV("border-primary/10 bg-primary/5", props.Variant == "info") }>
+					<div class="flex items-center gap-4">
+						<div class={ "shrink-0 h-12 w-12 rounded-full flex items-center justify-center", templ.KV("bg-error/10", props.Variant == "danger"), templ.KV("bg-warning/10", props.Variant == "warning"), templ.KV("bg-primary/10", props.Variant == "info") }>
+							if props.Variant == "danger" {
+								@icons.AlertCircle("w-6 h-6 text-error")
+							} else if props.Variant == "warning" {
+								@icons.AlertCircle("w-6 h-6 text-warning")
+							} else {
+								@icons.AlertCircle("w-6 h-6 text-primary")
+							}
+						</div>
+						<div>
+							<h3 id="modal-title" class={ "text-lg font-semibold", templ.KV("text-error", props.Variant == "danger"), templ.KV("text-warning", props.Variant == "warning"), templ.KV("text-primary", props.Variant == "info") }>
+								{ props.Title }
+							</h3>
+						</div>
+					</div>
+				</div>
+				<!-- Body -->
+				<div class="px-6 py-5">
+					<p class="text-sm text-primary/70 leading-relaxed">{ props.Message }</p>
+					if props.ExtraFields != nil {
+						<div class="mt-4">
+							@props.ExtraFields
+						</div>
+					}
+				</div>
+				<!-- Footer -->
+				<div class="px-6 py-4 border-t border-primary/10 flex flex-col-reverse sm:flex-row gap-3 sm:justify-end rounded-b-2xl">
+					<button
+						type="button"
+						@click={ "show" + props.ID + " = false" }
+						class="w-full sm:w-auto px-5 py-2.5 rounded-lg border border-primary/20 text-primary font-medium text-sm hover:bg-primary/5 transition-all"
+					>
+						{ props.CancelText }
+					</button>
+					<form
+						hx-post={ props.FormAction }
+						hx-target={ props.FormTarget }
+						hx-swap="innerHTML"
+						hx-indicator={ "#" + props.ID + "-indicator" }
+						hx-disabled-elt="find button"
+						@htmx:after-request={ "show" + props.ID + " = false" }
+					>
+						@CSRF(props.CSRF)
+						<button
+							type="submit"
+							class={ "w-full sm:w-auto px-5 py-2.5 rounded-lg font-medium text-sm transition-all relative", templ.KV("bg-error text-white hover:bg-error/90", props.Variant == "danger"), templ.KV("bg-warning text-white hover:bg-warning/90", props.Variant == "warning"), templ.KV("bg-primary text-white hover:bg-primary/90", props.Variant == "info") }
+						>
+							<span>{ props.ConfirmText }</span>
+							<div id={ props.ID + "-indicator" } class={ "htmx-indicator absolute inset-0 flex items-center justify-center rounded-lg", templ.KV("bg-error", props.Variant == "danger"), templ.KV("bg-warning", props.Variant == "warning"), templ.KV("bg-primary", props.Variant == "info") }>
+								@icons.Loading("w-5 h-5 text-white animate-spin")
+							</div>
+						</button>
+					</form>
+				</div>
+			</div>
+		</div>
+	</div>
+}
+
+// DeleteConfirmationModal - A modal that requires email confirmation before deletion
+type DeleteConfirmModalProps struct {
+	UserEmail  string
+	CSRF       string
+	FormAction string
+	FormTarget string
+}
+
+templ DeleteConfirmationModal(props DeleteConfirmModalProps) {
+	<div
+		x-show="showDeleteModal"
+		x-cloak
+		class="fixed inset-0 z-50 overflow-y-auto"
+		aria-labelledby="delete-modal-title"
+		role="dialog"
+		aria-modal="true"
+	>
+		<!-- Backdrop -->
+		<div
+			x-show="showDeleteModal"
+			x-transition:enter="transition ease-out duration-200"
+			x-transition:enter-start="opacity-0"
+			x-transition:enter-end="opacity-100"
+			x-transition:leave="transition ease-in duration-150"
+			x-transition:leave-start="opacity-100"
+			x-transition:leave-end="opacity-0"
+			class="fixed inset-0 bg-black/50 backdrop-blur-sm"
+			@click="showDeleteModal = false; emailConfirm = ''; passwordConfirm = ''"
+		></div>
+		<!-- Modal Panel -->
+		<div class="flex min-h-full items-center justify-center p-4">
+			<div
+				x-show="showDeleteModal"
+				x-transition:enter="transition ease-out duration-200"
+				x-transition:enter-start="opacity-0 scale-95 translate-y-4"
+				x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+				x-transition:leave="transition ease-in duration-150"
+				x-transition:leave-start="opacity-100 scale-100 translate-y-0"
+				x-transition:leave-end="opacity-0 scale-95 translate-y-4"
+				class="relative w-full max-w-md rounded-2xl bg-std shadow-2xl border border-error/30"
+				@click.stop
+			>
+				<!-- Header -->
+				<div class="px-6 py-5 border-b border-error/20 bg-error/5 rounded-t-2xl">
+					<div class="flex items-center gap-4">
+						<div class="shrink-0 h-12 w-12 rounded-full bg-error/10 flex items-center justify-center">
+							@icons.Trash("w-6 h-6 text-error")
+						</div>
+						<div>
+							<h3 id="delete-modal-title" class="text-lg font-semibold text-error">Delete Account Permanently</h3>
+							<p class="text-sm text-error/70">This action cannot be undone</p>
+						</div>
+					</div>
+				</div>
+				<!-- Body -->
+				<div class="px-6 py-5 space-y-4">
+					<div class="p-4 rounded-lg bg-error/5 border border-error/20">
+						<p class="text-sm text-error font-medium mb-2">Warning: Permanent Deletion</p>
+						<ul class="text-sm text-error/80 space-y-1 list-disc list-inside">
+							<li>All your personal data will be deleted</li>
+							<li>Your account cannot be recovered</li>
+							<li>Any active sessions will be terminated</li>
+						</ul>
+					</div>
+					<div>
+						<label class="block text-sm font-medium text-primary mb-2">
+							To confirm, type your email: <span class="font-mono text-error">{ props.UserEmail }</span>
+						</label>
+						<input
+							type="text"
+							x-model="emailConfirm"
+							placeholder="Enter your email to confirm"
+							class="w-full px-4 py-3 rounded-lg border border-primary/20 bg-std text-primary placeholder-primary/40 focus:outline-none focus:ring-2 focus:ring-error/50 focus:border-error/50 transition-all"
+						/>
+					</div>
+					<div>
+						<label class="block text-sm font-medium text-primary mb-2">
+							Enter your password to authorize deletion
+						</label>
+						<input
+							type="password"
+							x-model="passwordConfirm"
+							name="passwordConfirm"
+							placeholder="Enter your password"
+							class="w-full px-4 py-3 rounded-lg border border-primary/20 bg-std text-primary placeholder-primary/40 focus:outline-none focus:ring-2 focus:ring-error/50 focus:border-error/50 transition-all"
+						/>
+					</div>
+				</div>
+				<!-- Footer -->
+				<div class="px-6 py-4 border-t border-error/20 flex flex-col-reverse sm:flex-row gap-3 sm:justify-end rounded-b-2xl">
+					<button
+						type="button"
+						@click="showDeleteModal = false; emailConfirm = ''; passwordConfirm = ''"
+						class="w-full sm:w-auto px-5 py-2.5 rounded-lg border border-primary/20 text-primary font-medium text-sm hover:bg-primary/5 transition-all"
+					>
+						Cancel
+					</button>
+					<form
+						hx-delete={ props.FormAction }
+						hx-swap="none"
+						hx-indicator="#delete-account-indicator"
+						hx-disabled-elt="find button, find input"
+						@htmx:after-request="showDeleteModal = false; emailConfirm = ''; passwordConfirm = ''"
+					>
+						@CSRF(props.CSRF)
+						<input type="hidden" name="password" :value="passwordConfirm"/>
+						<button
+							type="submit"
+							:disabled={ "emailConfirm !== '" + props.UserEmail + "' || passwordConfirm === ''" }
+							:class={ "emailConfirm !== '" + props.UserEmail + "' || passwordConfirm === '' ? 'opacity-50 cursor-not-allowed' : 'hover:bg-error/90'" }
+							class="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-error text-white font-medium text-sm transition-all relative"
+						>
+							<span>Delete My Account</span>
+							<div id="delete-account-indicator" class="htmx-indicator absolute inset-0 flex items-center justify-center bg-error rounded-lg">
+								@icons.Loading("w-5 h-5 text-white animate-spin")
+							</div>
+						</button>
+					</form>
+				</div>
+			</div>
+		</div>
+	</div>
+}

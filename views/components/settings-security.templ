@@ -36,7 +36,7 @@ templ ChangePasswordCard(csrf string) {
 templ ChangePasswordForm(csrf string) {
 	<form
 		hx-patch="/settings/password"
-		hx-target="this"
+		hx-target="#success-message"
 		hx-swap="outerHTML"
 		hx-indicator="#password-indicator"
 		hx-disabled-elt="find input, find button"
@@ -64,6 +64,7 @@ templ ChangePasswordForm(csrf string) {
 				</div>
 			</button>
 		</div>
+		<div id="success-message"></div>
 	</form>
 }
 

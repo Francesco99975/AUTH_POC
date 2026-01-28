@@ -15,11 +15,12 @@ type ProfileProps struct {
 }
 
 templ SettingsProfileTab(props ProfileProps) {
-	<div x-show="activeTab === 'profile'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" class="space-y-4">
+	<div x-show="activeTab === 'profile'" x-data="{toast: null}" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" class="space-y-4">
 		<!-- Profile Info Card -->
 		@ProfileInfoCard(props)
 		<!-- Account Details Card -->
 		@AccountDetailsCard(props)
+		@Toast()
 	</div>
 }
 
@@ -36,7 +37,7 @@ templ ProfileInfoCard(props ProfileProps) {
 templ ChangeUserDetailsForm(username string, email string, verified bool, csrf string) {
 	<form
 		hx-patch="/settings/profile"
-		hx-target="this"
+		hx-target="#success-message"
 		hx-swap="outerHTML"
 		hx-indicator="#profile-indicator"
 		hx-disabled-elt="find input, find button"
@@ -89,6 +90,7 @@ templ ChangeUserDetailsForm(username string, email string, verified bool, csrf s
 				</div>
 			</button>
 		</div>
+		<div id="success-message"></div>
 	</form>
 }
 
