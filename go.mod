@@ -10,6 +10,7 @@ require (
 	github.com/jackc/pgx/v5 v5.8.0
 	github.com/labstack/echo/v4 v4.14.0
 	github.com/labstack/gommon v0.4.2
+	github.com/pquerna/otp v1.5.0
 	github.com/prometheus/client_golang v1.23.2
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/stretchr/testify v1.11.1
@@ -17,7 +18,10 @@ require (
 	golang.org/x/text v0.32.0
 )
 
-require github.com/gorilla/context v1.1.2 // indirect
+require (
+	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
+	github.com/gorilla/context v1.1.2 // indirect
+)
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect

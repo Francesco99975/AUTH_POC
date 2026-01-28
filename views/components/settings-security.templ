@@ -69,46 +69,11 @@ templ ChangePasswordForm(csrf string) {
 }
 
 templ TwoFactorCard(enabled bool, csrf string) {
-	<div class="rounded-xl border border-primary/10 bg-std shadow-sm" x-data={ "{ twoFAEnabled: " + boolStr(enabled) + " }" }>
-		<div class="border-b border-primary/10 px-4 sm:px-6 py-4">
-			<h2 class="text-base sm:text-lg font-semibold text-primary">Two-Factor Authentication</h2>
-			<p class="text-sm text-primary/60">Extra security for your account</p>
-		</div>
-		<div class="p-4 sm:p-6">
-			<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-				<div class="flex items-start gap-3">
-					<div class="shrink-0 h-10 w-10 sm:h-12 sm:w-12 rounded-xl flex items-center justify-center" :class="twoFAEnabled ? 'bg-success/10' : 'bg-primary/5'">
-						@icons.Shield("w-5 h-5 sm:w-6 sm:h-6 :class=\"twoFAEnabled ? 'text-success' : 'text-primary/40'\"")
-					</div>
-					<div>
-						<h3 class="text-sm font-semibold text-primary">Authenticator App</h3>
-						<p class="text-sm text-primary/60 mt-0.5" x-text="twoFAEnabled ? '2FA is enabled' : 'Protect your account'"></p>
-					</div>
-				</div>
-				<form
-					hx-post="/settings/2fa/toggle"
-					hx-target="#twofa-response"
-					hx-swap="innerHTML"
-					hx-indicator="#twofa-indicator"
-				>
-					<input type="hidden" name="csrf" value={ csrf }/>
-					<input type="hidden" name="enable" :value="!twoFAEnabled"/>
-					<button
-						type="submit"
-						@htmx:after-request="twoFAEnabled = !twoFAEnabled"
-						class="w-full sm:w-auto px-4 py-2.5 rounded-lg font-medium text-sm transition-all relative"
-						:class="twoFAEnabled ? 'bg-error/10 text-error hover:bg-error/20' : 'bg-primary text-white hover:bg-primary/90'"
-					>
-						<span x-text="twoFAEnabled ? 'Disable 2FA' : 'Enable 2FA'"></span>
-						<div id="twofa-indicator" class="htmx-indicator absolute inset-0 flex items-center justify-center rounded-lg" :class="twoFAEnabled ? 'bg-error/10' : 'bg-primary'">
-							@icons.Loading("w-4 h-4 animate-spin :class=\"twoFAEnabled ? 'text-error' : 'text-white'\"")
-						</div>
-					</button>
-				</form>
-			</div>
-			<div id="twofa-response" class="mt-4"></div>
-		</div>
-	</div>
+	if enabled {
+		@TwoFAEnabledCard(csrf)
+	} else {
+		@TwoFADisabledCard(csrf)
+	}
 }
 
 func boolStr(b bool) string {

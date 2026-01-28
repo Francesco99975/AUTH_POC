@@ -76,6 +76,15 @@ func SetSessionUser(w http.ResponseWriter, r *http.Request, userID string, role 
 	return session.Save(r, w)
 }
 
+func SetSessionUserTempTOTP(w http.ResponseWriter, r *http.Request, key string) error {
+	session, err := SessionStore.Get(r, "session")
+	if err != nil {
+		return err
+	}
+	session.Values["totp"] = key
+	return session.Save(r, w)
+}
+
 func ClearSession(w http.ResponseWriter, r *http.Request) error {
 	session, err := SessionStore.Get(r, "session")
 	if err != nil {
@@ -91,4 +100,19 @@ func GetSessionUserID(r *http.Request) (string, string, bool) {
 	role, ok_role := session.Values["role"].(string)
 	authenticated := session.Values["authenticated"] == true
 	return userID, role, ok && ok_role && authenticated
+}
+
+func GetSessionUserTempTOTP(r *http.Request) (string, bool) {
+	session, _ := SessionStore.Get(r, "session")
+	key, ok := session.Values["totp"].(string)
+	return key, ok
+}
+
+func ClearSessionUserTempTOTP(w http.ResponseWriter, r *http.Request) error {
+	session, err := SessionStore.Get(r, "session")
+	if err != nil {
+		return err
+	}
+	delete(session.Values, "totp")
+	return session.Save(r, w)
 }
