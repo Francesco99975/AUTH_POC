@@ -117,6 +117,7 @@ func createRouter(ctx context.Context) *echo.Echo {
 	web.POST("/settings/2fa/setup", controllers.InitTwoFA(), middlewares.AuthMiddleware())
 	web.POST("/settings/2fa/verify", controllers.VerifyTwoFA(), middlewares.AuthMiddleware())
 	web.POST("/settings/2fa/complete", controllers.FinalizeTwoFA(), middlewares.AuthMiddleware())
+	web.PATCH("/settings/2fa/disable", controllers.DisableTwoFA(), middlewares.AuthMiddleware())
 	// web.GET("/settings/users", )
 	web.POST("/signup", controllers.SessionSignup())
 	web.POST("/verification/manual", controllers.ManualEmailVerification())

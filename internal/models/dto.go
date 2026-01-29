@@ -223,3 +223,18 @@ func (r ChangePasswordRequest) Validate(passwordSecurityLevel int) error {
 
 	return nil
 }
+
+type DisableTwoFARequest struct {
+	Password string `form:"password"`
+	Otp      string `form:"otp"`
+}
+
+func (r DisableTwoFARequest) Validate() error {
+	if r.Password == "" {
+		return errors.New("password is required")
+	}
+	if r.Otp == "" {
+		return errors.New("otp is required")
+	}
+	return nil
+}

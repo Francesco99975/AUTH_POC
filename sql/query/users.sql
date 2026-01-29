@@ -8,7 +8,7 @@ RETURNING id, role, username, email, is_active, is_email_verified,
          twofa_enabled, last_login, created_at, updated_at;
 
 -- name: GetUserByID :one
-SELECT id, role, username, email, password_hash, is_active,
+SELECT id, role, username, email, is_active,
        is_email_verified, twofa_enabled, last_login,
        created_at, updated_at
 FROM users
@@ -32,14 +32,14 @@ WHERE (email = $1 OR username = $1)
   AND is_active = TRUE;
 
 -- name: GetUserByEmail :one
-SELECT id, role, username, email, password_hash, is_active,
+SELECT id, role, username, email, is_active,
        is_email_verified, twofa_enabled, last_login,
        created_at, updated_at
 FROM users
 WHERE email = $1;
 
 -- name: GetUserByUsername :one
-SELECT id, role, username, email, password_hash, is_active,
+SELECT id, role, username, email, is_active,
        is_email_verified, twofa_enabled, last_login,
        created_at, updated_at
 FROM users
@@ -79,8 +79,13 @@ UPDATE users
 SET twofa_secret = NULL, twofa_enabled = FALSE, updated_at = NOW()
 WHERE id = $1;
 
+-- name: GetPasswordHash :one
+SELECT password_hash
+FROM users
+WHERE id = $1;
+
 -- name: GetUser2FASecret :one
-SELECT twofa_secret
+SELECT twofa_secret, password_hash
 FROM users
 WHERE id = $1 AND twofa_enabled = TRUE;
 

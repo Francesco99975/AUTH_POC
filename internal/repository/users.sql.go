@@ -125,21 +125,39 @@ func (q *Queries) EnableUser2FA(ctx context.Context, arg EnableUser2FAParams) er
 	return err
 }
 
+const getPasswordHash = `-- name: GetPasswordHash :one
+SELECT password_hash
+FROM users
+WHERE id = $1
+`
+
+func (q *Queries) GetPasswordHash(ctx context.Context, id uuid.UUID) (string, error) {
+	row := q.db.QueryRow(ctx, getPasswordHash, id)
+	var password_hash string
+	err := row.Scan(&password_hash)
+	return password_hash, err
+}
+
 const getUser2FASecret = `-- name: GetUser2FASecret :one
-SELECT twofa_secret
+SELECT twofa_secret, password_hash
 FROM users
 WHERE id = $1 AND twofa_enabled = TRUE
 `
 
-func (q *Queries) GetUser2FASecret(ctx context.Context, id uuid.UUID) (*string, error) {
+type GetUser2FASecretRow struct {
+	TwofaSecret  *string `json:"twofa_secret"`
+	PasswordHash string  `json:"password_hash"`
+}
+
+func (q *Queries) GetUser2FASecret(ctx context.Context, id uuid.UUID) (*GetUser2FASecretRow, error) {
 	row := q.db.QueryRow(ctx, getUser2FASecret, id)
-	var twofa_secret *string
-	err := row.Scan(&twofa_secret)
-	return twofa_secret, err
+	var i GetUser2FASecretRow
+	err := row.Scan(&i.TwofaSecret, &i.PasswordHash)
+	return &i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, role, username, email, password_hash, is_active,
+SELECT id, role, username, email, is_active,
        is_email_verified, twofa_enabled, last_login,
        created_at, updated_at
 FROM users
@@ -151,7 +169,6 @@ type GetUserByEmailRow struct {
 	Role            string             `json:"role"`
 	Username        string             `json:"username"`
 	Email           string             `json:"email"`
-	PasswordHash    string             `json:"password_hash"`
 	IsActive        bool               `json:"is_active"`
 	IsEmailVerified bool               `json:"is_email_verified"`
 	TwofaEnabled    bool               `json:"twofa_enabled"`
@@ -168,7 +185,6 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (*GetUserByE
 		&i.Role,
 		&i.Username,
 		&i.Email,
-		&i.PasswordHash,
 		&i.IsActive,
 		&i.IsEmailVerified,
 		&i.TwofaEnabled,
@@ -231,7 +247,7 @@ func (q *Queries) GetUserByEmailOrUsername(ctx context.Context, email string) (*
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, role, username, email, password_hash, is_active,
+SELECT id, role, username, email, is_active,
        is_email_verified, twofa_enabled, last_login,
        created_at, updated_at
 FROM users
@@ -243,7 +259,6 @@ type GetUserByIDRow struct {
 	Role            string             `json:"role"`
 	Username        string             `json:"username"`
 	Email           string             `json:"email"`
-	PasswordHash    string             `json:"password_hash"`
 	IsActive        bool               `json:"is_active"`
 	IsEmailVerified bool               `json:"is_email_verified"`
 	TwofaEnabled    bool               `json:"twofa_enabled"`
@@ -260,7 +275,6 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (*GetUserByIDRo
 		&i.Role,
 		&i.Username,
 		&i.Email,
-		&i.PasswordHash,
 		&i.IsActive,
 		&i.IsEmailVerified,
 		&i.TwofaEnabled,
@@ -272,7 +286,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (*GetUserByIDRo
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, role, username, email, password_hash, is_active,
+SELECT id, role, username, email, is_active,
        is_email_verified, twofa_enabled, last_login,
        created_at, updated_at
 FROM users
@@ -284,7 +298,6 @@ type GetUserByUsernameRow struct {
 	Role            string             `json:"role"`
 	Username        string             `json:"username"`
 	Email           string             `json:"email"`
-	PasswordHash    string             `json:"password_hash"`
 	IsActive        bool               `json:"is_active"`
 	IsEmailVerified bool               `json:"is_email_verified"`
 	TwofaEnabled    bool               `json:"twofa_enabled"`
@@ -301,7 +314,6 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (*GetU
 		&i.Role,
 		&i.Username,
 		&i.Email,
-		&i.PasswordHash,
 		&i.IsActive,
 		&i.IsEmailVerified,
 		&i.TwofaEnabled,
