@@ -103,6 +103,7 @@ func createRouter(ctx context.Context) *echo.Echo {
 
 	web.GET("/", controllers.Index())
 	web.GET("/auth", controllers.Auth())
+	web.POST("auth/2fa/check", controllers.SessionLoginTwoFACheck())
 	web.GET("/dashboard", controllers.Dashboard(), middlewares.AuthMiddleware())
 	web.GET("/settings", controllers.Settings(), middlewares.AuthMiddleware())
 	web.GET("/settings/profile", controllers.Profile(), middlewares.AuthMiddleware())

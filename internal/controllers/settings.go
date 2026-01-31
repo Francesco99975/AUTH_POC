@@ -36,12 +36,12 @@ func Settings() echo.HandlerFunc {
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
-		userID, _, authenticated := auth.GetSessionUserID(c.Request())
+		auser, authenticated := auth.GetSessionUser(c.Request())
 		if !authenticated {
 			return c.Redirect(http.StatusSeeOther, "/auth")
 		}
 
-		userUUID, err := uuid.Parse(userID)
+		userUUID, err := uuid.Parse(auser.ID)
 		if err != nil {
 			return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusInternalServerError, Message: err.Error(), UserMessage: "Resource is not accessible"}, nil)
 		}
@@ -86,12 +86,12 @@ func Profile() echo.HandlerFunc {
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
-		userID, _, authenticated := auth.GetSessionUserID(c.Request())
+		auser, authenticated := auth.GetSessionUser(c.Request())
 		if !authenticated {
 			return c.Redirect(http.StatusSeeOther, "/auth")
 		}
 
-		userUUID, err := uuid.Parse(userID)
+		userUUID, err := uuid.Parse(auser.ID)
 		if err != nil {
 			return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusInternalServerError, Message: err.Error(), UserMessage: "Resource is not accessible"}, nil)
 		}
@@ -136,12 +136,12 @@ func UpdateUsernameOrEmail() echo.HandlerFunc {
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
-		userID, _, authenticated := auth.GetSessionUserID(c.Request())
+		user, authenticated := auth.GetSessionUser(c.Request())
 		if !authenticated {
 			return c.Redirect(http.StatusSeeOther, "/auth")
 		}
 
-		userUUID, err := uuid.Parse(userID)
+		userUUID, err := uuid.Parse(user.ID)
 		if err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse ID", Message: fmt.Errorf("could not parse ID: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
@@ -168,12 +168,12 @@ func Security() echo.HandlerFunc {
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
-		userID, _, authenticated := auth.GetSessionUserID(c.Request())
+		auser, authenticated := auth.GetSessionUser(c.Request())
 		if !authenticated {
 			return c.Redirect(http.StatusSeeOther, "/auth")
 		}
 
-		userUUID, err := uuid.Parse(userID)
+		userUUID, err := uuid.Parse(auser.ID)
 		if err != nil {
 			return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusInternalServerError, Message: err.Error(), UserMessage: "Resource is not accessible"}, nil)
 		}
@@ -217,12 +217,12 @@ func UpdateUserPassword() echo.HandlerFunc {
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
-		userID, _, authenticated := auth.GetSessionUserID(c.Request())
+		auser, authenticated := auth.GetSessionUser(c.Request())
 		if !authenticated {
 			return c.Redirect(http.StatusSeeOther, "/auth")
 		}
 
-		userUUID, err := uuid.Parse(userID)
+		userUUID, err := uuid.Parse(auser.ID)
 		if err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse ID", Message: fmt.Errorf("could not parse ID: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
@@ -266,12 +266,12 @@ func Account() echo.HandlerFunc {
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
-		userID, _, authenticated := auth.GetSessionUserID(c.Request())
+		auser, authenticated := auth.GetSessionUser(c.Request())
 		if !authenticated {
 			return c.Redirect(http.StatusSeeOther, "/auth")
 		}
 
-		userUUID, err := uuid.Parse(userID)
+		userUUID, err := uuid.Parse(auser.ID)
 		if err != nil {
 			return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusInternalServerError, Message: err.Error(), UserMessage: "Resource is not accessible"}, nil)
 		}
@@ -303,12 +303,12 @@ func DeactivateUser() echo.HandlerFunc {
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
-		userID, _, authenticated := auth.GetSessionUserID(c.Request())
+		auser, authenticated := auth.GetSessionUser(c.Request())
 		if !authenticated {
 			return c.Redirect(http.StatusSeeOther, "/auth")
 		}
 
-		userUUID, err := uuid.Parse(userID)
+		userUUID, err := uuid.Parse(auser.ID)
 		if err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse ID", Message: fmt.Errorf("could not parse ID: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
@@ -337,12 +337,12 @@ func ActivateUser() echo.HandlerFunc {
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
-		userID, _, authenticated := auth.GetSessionUserID(c.Request())
+		auser, authenticated := auth.GetSessionUser(c.Request())
 		if !authenticated {
 			return c.Redirect(http.StatusSeeOther, "/auth")
 		}
 
-		userUUID, err := uuid.Parse(userID)
+		userUUID, err := uuid.Parse(auser.ID)
 		if err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse ID", Message: fmt.Errorf("could not parse ID: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
@@ -373,12 +373,12 @@ func PermanentlyDeleteUser() echo.HandlerFunc {
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
-		userID, _, authenticated := auth.GetSessionUserID(c.Request())
+		auser, authenticated := auth.GetSessionUser(c.Request())
 		if !authenticated {
 			return c.Redirect(http.StatusSeeOther, "/auth")
 		}
 
-		userUUID, err := uuid.Parse(userID)
+		userUUID, err := uuid.Parse(auser.ID)
 		if err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse ID", Message: fmt.Errorf("could not parse ID: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
@@ -416,7 +416,7 @@ func PermanentlyDeleteUser() echo.HandlerFunc {
 // 		defer database.HandleTransaction(ctx, tx, &err)
 // 		repo := repository.New(tx)
 
-// 		userID, _, authenticated := auth.GetSessionUserID(c.Request())
+// 		userID, _, authenticated := auth.GetSessionUser(c.Request())
 // 		if !authenticated {
 // 			return c.Redirect(http.StatusSeeOther, "/auth")
 // 		}

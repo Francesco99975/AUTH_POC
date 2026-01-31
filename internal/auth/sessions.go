@@ -63,26 +63,44 @@ func getSessionOptions(remember bool) *sessions.Options {
 
 }
 
-// Helper functions
-func SetSessionUser(w http.ResponseWriter, r *http.Request, userID string, role string, remember bool) error {
+type AuthenticatedSessionUser struct {
+	ID       string
+	Username string
+	Email    string
+	Role     string
+	Remember string
+}
+
+func SetSessionUser(w http.ResponseWriter, r *http.Request, user AuthenticatedSessionUser, remember bool) error {
 	session, err := SessionStore.Get(r, "session")
 	if err != nil {
 		return err
 	}
-	session.Values["user_id"] = userID
-	session.Values["role"] = role
+	session.Values["user_id"] = user.ID
+	session.Values["username"] = user.Username
+	session.Values["email"] = user.Email
+	session.Values["role"] = user.Role
 	session.Values["authenticated"] = true
 	session.Options = getSessionOptions(remember)
 	return session.Save(r, w)
 }
 
-func SetSessionUserTempTOTP(w http.ResponseWriter, r *http.Request, key string) error {
-	session, err := SessionStore.Get(r, "session")
-	if err != nil {
-		return err
+func GetSessionUser(r *http.Request) (AuthenticatedSessionUser, bool) {
+	session, _ := SessionStore.Get(r, "session")
+	userID, ok_id := session.Values["user_id"].(string)
+	username, ok_username := session.Values["username"].(string)
+	email, ok_email := session.Values["email"].(string)
+	role, ok_role := session.Values["role"].(string)
+	authenticated := session.Values["authenticated"] == true
+
+	user := AuthenticatedSessionUser{
+		ID:       userID,
+		Username: username,
+		Email:    email,
+		Role:     role,
 	}
-	session.Values["totp"] = key
-	return session.Save(r, w)
+
+	return user, ok_id && ok_username && ok_email && ok_role && authenticated
 }
 
 func ClearSession(w http.ResponseWriter, r *http.Request) error {
@@ -94,12 +112,13 @@ func ClearSession(w http.ResponseWriter, r *http.Request) error {
 	return session.Save(r, w)
 }
 
-func GetSessionUserID(r *http.Request) (string, string, bool) {
-	session, _ := SessionStore.Get(r, "session")
-	userID, ok := session.Values["user_id"].(string)
-	role, ok_role := session.Values["role"].(string)
-	authenticated := session.Values["authenticated"] == true
-	return userID, role, ok && ok_role && authenticated
+func SetSessionUserTempTOTP(w http.ResponseWriter, r *http.Request, key string) error {
+	session, err := SessionStore.Get(r, "session")
+	if err != nil {
+		return err
+	}
+	session.Values["totp"] = key
+	return session.Save(r, w)
 }
 
 func GetSessionUserTempTOTP(r *http.Request) (string, bool) {

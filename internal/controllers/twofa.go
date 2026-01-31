@@ -34,12 +34,12 @@ func CancelTwoFA() echo.HandlerFunc {
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
-		userID, _, authenticated := auth.GetSessionUserID(c.Request())
+		auser, authenticated := auth.GetSessionUser(c.Request())
 		if !authenticated {
 			return c.Redirect(http.StatusSeeOther, "/auth")
 		}
 
-		userUUID, err := uuid.Parse(userID)
+		userUUID, err := uuid.Parse(auser.ID)
 		if err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse ID", Message: fmt.Errorf("could not parse ID: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
@@ -66,12 +66,12 @@ func InitTwoFA() echo.HandlerFunc {
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
-		userID, _, authenticated := auth.GetSessionUserID(c.Request())
+		auser, authenticated := auth.GetSessionUser(c.Request())
 		if !authenticated {
 			return c.Redirect(http.StatusSeeOther, "/auth")
 		}
 
-		userUUID, err := uuid.Parse(userID)
+		userUUID, err := uuid.Parse(auser.ID)
 		if err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse ID", Message: fmt.Errorf("could not parse ID: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
@@ -134,7 +134,7 @@ func VerifyTwoFA() echo.HandlerFunc {
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
-		userID, _, authenticated := auth.GetSessionUserID(c.Request())
+		auser, authenticated := auth.GetSessionUser(c.Request())
 		if !authenticated {
 			return c.Redirect(http.StatusSeeOther, "/auth")
 		}
@@ -148,7 +148,7 @@ func VerifyTwoFA() echo.HandlerFunc {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusUnauthorized, UserMessage: "unauthorized", Message: "totp validation failed"}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
 
-		userUUID, err := uuid.Parse(userID)
+		userUUID, err := uuid.Parse(auser.ID)
 		if err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse ID", Message: fmt.Errorf("could not parse ID: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
@@ -204,12 +204,12 @@ func DisableTwoFA() echo.HandlerFunc {
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
-		userID, _, authenticated := auth.GetSessionUserID(c.Request())
+		auser, authenticated := auth.GetSessionUser(c.Request())
 		if !authenticated {
 			return c.Redirect(http.StatusSeeOther, "/auth")
 		}
 
-		userUUID, err := uuid.Parse(userID)
+		userUUID, err := uuid.Parse(auser.ID)
 		if err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse ID", Message: fmt.Errorf("could not parse ID: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
@@ -257,12 +257,12 @@ func FinalizeTwoFA() echo.HandlerFunc {
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
-		userID, _, authenticated := auth.GetSessionUserID(c.Request())
+		auser, authenticated := auth.GetSessionUser(c.Request())
 		if !authenticated {
 			return c.Redirect(http.StatusSeeOther, "/auth")
 		}
 
-		userUUID, err := uuid.Parse(userID)
+		userUUID, err := uuid.Parse(auser.ID)
 		if err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse ID", Message: fmt.Errorf("could not parse ID: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}

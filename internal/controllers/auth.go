@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
+	"github.com/pquerna/otp/totp"
 )
 
 func SessionSignup() echo.HandlerFunc {
@@ -251,11 +252,83 @@ func SessionLogin() echo.HandlerFunc {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusUnauthorized, UserMessage: "invalid credentials", Message: fmt.Errorf("invalid credentials: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
 
-		if err := auth.SetSessionUser(c.Response(), c.Request(), user.ID.String(), user.Role, payload.Remeber == "on"); err != nil {
+		auser := auth.AuthenticatedSessionUser{
+			ID:       user.ID.String(),
+			Email:    user.Email,
+			Username: user.Username,
+			Role:     user.Role,
+			Remember: payload.Remeber,
+		}
+
+		if user.TwofaEnabled {
+			csrf := c.Get("csrf").(string)
+			token, err := auth.GenerateEncryptedToken(auser, 10*time.Minute)
+			if err != nil {
+				return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to generate temp jwt token", Message: fmt.Errorf("failed to generate temp jwt token: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			}
+
+			html := helpers.MustRenderHTML(components.TwoFACheck(token, csrf))
+
+			return c.Blob(http.StatusOK, "text/html", html)
+		}
+
+		if err := auth.SetSessionUser(c.Response(), c.Request(), auser, payload.Remeber == "on"); err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to set session", Message: fmt.Errorf("failed to set session: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
 
 		_ = repo.UpdateUserLastLogin(ctx, user.ID)
+
+		c.Response().Header().Set("HX-Redirect", "/dashboard")
+		return c.NoContent(http.StatusOK)
+	}
+}
+
+func SessionLoginTwoFACheck() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		token := c.FormValue("token")
+		otp := c.FormValue("otp")
+
+		if otp == "" || token == "" {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusBadRequest, UserMessage: "invalid data sent", Message: "invalid form data"}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		auser, err := auth.ValidateAndDecryptToken(token)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse temp jwt token", Message: fmt.Errorf("could not parse temp jwt token: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		userUUID, err := uuid.Parse(auser.ID)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse ID", Message: fmt.Errorf("could not parse ID: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		ctx := c.Request().Context()
+		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "database error occurred", Message: fmt.Errorf("unable to get transaction: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+		defer database.HandleTransaction(ctx, tx, &err)
+		repo := repository.New(tx)
+
+		secrets, err := repo.GetUser2FASecret(ctx, userUUID)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "user not found", Message: fmt.Errorf("user not found: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		if !totp.Validate(otp, *secrets.TwofaSecret) {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusUnauthorized, UserMessage: "unauthorized: invalid code", Message: "totp validation failed"}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		if err := auth.SetSessionUser(c.Response(), c.Request(), auth.AuthenticatedSessionUser{
+			ID:       userUUID.String(),
+			Username: auser.Username,
+			Email:    auser.Email,
+			Role:     auser.Role,
+		}, auser.Remember == "on"); err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to set session", Message: fmt.Errorf("failed to set session: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		_ = repo.UpdateUserLastLogin(ctx, userUUID)
 
 		c.Response().Header().Set("HX-Redirect", "/dashboard")
 		return c.NoContent(http.StatusOK)

@@ -64,6 +64,8 @@ templ AuthForm(csrf string) {
 templ LoginForm(csrf string) {
 	<form
 		hx-post="/login"
+		hx-target="this"
+		hx-swap="outerHTML"
 		hx-indicator="#login-indicator"
 		hx-disabled-elt="find input, find button"
 		class="space-y-4 md:space-y-5"
@@ -108,6 +110,7 @@ templ LoginForm(csrf string) {
 				href="/reset"
 				hx-boost="true"
 				hx-push-url="true"
+				hx-target="body"
 				class="text-sm font-medium text-primary hover:text-accent transition-colors"
 			>
 				Forgot password?

@@ -17,7 +17,7 @@ import (
 func Index() echo.HandlerFunc {
 	return func(c echo.Context) error {
 
-		_, _, authenticated := auth.GetSessionUserID(c.Request())
+		_, authenticated := auth.GetSessionUser(c.Request())
 
 		if authenticated {
 			return c.Redirect(http.StatusSeeOther, "/dashboard")
@@ -30,7 +30,7 @@ func Index() echo.HandlerFunc {
 
 func Auth() echo.HandlerFunc {
 	return func(c echo.Context) error {
-		_, _, authenticated := auth.GetSessionUserID(c.Request())
+		_, authenticated := auth.GetSessionUser(c.Request())
 		if authenticated {
 			return c.Redirect(http.StatusSeeOther, "/dashboard")
 		}
@@ -49,7 +49,7 @@ func Auth() echo.HandlerFunc {
 
 func Dashboard() echo.HandlerFunc {
 	return func(c echo.Context) error {
-		userIDStr, _, authenticated := auth.GetSessionUserID(c.Request())
+		auser, authenticated := auth.GetSessionUser(c.Request())
 		if !authenticated {
 			return c.Redirect(http.StatusSeeOther, "/auth")
 		}
@@ -60,7 +60,7 @@ func Dashboard() echo.HandlerFunc {
 		data.CSRF = c.Get("csrf").(string)
 
 		ctx := c.Request().Context()
-		userID, err := uuid.Parse(userIDStr)
+		userID, err := uuid.Parse(auser.ID)
 		if err != nil {
 			return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusInternalServerError, Message: err.Error(), UserMessage: "Resource is not accessible"}, nil)
 		}

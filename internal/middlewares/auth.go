@@ -18,14 +18,14 @@ const (
 func AuthMiddleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			userID, _, authenticated := auth.GetSessionUserID(c.Request())
+			auser, authenticated := auth.GetSessionUser(c.Request())
 			if !authenticated {
 				return c.Redirect(http.StatusSeeOther, "/auth")
 			}
 
-			log.Debugf("Authenticated user: %s", userID)
+			log.Debugf("Authenticated user: %s", auser)
 
-			ctx := context.WithValue(c.Request().Context(), UserKey, userID)
+			ctx := context.WithValue(c.Request().Context(), UserKey, auser)
 
 			c.SetRequest(c.Request().WithContext(ctx))
 			return next(c)
@@ -36,8 +36,8 @@ func AuthMiddleware() echo.MiddlewareFunc {
 func IsDeveloperRoleMiddleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			_, role, _ := auth.GetSessionUserID(c.Request())
-			if role != "DEVELOPER" {
+			user, _ := auth.GetSessionUser(c.Request())
+			if user.Role != "DEVELOPER" {
 				return c.Redirect(http.StatusSeeOther, "/")
 			}
 			return next(c)
@@ -48,8 +48,8 @@ func IsDeveloperRoleMiddleware() echo.MiddlewareFunc {
 func IsAdminRoleMiddleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			_, role, _ := auth.GetSessionUserID(c.Request())
-			if role != "ADMIN" {
+			user, _ := auth.GetSessionUser(c.Request())
+			if user.Role != "ADMIN" {
 				return c.Redirect(http.StatusSeeOther, "/")
 			}
 			return next(c)

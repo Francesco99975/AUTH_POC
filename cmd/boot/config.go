@@ -8,18 +8,20 @@ import (
 )
 
 type Config struct {
-	Port                 string
-	Host                 string
-	GoEnv                enums.Environment
-	DSN                  string
-	NTFY                 string
-	NTFYToken            string
-	URL                  string
-	MetricSecret         string
-	Prometheus           string
-	ResendApiKey         string
-	SessionAuthKey       string
-	SessionEncryptionKey string
+	Port                  string
+	Host                  string
+	GoEnv                 enums.Environment
+	DSN                   string
+	NTFY                  string
+	NTFYToken             string
+	URL                   string
+	MetricSecret          string
+	Prometheus            string
+	ResendApiKey          string
+	SessionAuthKey        string
+	SessionEncryptionKey  string
+	JWTSecret             string
+	JWTTokenEncryptionKey string
 }
 
 var Environment = &Config{}
@@ -47,6 +49,8 @@ func LoadEnvVariables() error {
 	Environment.ResendApiKey = os.Getenv("RESEND_API_KEY")
 	Environment.SessionAuthKey = os.Getenv("SESSION_AUTH_KEY")
 	Environment.SessionEncryptionKey = os.Getenv("SESSION_ENCRYPTION_KEY")
+	Environment.JWTSecret = os.Getenv("JWT_SECRET")
+	Environment.JWTTokenEncryptionKey = os.Getenv("JWT_TOKEN_ENCRYPTION_KEY")
 
 	return nil
 }
