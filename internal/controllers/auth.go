@@ -257,7 +257,7 @@ func SessionLogin() echo.HandlerFunc {
 			Email:    user.Email,
 			Username: user.Username,
 			Role:     user.Role,
-			Remember: payload.Remeber,
+			Remember: payload.Remeber == "on",
 		}
 
 		if user.TwofaEnabled {
@@ -324,7 +324,7 @@ func SessionLoginTwoFACheck() echo.HandlerFunc {
 			Username: auser.Username,
 			Email:    auser.Email,
 			Role:     auser.Role,
-		}, auser.Remember == "on"); err != nil {
+		}, auser.Remember); err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to set session", Message: fmt.Errorf("failed to set session: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
 

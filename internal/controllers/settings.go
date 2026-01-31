@@ -18,6 +18,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
+	"github.com/pquerna/otp/totp"
 )
 
 func Settings() echo.HandlerFunc {
@@ -282,9 +283,10 @@ func Account() echo.HandlerFunc {
 		}
 
 		props := components.AccountProps{
-			IsActive:  user.IsActive,
-			UserEmail: user.Email,
-			CSRF:      c.Get("csrf").(string),
+			IsActive:     user.IsActive,
+			TwoFAEnabled: user.TwofaEnabled,
+			UserEmail:    user.Email,
+			CSRF:         c.Get("csrf").(string),
 		}
 
 		html := helpers.MustRenderHTML(components.SettingsAccountTab(props))
@@ -364,6 +366,7 @@ func ActivateUser() echo.HandlerFunc {
 func PermanentlyDeleteUser() echo.HandlerFunc {
 	return func(c echo.Context) error {
 		password := c.FormValue("password")
+		otp := c.FormValue("otp")
 
 		ctx := c.Request().Context()
 		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
@@ -383,13 +386,28 @@ func PermanentlyDeleteUser() echo.HandlerFunc {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse ID", Message: fmt.Errorf("could not parse ID: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
 
-		hash, err := repo.GetPasswordHash(ctx, userUUID)
-		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "user not found", Message: fmt.Errorf("user not found: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
-		}
+		if auser.TwoFAEnabled {
+			secrets, err := repo.GetUser2FASecret(ctx, userUUID)
+			if err != nil {
+				return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "user not found", Message: fmt.Errorf("user not found: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			}
 
-		if !helpers.CheckPasswordHash(password, hash) {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusUnauthorized, UserMessage: "invalid credentials", Message: fmt.Errorf("invalid credentials: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			if !helpers.CheckPasswordHash(password, secrets.PasswordHash) {
+				return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusUnauthorized, UserMessage: "invalid credentials", Message: fmt.Errorf("invalid credentials: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			}
+
+			if !totp.Validate(otp, *secrets.TwofaSecret) {
+				return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusUnauthorized, UserMessage: "unauthorized: invalid code", Message: "totp validation failed"}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			}
+		} else {
+			hash, err := repo.GetPasswordHash(ctx, userUUID)
+			if err != nil {
+				return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "user not found", Message: fmt.Errorf("user not found: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			}
+
+			if !helpers.CheckPasswordHash(password, hash) {
+				return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusUnauthorized, UserMessage: "invalid credentials", Message: fmt.Errorf("invalid credentials: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			}
 		}
 
 		if err := auth.ClearSession(c.Response(), c.Request()); err != nil {

@@ -64,11 +64,13 @@ func getSessionOptions(remember bool) *sessions.Options {
 }
 
 type AuthenticatedSessionUser struct {
-	ID       string
-	Username string
-	Email    string
-	Role     string
-	Remember string
+	ID           string
+	Username     string
+	Email        string
+	Role         string
+	IsActive     bool
+	TwoFAEnabled bool
+	Remember     bool
 }
 
 func SetSessionUser(w http.ResponseWriter, r *http.Request, user AuthenticatedSessionUser, remember bool) error {
@@ -91,16 +93,21 @@ func GetSessionUser(r *http.Request) (AuthenticatedSessionUser, bool) {
 	username, ok_username := session.Values["username"].(string)
 	email, ok_email := session.Values["email"].(string)
 	role, ok_role := session.Values["role"].(string)
+	is_active, ok_active := session.Values["is_active"].(bool)
+	twofa_enabled, ok_twofa_enabled := session.Values["twofa_enabled"].(bool)
 	authenticated := session.Values["authenticated"] == true
 
 	user := AuthenticatedSessionUser{
-		ID:       userID,
-		Username: username,
-		Email:    email,
-		Role:     role,
+		ID:           userID,
+		Username:     username,
+		Email:        email,
+		Role:         role,
+		IsActive:     is_active,
+		TwoFAEnabled: twofa_enabled,
+		Remember:     session.Options.MaxAge == 0,
 	}
 
-	return user, ok_id && ok_username && ok_email && ok_role && authenticated
+	return user, ok_id && ok_username && ok_email && ok_role && ok_active && ok_twofa_enabled && authenticated
 }
 
 func ClearSession(w http.ResponseWriter, r *http.Request) error {

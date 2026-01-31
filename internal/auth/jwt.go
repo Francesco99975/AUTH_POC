@@ -16,22 +16,26 @@ import (
 
 // Claims for the interim 2FA token
 type InterimClaims struct {
-	UserID   string `json:"uid"`
-	Username string `json:"un"`
-	Email    string `json:"em"`
-	Role     string `json:"role"`
-	Remember string `json:"remember"`
+	UserID       string `json:"uid"`
+	Username     string `json:"un"`
+	Email        string `json:"em"`
+	Role         string `json:"role"`
+	IsActive     bool   `json:"ia"`
+	TwoFAEnabled bool   `json:"2fa"`
+	Remember     bool   `json:"remember"`
 	jwt.RegisteredClaims
 }
 
 // GenerateEncryptedToken creates a short-lived encrypted token
 func GenerateEncryptedToken(user AuthenticatedSessionUser, duration time.Duration) (string, error) {
 	claims := InterimClaims{
-		UserID:   user.ID,
-		Username: user.Username,
-		Email:    user.Email,
-		Role:     user.Role,
-		Remember: user.Remember,
+		UserID:       user.ID,
+		Username:     user.Username,
+		Email:        user.Email,
+		Role:         user.Role,
+		IsActive:     user.IsActive,
+		TwoFAEnabled: user.TwoFAEnabled,
+		Remember:     user.Remember,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(duration)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -95,7 +99,7 @@ func ValidateAndDecryptToken(tokenStr string) (*AuthenticatedSessionUser, error)
 	}
 
 	if claims, ok := token.Claims.(*InterimClaims); ok && token.Valid {
-		return &AuthenticatedSessionUser{ID: claims.UserID, Username: claims.Username, Email: claims.Email, Role: claims.Role, Remember: claims.Remember}, nil
+		return &AuthenticatedSessionUser{ID: claims.UserID, Username: claims.Username, Email: claims.Email, Role: claims.Role, IsActive: claims.IsActive, TwoFAEnabled: claims.TwoFAEnabled, Remember: claims.Remember}, nil
 	}
 
 	return nil, errors.New("invalid token")
