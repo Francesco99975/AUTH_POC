@@ -16,6 +16,7 @@ type EmailVerification struct {
 	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
 	Used      bool               `json:"used"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	Email     string             `json:"email"`
 }
 
 type PasswordReset struct {

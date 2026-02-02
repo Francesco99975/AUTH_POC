@@ -32,9 +32,9 @@ type Querier interface {
 	DisableUser2FA(ctx context.Context, id uuid.UUID) error
 	EnableUser2FA(ctx context.Context, arg EnableUser2FAParams) error
 	GetBackupCodeByHash(ctx context.Context, codeHash string) (*GetBackupCodeByHashRow, error)
-	GetEmailVerificationByID(ctx context.Context, id uuid.UUID) (*EmailVerification, error)
-	GetEmailVerificationByToken(ctx context.Context, token string) (*EmailVerification, error)
-	GetEmailVerificationByUserID(ctx context.Context, userID uuid.UUID) (*EmailVerification, error)
+	GetEmailVerificationByID(ctx context.Context, id uuid.UUID) (*GetEmailVerificationByIDRow, error)
+	GetEmailVerificationByToken(ctx context.Context, token string) (*GetEmailVerificationByTokenRow, error)
+	GetEmailVerificationByUserID(ctx context.Context, userID uuid.UUID) (*GetEmailVerificationByUserIDRow, error)
 	GetPasswordHash(ctx context.Context, id uuid.UUID) (string, error)
 	GetPasswordResetByToken(ctx context.Context, token string) (*PasswordReset, error)
 	GetRefreshTokenByHash(ctx context.Context, tokenHash string) (*GetRefreshTokenByHashRow, error)
@@ -58,8 +58,10 @@ type Querier interface {
 	RevokeAllUserRefreshTokens(ctx context.Context, userID uuid.UUID) error
 	RevokeRefreshToken(ctx context.Context, id uuid.UUID) error
 	UpdateRole(ctx context.Context, arg UpdateRoleParams) (*Role, error)
+	UpdateUserEmail(ctx context.Context, arg UpdateUserEmailParams) (*UpdateUserEmailRow, error)
 	UpdateUserLastLogin(ctx context.Context, id uuid.UUID) error
 	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error
+	UpdateUserUsername(ctx context.Context, arg UpdateUserUsernameParams) (*UpdateUserUsernameRow, error)
 	UpdateUserUsernameOrEmail(ctx context.Context, arg UpdateUserUsernameOrEmailParams) (*UpdateUserUsernameOrEmailRow, error)
 	VerifyUserEmail(ctx context.Context, id uuid.UUID) error
 }

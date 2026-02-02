@@ -154,15 +154,13 @@ func (r ResetPasswordRequest) Validate(passwordSecurityLevel int) error {
 	return nil
 }
 
-type ChangeUsernameOrEmail struct {
+type ChangeEmail struct {
 	Username string `form:"username"`
 	Email    string `form:"email"`
 }
 
-func (r ChangeUsernameOrEmail) Validate() error {
-	if r.Username == "" {
-		return errors.New("username is required")
-	}
+func (r ChangeEmail) Validate() error {
+
 	if r.Email == "" {
 		return errors.New("email is required")
 	}

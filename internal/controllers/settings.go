@@ -3,7 +3,9 @@ package controllers
 import (
 	"fmt"
 	"net/http"
+
 	"strings"
+	"time"
 
 	"github.com/Francesco99975/authpoc/internal/auth"
 	"github.com/Francesco99975/authpoc/internal/database"
@@ -16,6 +18,7 @@ import (
 	"github.com/Francesco99975/authpoc/views/layouts"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
 	"github.com/pquerna/otp/totp"
@@ -121,9 +124,47 @@ func Profile() echo.HandlerFunc {
 	}
 }
 
-func UpdateUsernameOrEmail() echo.HandlerFunc {
+func UpdateUsername() echo.HandlerFunc {
 	return func(c echo.Context) error {
-		var payload models.ChangeUsernameOrEmail
+		username := c.FormValue("username")
+
+		if username == "" {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "invalid data sent", Message: "invalid form data"}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		ctx := c.Request().Context()
+		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "database error occurred", Message: fmt.Errorf("unable to get transaction: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+		defer database.HandleTransaction(ctx, tx, &err)
+		repo := repository.New(tx)
+
+		user, authenticated := auth.GetSessionUser(c.Request())
+		if !authenticated {
+			return c.Redirect(http.StatusSeeOther, "/auth")
+		}
+
+		userUUID, err := uuid.Parse(user.ID)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse ID", Message: fmt.Errorf("could not parse ID: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		_, err = repo.UpdateUserUsername(ctx, repository.UpdateUserUsernameParams{Username: username, ID: userUUID})
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not update username or email", Message: fmt.Errorf("could not update username or email: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		html := helpers.MustRenderHTML(components.SuccessMsg("User Updated!"))
+
+		return c.Blob(http.StatusOK, "text/html", html)
+
+	}
+}
+
+func UpdateEmail() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		var payload models.ChangeEmail
 
 		if err := c.Bind(&payload); err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "invalid data sent", Message: fmt.Errorf("invalid form data: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
@@ -147,15 +188,87 @@ func UpdateUsernameOrEmail() echo.HandlerFunc {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse ID", Message: fmt.Errorf("could not parse ID: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
 
-		_, err = repo.UpdateUserUsernameOrEmail(ctx, repository.UpdateUserUsernameOrEmailParams{Username: payload.Username, Email: payload.Email, ID: userUUID})
-		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not update username or email", Message: fmt.Errorf("could not update username or email: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		if payload.Email == user.Email {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusBadRequest, UserMessage: "email did not change", Message: "email did not change"}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
 
-		html := helpers.MustRenderHTML(components.SuccessMsg("User Updated!"))
+		token, err := helpers.GenerateBase62Token(8)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to generate token", Message: fmt.Errorf("failed to generate token: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		_, err = repo.CreateEmailVerification(ctx, repository.CreateEmailVerificationParams{ID: uuid.New(), UserID: userUUID, Token: token, Email: payload.Email, ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(time.Duration(30 * time.Minute)), Valid: true}})
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to generate token", Message: fmt.Errorf("failed to generate token: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		helpers.ResendEmailVerificationTemplate(payload.Email, token)
+
+		csrf := c.Get("csrf").(string)
+
+		html := helpers.MustRenderHTML(components.EmailVerification(payload.Email, csrf, "/verification/update"))
 
 		return c.Blob(http.StatusOK, "text/html", html)
 
+	}
+}
+
+func UpdateManualEmailVerification() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		var payload models.VerifyEmailRequest
+		err := c.Bind(&payload)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusBadRequest, UserMessage: "invalid input", Message: fmt.Errorf("invalid form data: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		err = payload.Validate()
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusBadRequest, UserMessage: err.Error(), Message: fmt.Errorf("invalid form data: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		ctx := c.Request().Context()
+
+		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to open database on signup", Message: fmt.Errorf("failed to open database on signup: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+		defer database.HandleTransaction(ctx, tx, &err)
+		repo := repository.New(tx)
+
+		verification, err := repo.GetEmailVerificationByToken(ctx, payload.Token)
+
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to get email verification", Message: fmt.Errorf("failed to get email verification: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		if verification.ExpiresAt.Time.Before(time.Now()) {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusBadRequest, UserMessage: "token expired", Message: fmt.Errorf("token expired: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		err = repo.VerifyUserEmail(ctx, verification.UserID)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to verify email", Message: fmt.Errorf("failed to verify email: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		err = repo.MarkEmailVerificationUsed(ctx, verification.Token)
+
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, Message: fmt.Sprintf("failed to mark email verification used: %v", err), UserMessage: "failed to verify email"}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		user, err := repo.UpdateUserEmail(ctx, repository.UpdateUserEmailParams{
+			Email: verification.Email,
+			ID:    verification.UserID,
+		})
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, Message: fmt.Sprintf("failed to mark get user: %v", err), UserMessage: "failed to get user"}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		csrf := c.Get("csrf").(string)
+
+		html := helpers.MustRenderHTML(components.ChangeUserEmailForm(user.Email, user.IsEmailVerified, csrf))
+
+		return c.Blob(http.StatusOK, "text/html", html)
 	}
 }
 

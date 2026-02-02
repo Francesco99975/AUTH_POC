@@ -59,6 +59,24 @@ WHERE id = $3
 RETURNING id, role, username, email, is_active, is_email_verified,
          twofa_enabled, last_login, created_at, updated_at;
 
+-- name: UpdateUserUsername :one
+UPDATE users
+SET
+    username       = $1,
+    updated_at     = NOW()
+WHERE id = $2
+RETURNING id, role, username, email, is_active, is_email_verified,
+         twofa_enabled, last_login, created_at, updated_at;
+
+-- name: UpdateUserEmail :one
+UPDATE users
+SET
+    email          = $1,
+    updated_at     = NOW()
+WHERE id = $2
+RETURNING id, role, username, email, is_active, is_email_verified,
+         twofa_enabled, last_login, created_at, updated_at;
+
 -- name: UpdateUserLastLogin :exec
 UPDATE users
 SET last_login = NOW()

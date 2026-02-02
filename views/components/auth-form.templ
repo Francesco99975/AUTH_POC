@@ -248,8 +248,8 @@ templ SocialButtons() {
 	</div>
 }
 
-templ EmailVerification(email string, csrf string) {
-	<div class="bg-std rounded-2xl shadow-xl p-8 max-w-md w-full mx-auto" x-data="{ verifying: false }">
+templ EmailVerification(email string, csrf string, verify_url string) {
+	<div id="email-verification-container" class="bg-std rounded-2xl shadow-xl p-8 max-w-md w-full mx-auto" x-data="{ verifying: false }">
 		<div class="text-center mb-6">
 			<div class="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
 				<svg class="w-8 h-8 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -280,7 +280,9 @@ templ EmailVerification(email string, csrf string) {
 			</ol>
 		</div>
 		<form
-			hx-post="/verification/manual"
+			hx-post={ verify_url }
+			hx-target="#email-verification-container"
+			hx-swap="outerHTML"
 			hx-indicator="#verify-spinner"
 			@submit="verifying = true"
 			class="space-y-4"

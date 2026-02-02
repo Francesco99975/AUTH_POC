@@ -1,0 +1,210 @@
+package views
+
+import (
+	"github.com/Francesco99975/authpoc/internal/models"
+	"github.com/Francesco99975/authpoc/views/layouts"
+
+	"github.com/Francesco99975/authpoc/views/icons"
+)
+
+templ About(site models.Site) {
+	@layouts.Base(site) {
+		<main class="min-h-screen bg-std px-4 py-8 md:py-12 lg:py-16">
+			<!-- Hero Section -->
+			<section class="relative overflow-hidden">
+				<!-- Background Pattern -->
+				<div class="absolute inset-0 bg-linear-to-br from-primary/5 via-transparent to-accent/5"></div>
+				<div class="absolute inset-0 opacity-30">
+					<div class="absolute top-20 left-10 w-72 h-72 bg-primary/10 rounded-full blur-3xl"></div>
+					<div class="absolute bottom-20 right-10 w-96 h-96 bg-accent/10 rounded-full blur-3xl"></div>
+				</div>
+				<div class="relative container mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24 lg:py-32">
+					<div class="max-w-4xl mx-auto text-center">
+						<div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6">
+							@icons.Code("w-4 h-4")
+							<span>Proof of Concept</span>
+						</div>
+						<h1 class="text-4xl sm:text-5xl lg:text-6xl font-bold text-primary leading-tight mb-6">
+							Custom Auth
+							<span class="text-accent">Boilerplate</span>
+						</h1>
+						<p class="text-lg sm:text-xl text-primary/70 leading-relaxed max-w-2xl mx-auto">
+							A reusable and secure set of predefined, pre-tested authentication tools designed to quickly implement custom auth into new Go projects.
+						</p>
+					</div>
+				</div>
+			</section>
+			<!-- What Is This Section -->
+			<section class="py-16 sm:py-20 border-t border-primary/10">
+				<div class="container mx-auto px-4 sm:px-6 lg:px-8">
+					<div class="max-w-4xl mx-auto">
+						<div class="flex items-start gap-4 mb-8">
+							<div class="shrink-0 h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
+								@icons.AlertCircle("w-6 h-6 text-primary")
+							</div>
+							<div>
+								<h2 class="text-2xl sm:text-3xl font-bold text-primary mb-4">What Is This?</h2>
+								<div class="prose prose-lg text-primary/70 space-y-4">
+									<p>
+										This project serves as a <strong class="text-primary">proof of concept</strong> for custom authentication boilerplate. It demonstrates both session-based and JWT token-based authentication methods that can be adapted and reused across different Go projects.
+									</p>
+									<p>
+										The goal is to provide developers with a solid foundation of security-focused, battle-tested components that can be quickly integrated into new applications without reinventing the wheel each time.
+									</p>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</section>
+			<!-- Auth Methods Section -->
+			<section class="py-16 sm:py-20 bg-primary/5">
+				<div class="container mx-auto px-4 sm:px-6 lg:px-8">
+					<div class="max-w-4xl mx-auto">
+						<h2 class="text-2xl sm:text-3xl font-bold text-primary mb-8 text-center">Supported Authentication Methods</h2>
+						<div class="grid md:grid-cols-2 gap-6">
+							<!-- Session Based -->
+							<div class="p-6 rounded-2xl bg-std border border-primary/10 shadow-sm hover:shadow-md transition-shadow">
+								<div class="flex items-center gap-4 mb-4">
+									<div class="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
+										@icons.Database("w-6 h-6 text-primary")
+									</div>
+									<h3 class="text-xl font-semibold text-primary">Session-Based Auth</h3>
+								</div>
+								<p class="text-primary/70 mb-4">
+									Traditional server-side session management with secure cookie handling and database-backed session storage.
+								</p>
+								<ul class="space-y-2 text-sm text-primary/60">
+									<li class="flex items-center gap-2">
+										@icons.CheckIcon("w-4 h-4 text-success")
+										<span>Secure HTTP-only cookies</span>
+									</li>
+									<li class="flex items-center gap-2">
+										@icons.CheckIcon("w-4 h-4 text-success")
+										<span>Server-side session storage</span>
+									</li>
+									<li class="flex items-center gap-2">
+										@icons.CheckIcon("w-4 h-4 text-success")
+										<span>Automatic session renewal</span>
+									</li>
+									<li class="flex items-center gap-2">
+										@icons.CheckIcon("w-4 h-4 text-success")
+										<span>CSRF protection</span>
+									</li>
+								</ul>
+							</div>
+							<!-- JWT Based -->
+							<div class="p-6 rounded-2xl bg-std border border-primary/10 shadow-sm hover:shadow-md transition-shadow">
+								<div class="flex items-center gap-4 mb-4">
+									<div class="h-12 w-12 rounded-xl bg-accent/10 flex items-center justify-center">
+										@icons.Key("w-6 h-6 text-accent")
+									</div>
+									<h3 class="text-xl font-semibold text-primary">JWT Token Auth</h3>
+								</div>
+								<p class="text-primary/70 mb-4">
+									Stateless authentication using JSON Web Tokens with refresh token rotation and secure storage patterns.
+								</p>
+								<ul class="space-y-2 text-sm text-primary/60">
+									<li class="flex items-center gap-2">
+										@icons.CheckIcon("w-4 h-4 text-success")
+										<span>Access + Refresh tokens</span>
+									</li>
+									<li class="flex items-center gap-2">
+										@icons.CheckIcon("w-4 h-4 text-success")
+										<span>Token rotation strategy</span>
+									</li>
+									<li class="flex items-center gap-2">
+										@icons.CheckIcon("w-4 h-4 text-success")
+										<span>Stateless verification</span>
+									</li>
+									<li class="flex items-center gap-2">
+										@icons.CheckIcon("w-4 h-4 text-success")
+										<span>API-friendly design</span>
+									</li>
+								</ul>
+							</div>
+						</div>
+					</div>
+				</div>
+			</section>
+			<!-- Features Section -->
+			<section class="py-16 sm:py-20 border-t border-primary/10">
+				<div class="container mx-auto px-4 sm:px-6 lg:px-8">
+					<div class="max-w-4xl mx-auto">
+						<h2 class="text-2xl sm:text-3xl font-bold text-primary mb-8 text-center">Key Features</h2>
+						<div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+							@FeatureCard(icons.Shield, "Security First", "Built with security best practices including bcrypt hashing, secure sessions, and protection against common vulnerabilities.")
+							@FeatureCard(icons.Zap, "Quick Integration", "Drop-in components and clear patterns that can be adapted to any Go project within minutes.")
+							@FeatureCard(icons.Layers, "Modular Design", "Pick and choose the components you need. Use sessions, JWT, or both depending on your requirements.")
+							@FeatureCard(icons.CheckCircle, "Pre-Tested", "All authentication flows have been tested for common edge cases and security scenarios.")
+							@FeatureCard(icons.UsersIcon, "Role-Based Access", "Built-in support for user roles (Developer, Admin, User) with customizable permission levels.")
+							@FeatureCard(icons.Lock, "2FA Support", "Two-factor authentication with TOTP, recovery codes, and secure enable/disable flows.")
+						</div>
+					</div>
+				</div>
+			</section>
+			<!-- Tech Stack Section -->
+			<section class="py-16 sm:py-20 bg-primary/5">
+				<div class="container mx-auto px-4 sm:px-6 lg:px-8">
+					<div class="max-w-4xl mx-auto">
+						<h2 class="text-2xl sm:text-3xl font-bold text-primary mb-8 text-center">Built With</h2>
+						<div class="flex flex-wrap justify-center gap-4">
+							@TechBadge("Go")
+							@TechBadge("HTMX")
+							@TechBadge("Alpine.js")
+							@TechBadge("Tailwind CSS")
+							@TechBadge("Templ")
+							@TechBadge("PostgreSQL")
+							@TechBadge("SQLC")
+						</div>
+					</div>
+				</div>
+			</section>
+			<!-- CTA Section -->
+			<section class="py-16 sm:py-20 border-t border-primary/10">
+				<div class="container mx-auto px-4 sm:px-6 lg:px-8">
+					<div class="max-w-2xl mx-auto text-center">
+						<h2 class="text-2xl sm:text-3xl font-bold text-primary mb-4">Ready to Explore?</h2>
+						<p class="text-primary/70 mb-8">
+							Try out the authentication flows by creating an account or logging in. Experience the full cycle of signup, email verification, login, 2FA, and account management.
+						</p>
+						<div class="flex flex-col sm:flex-row gap-4 justify-center">
+							<a
+								href="/"
+								class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-primary text-white font-medium hover:bg-primary/90 transition-all"
+							>
+								Get Started
+								@icons.ArrowRight("w-5 h-5")
+							</a>
+							<a
+								href="https://github.com"
+								target="_blank"
+								rel="noopener noreferrer"
+								class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg border border-primary/20 text-primary font-medium hover:bg-primary/5 transition-all"
+							>
+								@icons.GitHub("w-5 h-5")
+								View Source
+							</a>
+						</div>
+					</div>
+				</div>
+			</section>
+		</main>
+	}
+}
+
+templ FeatureCard(icon func(string) templ.Component, title string, description string) {
+	<div class="p-5 rounded-xl bg-std border border-primary/10 hover:border-primary/20 transition-colors">
+		<div class="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
+			@icon("w-5 h-5 text-primary")
+		</div>
+		<h3 class="text-base font-semibold text-primary mb-2">{ title }</h3>
+		<p class="text-sm text-primary/60 leading-relaxed">{ description }</p>
+	</div>
+}
+
+templ TechBadge(name string) {
+	<span class="inline-flex items-center px-4 py-2 rounded-full bg-std border border-primary/10 text-sm font-medium text-primary hover:border-accent/30 hover:bg-accent/5 transition-colors">
+		{ name }
+	</span>
+}

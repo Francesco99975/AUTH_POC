@@ -24,23 +24,25 @@ func (q *Queries) CleanupExpiredEmailVerifications(ctx context.Context) error {
 
 const createEmailVerification = `-- name: CreateEmailVerification :one
 INSERT INTO email_verifications (
-    id, user_id, token, expires_at
+    id, user_id, token, email, expires_at
 ) VALUES (
-    $1, $2, $3, $4
+    $1, $2, $3, $4, $5
 )
-RETURNING id, token, expires_at, created_at
+RETURNING id, token, email, expires_at, created_at
 `
 
 type CreateEmailVerificationParams struct {
 	ID        uuid.UUID          `json:"id"`
 	UserID    uuid.UUID          `json:"user_id"`
 	Token     string             `json:"token"`
+	Email     string             `json:"email"`
 	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
 }
 
 type CreateEmailVerificationRow struct {
 	ID        uuid.UUID          `json:"id"`
 	Token     string             `json:"token"`
+	Email     string             `json:"email"`
 	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
@@ -50,12 +52,14 @@ func (q *Queries) CreateEmailVerification(ctx context.Context, arg CreateEmailVe
 		arg.ID,
 		arg.UserID,
 		arg.Token,
+		arg.Email,
 		arg.ExpiresAt,
 	)
 	var i CreateEmailVerificationRow
 	err := row.Scan(
 		&i.ID,
 		&i.Token,
+		&i.Email,
 		&i.ExpiresAt,
 		&i.CreatedAt,
 	)
@@ -73,18 +77,29 @@ func (q *Queries) DeleteEmailVerificationByUserID(ctx context.Context, userID uu
 }
 
 const getEmailVerificationByID = `-- name: GetEmailVerificationByID :one
-SELECT id, user_id, token, expires_at, used, created_at
+SELECT id, user_id, token, email, expires_at, used, created_at
 FROM email_verifications
 WHERE id = $1
 `
 
-func (q *Queries) GetEmailVerificationByID(ctx context.Context, id uuid.UUID) (*EmailVerification, error) {
+type GetEmailVerificationByIDRow struct {
+	ID        uuid.UUID          `json:"id"`
+	UserID    uuid.UUID          `json:"user_id"`
+	Token     string             `json:"token"`
+	Email     string             `json:"email"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+	Used      bool               `json:"used"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) GetEmailVerificationByID(ctx context.Context, id uuid.UUID) (*GetEmailVerificationByIDRow, error) {
 	row := q.db.QueryRow(ctx, getEmailVerificationByID, id)
-	var i EmailVerification
+	var i GetEmailVerificationByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
 		&i.Token,
+		&i.Email,
 		&i.ExpiresAt,
 		&i.Used,
 		&i.CreatedAt,
@@ -93,20 +108,31 @@ func (q *Queries) GetEmailVerificationByID(ctx context.Context, id uuid.UUID) (*
 }
 
 const getEmailVerificationByToken = `-- name: GetEmailVerificationByToken :one
-SELECT id, user_id, token, expires_at, used, created_at
+SELECT id, user_id, token, email, expires_at, used, created_at
 FROM email_verifications
 WHERE token = $1
   AND used = FALSE
   AND expires_at > NOW()
 `
 
-func (q *Queries) GetEmailVerificationByToken(ctx context.Context, token string) (*EmailVerification, error) {
+type GetEmailVerificationByTokenRow struct {
+	ID        uuid.UUID          `json:"id"`
+	UserID    uuid.UUID          `json:"user_id"`
+	Token     string             `json:"token"`
+	Email     string             `json:"email"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+	Used      bool               `json:"used"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) GetEmailVerificationByToken(ctx context.Context, token string) (*GetEmailVerificationByTokenRow, error) {
 	row := q.db.QueryRow(ctx, getEmailVerificationByToken, token)
-	var i EmailVerification
+	var i GetEmailVerificationByTokenRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
 		&i.Token,
+		&i.Email,
 		&i.ExpiresAt,
 		&i.Used,
 		&i.CreatedAt,
@@ -115,18 +141,29 @@ func (q *Queries) GetEmailVerificationByToken(ctx context.Context, token string)
 }
 
 const getEmailVerificationByUserID = `-- name: GetEmailVerificationByUserID :one
-SELECT id, user_id, token, expires_at, used, created_at
+SELECT id, user_id, token, email, expires_at, used, created_at
 FROM email_verifications
 WHERE user_id = $1
 `
 
-func (q *Queries) GetEmailVerificationByUserID(ctx context.Context, userID uuid.UUID) (*EmailVerification, error) {
+type GetEmailVerificationByUserIDRow struct {
+	ID        uuid.UUID          `json:"id"`
+	UserID    uuid.UUID          `json:"user_id"`
+	Token     string             `json:"token"`
+	Email     string             `json:"email"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+	Used      bool               `json:"used"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) GetEmailVerificationByUserID(ctx context.Context, userID uuid.UUID) (*GetEmailVerificationByUserIDRow, error) {
 	row := q.db.QueryRow(ctx, getEmailVerificationByUserID, userID)
-	var i EmailVerification
+	var i GetEmailVerificationByUserIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
 		&i.Token,
+		&i.Email,
 		&i.ExpiresAt,
 		&i.Used,
 		&i.CreatedAt,

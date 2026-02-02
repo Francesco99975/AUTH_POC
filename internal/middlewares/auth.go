@@ -23,9 +23,9 @@ func AuthMiddleware() echo.MiddlewareFunc {
 				return c.Redirect(http.StatusSeeOther, "/auth")
 			}
 
-			log.Debugf("Authenticated user: %s", auser)
+			log.Debugf("Authenticated user: %s", auser.Username)
 
-			ctx := context.WithValue(c.Request().Context(), UserKey, auser)
+			ctx := context.WithValue(c.Request().Context(), UserKey, auser.ID)
 
 			c.SetRequest(c.Request().WithContext(ctx))
 			return next(c)

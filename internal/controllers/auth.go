@@ -62,7 +62,7 @@ func SessionSignup() echo.HandlerFunc {
 		}
 		log.Debugf("Generated token: %v", token)
 
-		ev, err := repo.CreateEmailVerification(ctx, repository.CreateEmailVerificationParams{ID: uuid.New(), UserID: newUser.ID, Token: token, ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(time.Duration(30 * time.Minute)), Valid: true}})
+		ev, err := repo.CreateEmailVerification(ctx, repository.CreateEmailVerificationParams{ID: uuid.New(), UserID: newUser.ID, Token: token, Email: newUser.Email, ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(time.Duration(30 * time.Minute)), Valid: true}})
 		if err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to Create email verification", Message: fmt.Errorf("failed to Create email verification: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
@@ -71,7 +71,7 @@ func SessionSignup() echo.HandlerFunc {
 
 		csrf := c.Get("csrf").(string)
 
-		html := helpers.MustRenderHTML(components.EmailVerification(payload.Email, csrf))
+		html := helpers.MustRenderHTML(components.EmailVerification(payload.Email, csrf, "/verification/manual"))
 
 		return c.Blob(http.StatusCreated, "text/html", html)
 	}

@@ -82,6 +82,8 @@ func SetSessionUser(w http.ResponseWriter, r *http.Request, user AuthenticatedSe
 	session.Values["username"] = user.Username
 	session.Values["email"] = user.Email
 	session.Values["role"] = user.Role
+	session.Values["is_active"] = user.IsActive
+	session.Values["twofa_enabled"] = user.TwoFAEnabled
 	session.Values["authenticated"] = true
 	session.Options = getSessionOptions(remember)
 	return session.Save(r, w)
@@ -90,11 +92,29 @@ func SetSessionUser(w http.ResponseWriter, r *http.Request, user AuthenticatedSe
 func GetSessionUser(r *http.Request) (AuthenticatedSessionUser, bool) {
 	session, _ := SessionStore.Get(r, "session")
 	userID, ok_id := session.Values["user_id"].(string)
+	if !ok_id {
+		log.Printf("No user_id in session: %v", session.Values)
+	}
 	username, ok_username := session.Values["username"].(string)
+	if !ok_username {
+		log.Printf("No username in session: %v", session.Values)
+	}
 	email, ok_email := session.Values["email"].(string)
+	if !ok_email {
+		log.Printf("No email in session: %v", session.Values)
+	}
 	role, ok_role := session.Values["role"].(string)
+	if !ok_role {
+		log.Printf("No role in session: %v", session.Values)
+	}
 	is_active, ok_active := session.Values["is_active"].(bool)
+	if !ok_active {
+		log.Printf("No is_active in session: %v", session.Values)
+	}
 	twofa_enabled, ok_twofa_enabled := session.Values["twofa_enabled"].(bool)
+	if !ok_twofa_enabled {
+		log.Printf("No twofa_enabled in session: %v", session.Values)
+	}
 	authenticated := session.Values["authenticated"] == true
 
 	user := AuthenticatedSessionUser{
