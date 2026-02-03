@@ -13,7 +13,10 @@ templ About(site models.Site) {
 			<section class="relative overflow-hidden">
 				<!-- Background Pattern -->
 				<div class="absolute inset-0 bg-linear-to-br from-primary/5 via-transparent to-accent/5"></div>
-				<div class="absolute inset-0 opacity-30"><div class="absolute top-20 left-10 w-72 h-72 bg-primary/10 rounded-full blur-3xl"></div> <div class="absolute bottom-20 right-10 w-96 h-96 bg-accent/10 rounded-full blur-3xl"></div> </div>
+				<div class="absolute inset-0 opacity-30">
+					<div class="absolute top-20 left-10 w-72 h-72 bg-primary/10 rounded-full blur-3xl"></div>
+					<div class="absolute bottom-20 right-10 w-96 h-96 bg-accent/10 rounded-full blur-3xl"></div>
+				</div>
 				<div class="relative container mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24 lg:py-32">
 					<div class="max-w-4xl mx-auto text-center">
 						<div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6">
@@ -37,9 +40,7 @@ templ About(site models.Site) {
 								<div class="prose prose-lg text-primary/70 space-y-4">
 									<p>
 										This project serves as a
-										<strong class="text-primary">
-											proof of concept
-										</strong>
+										proof of concept
 										for custom authentication boilerplate. It demonstrates both session-based and JWT token-based authentication methods that can be adapted and reused across different Go projects.
 									</p>
 									<p>
@@ -54,7 +55,9 @@ templ About(site models.Site) {
 			<section class="py-16 sm:py-20 bg-primary/5">
 				<div class="container mx-auto px-4 sm:px-6 lg:px-8">
 					<div class="max-w-4xl mx-auto">
-						<h2 class="text-2xl sm:text-3xl font-bold text-primary mb-8 text-center">Supported Authentication Methods</h2>
+						<h2 class="text-2xl sm:text-3xl font-bold text-primary mb-8 text-center">
+							Supported Authentication Methods
+						</h2>
 						<div class="grid md:grid-cols-2 gap-6">
 							<!-- Session Based -->
 							<div class="p-6 rounded-2xl bg-std border border-primary/10 shadow-sm hover:shadow-md transition-shadow">
