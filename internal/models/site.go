@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/Francesco99975/authpoc/cmd/boot"
@@ -26,6 +27,7 @@ type SEO struct {
 	Description string
 	Keywords    string
 	Author      string
+	Canonical   string
 }
 type Site struct {
 	AppName      string
@@ -44,15 +46,20 @@ type Site struct {
 	CSSIntegrity string
 }
 
-func GetDefaultSite(title string) Site {
+func GetDefaultSite(title string, r *http.Request) Site {
 	jsFile, jsIntegrity := GetJS()
 
 	cssFile, cssIntegrity := GetCSS()
 
+	protocol := "http"
+	if r.TLS != nil {
+		protocol = "https"
+	}
+
 	return Site{
 		AppName:  "AUTH POC",
 		Title:    title,
-		Metatags: SEO{Description: "App", Keywords: "tool", Author: "kalairen"},
+		Metatags: SEO{Description: "App", Keywords: "tool", Author: "kalairen", Canonical: fmt.Sprintf("%s://%s%s", protocol, r.Host, r.URL.Path)},
 		Year:     time.Now().Year(),
 		Organization: Organization{
 			Context:      "https://schema.org",

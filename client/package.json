@@ -11,7 +11,7 @@
     "lint:fix": "eslint . --ext .ts --fix",
     "prettier": "prettier --write src/",
     "generate-assets": "svgo public/icon.svg -o public/icon-optimized.svg && pwa-assets-generator --config pwa-assets.config.ts",
-    "bench": "TIMESTAMP=$(date +%Y%m%d_%H%M%S) && npx lighthouse http://localhost:8788 --chrome-flags='--headless --no-sandbox' --only-categories=performance,accessibility,best-practices,seo --output=json,html --output-path=./benchmarks/lighthouse/$TIMESTAMP && npm run bench:format && npm run bench:html",
+    "bench": "TIMESTAMP=$(date +%Y%m%d_%H%M%S) && npx lighthouse http://localhost:3269/auth --chrome-flags='--headless --no-sandbox' --only-categories=performance,accessibility,best-practices,seo --output=json,html --output-path=./benchmarks/lighthouse/$TIMESTAMP && npm run bench:format && npm run bench:html",
     "bench:format": "zsh -c 'LATEST=$(ls benchmarks/lighthouse/ | grep .json | tail -1) && HTML=$(ls benchmarks/lighthouse/ | grep .html | head -1) && JSON_FILE=benchmarks/lighthouse/$LATEST && echo \"✅ Results saved to benchmarks/lighthouse\" && echo \"📊 Performance: $(jq .categories.performance.score $JSON_FILE)\" && echo \"♿ Accessibility: $(jq .categories.accessibility.score $JSON_FILE)\" && echo \"🔧 Best Practices: $(jq \".categories[\\\"best-practices\\\"].score\" $JSON_FILE)\" && echo \"🔍 SEO: $(jq .categories.seo.score $JSON_FILE)\" && echo \"📁 View HTML: chromium benchmarks/lighthouse/$HTML\"'",
     "bench:html": "zsh -c 'LATEST=$(ls benchmarks/lighthouse/ | grep .html | tail -1) && chromium benchmarks/lighthouse/$LATEST'"
   },

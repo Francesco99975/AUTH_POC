@@ -161,7 +161,7 @@ func serverErrorHandler(err error, c echo.Context) {
 		})
 	} else {
 		// Prepare data for rendering the error page (HTML)
-		data := models.GetDefaultSite("Error")
+		data := models.GetDefaultSite("Error", c.Request())
 
 		html := helpers.MustRenderHTML(views.Error(data, fmt.Sprintf("%d", code), message.(string)))
 

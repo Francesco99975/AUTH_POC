@@ -27,7 +27,7 @@ import (
 func Settings() echo.HandlerFunc {
 	return func(c echo.Context) error {
 
-		data := models.GetDefaultSite("Settings")
+		data := models.GetDefaultSite("Settings", c.Request())
 
 		data.Nonce = c.Get("nonce").(string)
 		data.CSRF = c.Get("csrf").(string)

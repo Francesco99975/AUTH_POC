@@ -82,7 +82,7 @@ func InitTwoFA() echo.HandlerFunc {
 		}
 
 		key, err := totp.Generate(totp.GenerateOpts{
-			Issuer:      models.GetDefaultSite("").AppName,
+			Issuer:      models.GetDefaultSite("", c.Request()).AppName,
 			AccountName: user.Email,
 		})
 		if err != nil {

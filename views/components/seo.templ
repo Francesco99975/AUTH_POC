@@ -24,7 +24,7 @@ templ SEO(site models.Site) {
 		<meta name="author" content={ site.Metatags.Author }/>
 		<meta name="robots" content="index, follow"/>
 		<link rel="robots" href="/assets/robots.txt"/>
-		<link rel="canonical" href={ boot.Environment.URL }/>
+		<link rel="canonical" href={ site.Metatags.Canonical }/>
 		<meta property="og:locale" content="en_US"/>
 		<meta property="og:type" content="website"/>
 		<meta property="og:title" content={ site.Title }/>

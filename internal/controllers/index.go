@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/gommon/log"
 )
 
 func Index() echo.HandlerFunc {
@@ -35,10 +36,11 @@ func Auth() echo.HandlerFunc {
 			return c.Redirect(http.StatusSeeOther, "/dashboard")
 		}
 
-		data := models.GetDefaultSite("Authentication")
-
+		data := models.GetDefaultSite("Authentication", c.Request())
 		data.Nonce = c.Get("nonce").(string)
 		data.CSRF = c.Get("csrf").(string)
+
+		log.Debugf("Canonical: %s", data.Metatags.Canonical)
 
 		html := helpers.MustRenderHTML(views.Index(data))
 
@@ -54,7 +56,7 @@ func Dashboard() echo.HandlerFunc {
 			return c.Redirect(http.StatusSeeOther, "/auth")
 		}
 
-		data := models.GetDefaultSite("Dashboard")
+		data := models.GetDefaultSite("Dashboard", c.Request())
 
 		data.Nonce = c.Get("nonce").(string)
 		data.CSRF = c.Get("csrf").(string)

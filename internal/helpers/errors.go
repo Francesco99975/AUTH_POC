@@ -48,7 +48,7 @@ func SendReturnedGenericHTMLError(c echo.Context, err GenericError, r *Reporter)
 		_ = r.Report(SeverityLevels.ERROR, err.Stringify())
 	}
 
-	html := MustRenderHTML(views.Error(models.GetDefaultSite("Error"), fmt.Sprintf("%d", err.Code), err.UserMessage))
+	html := MustRenderHTML(views.Error(models.GetDefaultSite("Error", c.Request()), fmt.Sprintf("%d", err.Code), err.UserMessage))
 
 	return c.Blob(err.Code, "text/html", html)
 }

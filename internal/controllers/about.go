@@ -12,7 +12,7 @@ import (
 func About() echo.HandlerFunc {
 	return func(c echo.Context) error {
 
-		data := models.GetDefaultSite("Dashboard")
+		data := models.GetDefaultSite("Dashboard", c.Request())
 
 		data.Nonce = c.Get("nonce").(string)
 		data.CSRF = c.Get("csrf").(string)
