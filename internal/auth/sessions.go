@@ -35,17 +35,18 @@ func InitSessionStore() {
 	SessionStore = sessions.NewCookieStore(authKey, encKey)
 }
 func getSessionOptions(remember bool) *sessions.Options {
-	sameSite := http.SameSiteDefaultMode
+	domain := ""
+	sameSite := http.SameSiteLaxMode
 	maxAge := 86400 * 7 // One Week
 	if remember {
 		maxAge = maxAge * 52 // One Year
 	}
 
 	if boot.Environment.GoEnv == enums.Environments.DEVELOPMENT {
-		sameSite = http.SameSiteDefaultMode
+		domain = boot.Environment.Host
 
 		if remember {
-			maxAge = 0 // Infinite
+			maxAge = 0 //Session Only (Closing browser deletes session)
 		} else {
 			maxAge = 86400 / 24 / 60 * 5 // 5 minutes
 		}
@@ -57,7 +58,7 @@ func getSessionOptions(remember bool) *sessions.Options {
 		MaxAge:   maxAge,
 		HttpOnly: true,
 		Secure:   boot.Environment.GoEnv != enums.Environments.DEVELOPMENT,
-		Domain:   boot.Environment.Host,
+		Domain:   domain,
 		SameSite: sameSite,
 	}
 
@@ -136,6 +137,7 @@ func ClearSession(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	session.Options.MaxAge = -1 // Delete cookie
+	session.Options.Path = "/"
 	return session.Save(r, w)
 }
 
