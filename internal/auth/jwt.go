@@ -55,7 +55,7 @@ func GenerateEncryptedToken(user AuthenticatedSessionUser, duration time.Duratio
 		return "", err
 	}
 
-	log.Debugf("Encryption key len: %s", len(encryptKey))
+	log.Infof("Encryption key len: %s", len(string(encryptKey)))
 
 	if len(encryptKey) != 32 {
 		return "", errors.New("invalid encryption key length")
