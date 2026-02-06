@@ -12,6 +12,7 @@ import (
 
 	"github.com/Francesco99975/authpoc/cmd/boot"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/labstack/gommon/log"
 )
 
 // Claims for the interim 2FA token
@@ -53,6 +54,8 @@ func GenerateEncryptedToken(user AuthenticatedSessionUser, duration time.Duratio
 	if err != nil {
 		return "", err
 	}
+
+	log.Debugf("Encryption key len: %s", len(encryptKey))
 
 	if len(encryptKey) != 32 {
 		return "", errors.New("invalid encryption key length")
