@@ -1,6 +1,9 @@
 package components
 
-import "github.com/Francesco99975/authpoc/views/icons"
+import (
+	"github.com/Francesco99975/authpoc/views/icons"
+	ui "github.com/Francesco99975/authpoc/views/ui/forms"
+)
 
 templ AuthForm(csrf string) {
 	<div
@@ -56,7 +59,6 @@ templ AuthForm(csrf string) {
 			>
 				@SignupForm(csrf)
 			</div>
-			<div id="auth-response"></div>
 		</div>
 	</div>
 }
@@ -66,8 +68,7 @@ templ LoginForm(csrf string) {
 		hx-post="/login"
 		hx-target="this"
 		hx-swap="outerHTML"
-		hx-indicator="#login-indicator"
-		hx-disabled-elt="find input, find button"
+		{ ui.WithLoading("login-indicator")... }
 		class="space-y-4 md:space-y-5"
 	>
 		@CSRF(csrf)
@@ -116,17 +117,9 @@ templ LoginForm(csrf string) {
 				Forgot password?
 			</a>
 		</div>
-		<div class="relative">
-			<button
-				type="submit"
-				class="w-full py-3 md:py-3.5 bg-primary text-white font-semibold rounded-xl hover:bg-primary/90 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 disabled:opacity-75 disabled:cursor-not-allowed"
-			>
-				Sign In
-			</button>
-			<div id="login-indicator" class="htmx-indicator absolute inset-0 flex items-center justify-center bg-primary/95 rounded-xl pointer-events-none">
-				@icons.Loading("w-5 h-5 animate-spin text-white")
-			</div>
-		</div>
+		@ui.SubmitButton("login-indicator") {
+			<span>Sign In</span>
+		}
 	</form>
 	@SocialButtons()
 }
@@ -136,8 +129,7 @@ templ SignupForm(csrf string) {
 		hx-post="/signup"
 		hx-target="this"
 		hx-swap="outerHTML"
-		hx-indicator="#signup-indicator"
-		hx-disabled-elt="find input, find button"
+		{ ui.WithLoading("signup-indicator")... }
 		class="space-y-4 md:space-y-5"
 	>
 		@CSRF(csrf)
@@ -249,7 +241,7 @@ templ SocialButtons() {
 }
 
 templ EmailVerification(email string, csrf string, verify_url string) {
-	<div id="email-verification-container" class="bg-std rounded-2xl shadow-xl p-8 max-w-md w-full mx-auto" x-data="{ verifying: false }">
+	<div id="email-verification-container" class="bg-std rounded-2xl shadow-xl p-8 max-w-md w-full mx-auto">
 		<div class="text-center mb-6">
 			<div class="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
 				<svg class="w-8 h-8 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -283,41 +275,15 @@ templ EmailVerification(email string, csrf string, verify_url string) {
 			hx-post={ verify_url }
 			hx-target="#email-verification-container"
 			hx-swap="outerHTML"
-			hx-indicator="#verify-spinner"
+			{ ui.WithLoading("verify-spinner")... }
 			@submit="verifying = true"
 			class="space-y-4"
 		>
 			@CSRF(csrf)
-			<div>
-				<label for="token" class="block text-sm font-medium text-primary mb-2">
-					Verification Code
-				</label>
-				<input
-					type="text"
-					id="token"
-					name="token"
-					placeholder="Enter your token"
-					required
-					maxlength="21"
-					class="w-full px-4 py-3 bg-std border border-primary/20 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-center text-lg font-mono tracking-wider text-primary"
-				/>
-				<p class="text-xs text-primary/60 mt-2">
-					Check your email for the verification token
-				</p>
-			</div>
-			<button
-				type="submit"
-				class="w-full bg-primary hover:bg-primary/90 text-white font-semibold py-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
-				:disabled="verifying"
-			>
-				<span x-show="!verifying">Verify Email</span>
-				<span x-show="verifying" class="flex items-center gap-2">
-					<span id="verify-spinner" class="htmx-indicator">
-						@icons.Loading("w-5 h-5 animate-spin")
-					</span>
-					Verifying...
-				</span>
-			</button>
+			@ui.GenericCodeInput("token", "Verification Code", "Check your email for the verification token")
+			@ui.SubmitButton("verify-spinner") {
+				<span>Verify & Continue</span>
+			}
 		</form>
 		<div
 			class="mt-6 text-center"
@@ -349,7 +315,7 @@ templ EmailVerification(email string, csrf string, verify_url string) {
 				hx-swap="innerHTML"
 				@htmx:after-request="startTimer()"
 			>
-				<input type="hidden" name="email" value={ email }/>
+				@ui.HiddenInput("email", email)
 				@CSRF(csrf)
 				<button
 					type="submit"

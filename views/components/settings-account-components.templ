@@ -1,6 +1,9 @@
 package components
 
-import "github.com/Francesco99975/authpoc/views/icons"
+import (
+	"github.com/Francesco99975/authpoc/views/icons"
+	ui "github.com/Francesco99975/authpoc/views/ui/forms"
+)
 
 type AccountProps struct {
 	IsActive     bool
@@ -209,8 +212,7 @@ templ DeactivateModal(csrf string) {
 					<form
 						hx-delete="/settings/account/deactivate"
 						hx-swap="none"
-						hx-indicator="#deactivate-modal-indicator"
-						hx-disabled-elt="find button"
+						{ ui.WithLoading("deactivate-modal-indicator")... }
 						@htmx:after-request="showDeactivateModal = false"
 					>
 						@CSRF(csrf)
@@ -219,9 +221,7 @@ templ DeactivateModal(csrf string) {
 							class="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-error text-white font-medium text-sm hover:bg-error/90 transition-all relative"
 						>
 							<span>Deactivate Account</span>
-							<div id="deactivate-modal-indicator" class="htmx-indicator absolute inset-0 flex items-center justify-center bg-error rounded-lg">
-								@icons.Loading("w-5 h-5 text-white animate-spin")
-							</div>
+							@ui.LoadingIndicator("deactivate-modal-indicator")
 						</button>
 					</form>
 				</div>
@@ -299,8 +299,7 @@ templ ActivateModal(csrf string) {
 					<form
 						hx-post="/settings/account/activate"
 						hx-swap="none"
-						hx-indicator="#activate-modal-indicator"
-						hx-disabled-elt="find button"
+						{ ui.WithLoading("activate-modal-indicator")... }
 						@htmx:after-request="showActivateModal = false"
 					>
 						@CSRF(csrf)
@@ -309,9 +308,7 @@ templ ActivateModal(csrf string) {
 							class="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-success text-white font-medium text-sm hover:bg-success/90 transition-all relative"
 						>
 							<span>Activate Account</span>
-							<div id="activate-modal-indicator" class="htmx-indicator absolute inset-0 flex items-center justify-center bg-success rounded-lg">
-								@icons.Loading("w-5 h-5 text-white animate-spin")
-							</div>
+							@ui.LoadingIndicator("activate-modal-indicator")
 						</button>
 					</form>
 				</div>

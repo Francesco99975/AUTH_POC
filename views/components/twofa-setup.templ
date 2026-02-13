@@ -1,6 +1,7 @@
 package components
 
 import "github.com/Francesco99975/authpoc/views/icons"
+import "github.com/Francesco99975/authpoc/views/ui/forms"
 
 // TwoFASetupProps contains all data needed for 2FA setup flow
 type TwoFASetupProps struct {
@@ -132,8 +133,7 @@ templ TwoFAQRCodeCard(props TwoFASetupProps) {
 				hx-post="/settings/2fa/verify"
 				hx-target="#twofa-setup-container"
 				hx-swap="outerHTML"
-				hx-indicator="#verify-code-indicator"
-				hx-disabled-elt="find input, find button"
+				{ ui.WithLoading("verify-code-indicator")... }
 				class="p-4 sm:p-6 space-y-6"
 			>
 				@CSRF(props.CSRF)
@@ -177,9 +177,7 @@ templ TwoFAQRCodeCard(props TwoFASetupProps) {
 						class="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-primary text-white font-medium text-sm hover:bg-primary/90 transition-all relative"
 					>
 						<span>Verify &amp; Continue</span>
-						<div id="verify-code-indicator" class="htmx-indicator absolute inset-0 flex items-center justify-center bg-primary rounded-lg">
-							@icons.Loading("w-5 h-5 text-white animate-spin")
-						</div>
+						@ui.LoadingIndicator("verify-code-indicator")
 					</button>
 				</div>
 			</form>
@@ -190,12 +188,11 @@ templ TwoFAQRCodeCard(props TwoFASetupProps) {
 templ TwoFACheck(token string, csrf string) {
 	<form
 		hx-post="/auth/2fa/check"
-		hx-indicator="#verify-code-indicator"
-		hx-disabled-elt="find input, find button"
+		{ ui.WithLoading("verify-code-indicator")... }
 		class="p-4 sm:p-6 space-y-6"
 	>
 		@CSRF(csrf)
-		<input type="hidden" name="token" value={ token }/>
+		@ui.HiddenInput("token", token)
 		<!-- Instructions -->
 		<div class="p-4 rounded-lg bg-info/5 border border-info/20">
 			<div class="flex gap-3">
@@ -208,31 +205,10 @@ templ TwoFACheck(token string, csrf string) {
 			</div>
 		</div>
 		<!-- Code Input -->
-		<div>
-			<label class="block text-sm font-medium text-primary mb-2">Verification Code</label>
-			<input
-				type="text"
-				name="otp"
-				inputmode="numeric"
-				pattern="[0-9]*"
-				maxlength="6"
-				placeholder="000000"
-				autocomplete="one-time-code"
-				class="w-full px-4 py-3 rounded-lg border border-primary/20 bg-std text-primary text-center font-mono text-2xl tracking-[0.5em] placeholder-primary/30 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
-				required
-			/>
-		</div>
-		<div class="relative">
-			<button
-				type="submit"
-				class="w-full py-3 md:py-3.5 bg-primary text-white font-semibold rounded-xl hover:bg-primary/90 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 disabled:opacity-75 disabled:cursor-not-allowed"
-			>
-				Verify &amp; Continue
-			</button>
-			<div id="login-indicator" class="htmx-indicator absolute inset-0 flex items-center justify-center bg-primary/95 rounded-xl pointer-events-none">
-				@icons.Loading("w-5 h-5 animate-spin text-white")
-			</div>
-		</div>
+		@ui.OTPInput()
+		@ui.SubmitButton("verify-code-indicator") {
+			<span>Verify & Continue</span>
+		}
 	</form>
 }
 
@@ -316,7 +292,7 @@ templ TwoFARecoverySecretCard(recoverySecret string, csrf string) {
 				hx-post="/settings/2fa/complete"
 				hx-target="#twofa-setup-container"
 				hx-swap="outerHTML"
-				hx-indicator="#complete-indicator"
+				{ ui.WithLoading("complete-indicator")... }
 			>
 				@CSRF(csrf)
 				<button
@@ -326,9 +302,7 @@ templ TwoFARecoverySecretCard(recoverySecret string, csrf string) {
 					class="w-full px-5 py-3 rounded-lg text-white font-medium text-sm transition-all relative"
 				>
 					<span>Complete 2FA Setup</span>
-					<div id="complete-indicator" class="htmx-indicator absolute inset-0 flex items-center justify-center bg-success rounded-lg">
-						@icons.Loading("w-5 h-5 text-white animate-spin")
-					</div>
+					@ui.LoadingIndicator("complete-indicator")
 				</button>
 			</form>
 		</div>
@@ -450,8 +424,7 @@ templ TwoFAEnabledCard(csrf string) {
 							hx-patch="/settings/2fa/disable"
 							hx-target="#twofa-setup-container"
 							hx-swap="outerHTML"
-							hx-indicator="#disable-2fa-modal-indicator"
-							hx-disabled-elt="find input, find button"
+							{ ui.WithLoading("disable-2fa-modal-indicator")... }
 							@htmx:after-request="showDisableModal = false; understandRisks = false"
 							class="space-y-4"
 						>
@@ -511,9 +484,7 @@ templ TwoFAEnabledCard(csrf string) {
 									class="w-full sm:w-auto px-5 py-2.5 rounded-lg text-white font-medium text-sm transition-all relative"
 								>
 									<span>Confirm Disable 2FA</span>
-									<div id="disable-2fa-modal-indicator" class="htmx-indicator absolute inset-0 flex items-center justify-center bg-error rounded-lg">
-										@icons.Loading("w-5 h-5 text-white animate-spin")
-									</div>
+									@ui.LoadingIndicator("disable-2fa-modal-indicator")
 								</button>
 							</div>
 						</form>
@@ -551,7 +522,7 @@ templ TwoFADisabledCard(csrf string) {
 					hx-post="/settings/2fa/setup"
 					hx-target="#twofa-setup-container"
 					hx-swap="outerHTML"
-					hx-indicator="#enable-2fa-indicator"
+					{ ui.WithLoading("enable-2fa-indicator")... }
 				>
 					@CSRF(csrf)
 					<button
@@ -559,9 +530,7 @@ templ TwoFADisabledCard(csrf string) {
 						class="w-full sm:w-auto px-4 py-2.5 rounded-lg bg-primary text-white font-medium text-sm hover:bg-primary/90 transition-all relative"
 					>
 						<span>Enable 2FA</span>
-						<div id="enable-2fa-indicator" class="htmx-indicator absolute inset-0 flex items-center justify-center bg-primary rounded-lg">
-							@icons.Loading("w-4 h-4 text-white animate-spin")
-						</div>
+						@ui.LoadingIndicator("enable-2fa-indicator")
 					</button>
 				</form>
 			</div>

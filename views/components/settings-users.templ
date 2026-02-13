@@ -1,7 +1,10 @@
 package components
 
-import "github.com/Francesco99975/authpoc/views/icons"
-import "strconv"
+import (
+	"github.com/Francesco99975/authpoc/views/icons"
+	ui "github.com/Francesco99975/authpoc/views/ui/forms"
+	"strconv"
+)
 
 type UsersProps struct {
 	Users      []UserInfo
@@ -72,8 +75,7 @@ templ CreateUserForm(csrf string) {
 			hx-post="/settings/users/create"
 			hx-target="#create-user-response"
 			hx-swap="innerHTML"
-			hx-indicator="#create-user-indicator"
-			hx-disabled-elt="find input, find select, find button"
+			{ ui.WithLoading("create-user-indicator")... }
 			@htmx:after-request="if(event.detail.successful) showCreateForm = false"
 			class="p-4 sm:p-6 space-y-4"
 		>
