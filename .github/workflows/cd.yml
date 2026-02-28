@@ -27,13 +27,13 @@ jobs:
         run: make build
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: authpoc-image
           path: authpoc.tar
           retention-days: 1
       - name: Upload docker-compose file
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: docker-compose
           path: docker-compose.yml
