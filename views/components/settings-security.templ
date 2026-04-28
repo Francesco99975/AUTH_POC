@@ -59,10 +59,13 @@ templ ChangePasswordForm(csrf string) {
 			@ui.Button(ui.ButtonProps{
 				Variant: ui.ButtonPrimary,
 				Size:    ui.ButtonMD,
-				Type:    "button",
-				FullW:   true,
-				Loading: "password-indicator",
-			})
+				Type:    ui.TypeSubmit,
+				Loading: ui.LoadingConfig{
+					IndicatorID: "password-indicator",
+				},
+			}) {
+				<span>Change Password</span>
+			}
 		</div>
 		<div id="success-message"></div>
 	</form>

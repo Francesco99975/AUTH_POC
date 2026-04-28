@@ -99,7 +99,9 @@ templ Theme(site models.Site) {
 				<div class="flex flex-wrap gap-3">
 					<form hx-get="/healthcheck" { ui.WithLoading("demo-spin")... } class="space-y-4">
 						@components.CSRF(site.CSRF)
-						@ui.Button(ui.ButtonProps{Variant: ui.ButtonPrimary, Loading: "demo-spin", Type: "submit"}) {
+						@ui.Button(ui.ButtonProps{Variant: ui.ButtonPrimary, Loading: ui.LoadingConfig{
+							IndicatorID: "demo-spin",
+						}, Type: "submit"}) {
 							PRIMARY
 						}
 					</form>
@@ -112,6 +114,15 @@ templ Theme(site models.Site) {
 					@ui.Button(ui.ButtonProps{Variant: ui.ButtonDanger}) {
 						DANGER
 					}
+					<form hx-get="/healthcheck" { ui.WithLoading("demo-spin2")... } class="space-y-4">
+						@components.CSRF(site.CSRF)
+						@ui.Button(ui.ButtonProps{Variant: ui.ButtonGhost, Type: ui.TypeSubmit, Size: ui.ButtonLG, Loading: ui.LoadingConfig{
+							IndicatorID: "demo-spin2",
+							Text:        "fetching...",
+						}}) {
+							BIG GHOST
+						}
+					</form>
 					// Static disable → pass through Attrs:
 					@ui.Button(ui.ButtonProps{
 						Variant: ui.ButtonPrimary,

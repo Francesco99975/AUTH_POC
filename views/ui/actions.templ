@@ -21,6 +21,19 @@ const (
 	ButtonLG ButtonSize = "lg"
 )
 
+type ButtonType string
+
+const (
+	TypeButton ButtonType = "button"
+	TypeSubmit ButtonType = "submit"
+	TypeReset  ButtonType = "reset"
+)
+
+type LoadingConfig struct {
+	IndicatorID string
+	Text        string
+}
+
 // ButtonProps are the inputs for @Button and @IconButton.
 //
 // Disabled state is handled dynamically through Attrs — the struct has no
@@ -42,9 +55,9 @@ const (
 type ButtonProps struct {
 	Variant ButtonVariant
 	Size    ButtonSize
-	Type    string // "button" | "submit" | "reset"
+	Type    ButtonType // "button" | "submit" | "reset"
 	FullW   bool
-	Loading string
+	Loading LoadingConfig
 	Attrs   templ.Attributes
 }
 
@@ -53,7 +66,7 @@ func btnVariant(v ButtonVariant) string {
 	case ButtonAccent:
 		return "bg-accent text-accent-fg"
 	case ButtonGhost:
-		return "border border-accent text-accent hover:bg-accent/10"
+		return "border border-accent bg-std text-accent hover:bg-accent/10"
 	case ButtonDanger:
 		return "bg-error text-std"
 	case ButtonPrimary:
@@ -82,7 +95,7 @@ func btnSize(s ButtonSize) string {
 // binding passed via Attrs).
 templ Button(p ButtonProps) {
 	<button
-		type={ nonEmpty(p.Type, "button") }
+		type={ nonEmpty(string(p.Type), "button") }
 		class={
 			"glow-btn clip-btn font-bold font-mono uppercase tracking-widest inline-flex items-center justify-center gap-2",
 			"cursor-pointer disabled:cursor-not-allowed aria-disabled:cursor-not-allowed relative",
@@ -92,10 +105,22 @@ templ Button(p ButtonProps) {
 		}
 		{ p.Attrs... }
 	>
-		if p.Loading != "" {
-			<div id={ p.Loading } class={ "htmx-indicator absolute inset-0 flex items-center justify-center rounded-xl pointer-events-none", btnVariant(p.Variant) }>
-				<span class={ "cp-spinner htmx-indicator" } aria-hidden="true"></span>
-			</div>
+		if p.Loading.IndicatorID != "" {
+			if p.Loading.Text == "" {
+				<div id={ p.Loading.IndicatorID } class={ "htmx-indicator absolute inset-0 flex items-center justify-center rounded-xl pointer-events-none", btnVariant(p.Variant) }>
+					<span class={ "cp-spinner htmx-indicator" } aria-hidden="true"></span>
+				</div>
+			} else {
+				<div
+					id={ p.Loading.IndicatorID }
+					class={ "htmx-indicator absolute inset-0 flex items-center justify-center rounded-xl pointer-events-none", btnVariant(p.Variant) }
+				>
+					<span class="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-widest">
+						<span class="cp-spinner" aria-hidden="true"></span>
+						<span>{ p.Loading.Text }</span>
+					</span>
+				</div>
+			}
 		}
 		{ children... }
 	</button>
@@ -106,7 +131,7 @@ templ Button(p ButtonProps) {
 // semantics as @Button.
 templ IconButton(p ButtonProps) {
 	<button
-		type={ nonEmpty(p.Type, "button") }
+		type={ nonEmpty(string(p.Type), "button") }
 		class={
 			"glow-btn clip-btn grid place-items-center w-9 h-9 relative",
 			"disabled:cursor-not-allowed  aria-disabled:cursor-not-allowed",
@@ -114,8 +139,8 @@ templ IconButton(p ButtonProps) {
 		}
 		{ p.Attrs... }
 	>
-		if p.Loading != "" {
-			<div id={ p.Loading } class={ "htmx-indicator absolute inset-0 flex items-center justify-center rounded-xl pointer-events-none", btnVariant(p.Variant) }>
+		if p.Loading.IndicatorID != "" {
+			<div id={ p.Loading.IndicatorID } class={ "htmx-indicator absolute inset-0 flex items-center justify-center rounded-xl pointer-events-none", btnVariant(p.Variant) }>
 				<span class={ "cp-spinner htmx-indicator" } aria-hidden="true"></span>
 			</div>
 		}

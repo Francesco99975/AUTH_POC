@@ -71,10 +71,12 @@ templ ChangeUsernameForm(username string, csrf string) {
 			@ui.Button(ui.ButtonProps{
 				Variant: ui.ButtonPrimary,
 				Size:    ui.ButtonMD,
-				Type:    "button",
-				FullW:   true,
-				Loading: "profile-indicator",
-			})
+				Type:    ui.TypeSubmit,
+			
+				Loading: ui.LoadingConfig{IndicatorID: "profile-indicator"},
+			}) {
+				<span>Change Username</span>
+			}
 		</div>
 		<div id="success-message"></div>
 	</form>
@@ -111,10 +113,14 @@ templ ChangeUserEmailForm(email string, verified bool, csrf string) {
 			@ui.Button(ui.ButtonProps{
 				Variant: ui.ButtonPrimary,
 				Size:    ui.ButtonMD,
-				Type:    "button",
-				FullW:   true,
-				Loading: "profile-indicator",
-			})
+				Type:    ui.TypeSubmit,
+			
+				Loading: ui.LoadingConfig{
+					IndicatorID: "profile-indicator",
+				},
+			}) {
+				<span>Change Email</span>
+			}
 		</div>
 	</form>
 }

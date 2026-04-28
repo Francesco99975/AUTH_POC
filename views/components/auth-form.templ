@@ -119,8 +119,10 @@ templ LoginForm(csrf string) {
 			Variant: ui.ButtonPrimary,
 			FullW:   true,
 			Type:    "submit",
-			Loading: "login-indicator",
-			Size:    ui.ButtonMD,
+			Loading: ui.LoadingConfig{
+				IndicatorID: "login-indicator",
+			},
+			Size: ui.ButtonMD,
 		}) {
 			<span>Sign In</span>
 		}
@@ -289,8 +291,10 @@ templ EmailVerification(email string, csrf string, verify_url string) {
 				Variant: ui.ButtonPrimary,
 				FullW:   true,
 				Type:    "submit",
-				Loading: "verify-spinner",
-				Size:    ui.ButtonMD,
+				Loading: ui.LoadingConfig{
+					IndicatorID: "verify-spinner",
+				},
+				Size: ui.ButtonMD,
 			}) {
 				<span>Verify Email</span>
 			}

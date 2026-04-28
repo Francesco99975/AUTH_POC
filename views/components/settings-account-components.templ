@@ -219,8 +219,12 @@ templ DeactivateModal(csrf string) {
 							Size:    ui.ButtonMD,
 							Type:    "submit",
 							FullW:   true,
-							Loading: "deactivate-modal-indicator",
-						})
+							Loading: ui.LoadingConfig{
+								IndicatorID: "deactivate-modal-indicator",
+							},
+						}) {
+							<span>Deactivate</span>
+						}
 					</form>
 				</div>
 			</div>
@@ -306,8 +310,12 @@ templ ActivateModal(csrf string) {
 							Size:    ui.ButtonMD,
 							Type:    "submit",
 							FullW:   true,
-							Loading: "activate-modal-indicator",
-						})
+							Loading: ui.LoadingConfig{
+								IndicatorID: "activate-modal-indicator",
+							},
+						}) {
+							<span>Reactivate Account</span>
+						}
 					</form>
 				</div>
 			</div>

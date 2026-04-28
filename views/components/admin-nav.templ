@@ -140,7 +140,9 @@ templ CyberAdminNav(site models.Site) {
 					Variant: ui.ButtonDanger,
 					Size:    ui.ButtonLG,
 					Type:    "submit",
-					Loading: "desktop-logout-spinner",
+					Loading: ui.LoadingConfig{
+						IndicatorID: "desktop-logout-spinner",
+					},
 				}) {
 					@icons.LogOut("w-5 h-5")
 					<span>Logout</span>
@@ -163,7 +165,8 @@ templ CyberAdminNav(site models.Site) {
 					Size:    ui.ButtonLG,
 					Type:    "submit",
 					FullW:   true,
-					Loading: "mobile-logout-spinner",
+					Loading: ui.LoadingConfig{
+						IndicatorID: "mobile-logout-spinner"},
 				}) {
 					@icons.LogOut("w-5 h-5")
 					<span>Logout</span>
