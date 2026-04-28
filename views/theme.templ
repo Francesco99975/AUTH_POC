@@ -1,0 +1,600 @@
+package views
+
+import (
+	"github.com/Francesco99975/authpoc/internal/models"
+	"github.com/Francesco99975/authpoc/views/components"
+	"github.com/Francesco99975/authpoc/views/layouts"
+	"github.com/Francesco99975/authpoc/views/ui"
+)
+
+templ Theme(site models.Site) {
+	@layouts.Base(site) {
+		@ui.Marquee()
+		<main
+			class="max-w-7xl mx-auto px-4 py-6 sm:py-10 space-y-16"
+		>
+			<!-- Hero -->
+			<header class="cp-panel relative p-5 sm:p-8">
+				<div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+					<div>
+						<p class="font-mono text-[11px] text-accent uppercase tracking-widest">ui.showcase</p>
+						<h1 class="font-sans text-3xl sm:text-5xl font-black uppercase leading-[0.95] glitch neon-primary" data-text="NIGHT_CITY UI">NIGHT_CITY UI</h1>
+						<p class="mt-3 max-w-2xl text-fg/80 text-sm sm:text-base">
+							Cyberpunk-themed component kit. HTMX-first for server sync, Alpine for local interactivity,
+							mobile-first and themed end-to-end through Tailwind tokens.
+						</p>
+					</div>
+					<div class="flex flex-wrap items-center gap-3">
+						@ui.StatusDot("online", "ONLINE")
+						@ui.StatusDot("pending", "BUILDING")
+						@ui.StatusDot("offline", "IDLE")
+					</div>
+				</div>
+			</header>
+			@section("01", "Foundations", "tokens, type & signature effects") {
+				<div class="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+					@swatch("std", "--color-std")
+					@swatch("panel", "--color-panel")
+					@swatch("fg", "--color-fg")
+					@swatch("primary", "--color-primary")
+					@swatch("accent", "--color-accent")
+					@swatch("error", "--color-error")
+					@swatch("success", "--color-success")
+					@swatch("warning", "--color-warning")
+					@swatch("info", "--color-info")
+					@swatch("border", "--color-border")
+					@swatch("muted", "--color-muted")
+				</div>
+				<div class="grid gap-4 md:grid-cols-2 mt-6">
+					<div class="cp-panel p-5 space-y-2">
+						<h3 class="glitch font-sans text-2xl font-bold uppercase" data-text="GLITCH">GLITCH</h3>
+						<p class="font-sans text-xl font-bold tracking-widest flicker uppercase">FLICKER ON</p>
+						<p class="font-mono text-sm">
+							<span class="caret-blink">▌</span> awaiting input<span class="caret-blink">_</span>
+						</p>
+					</div>
+					<div class="cp-panel neon-border p-5">
+						<p class="font-mono text-[11px] text-muted">neon_border.active</p>
+						<p class="font-sans text-xl font-bold uppercase mt-1">animated edge</p>
+					</div>
+				</div>
+				<!-- Typography -->
+				<div class="neon-border clip-panel p-5 space-y-3">
+					<div class="font-mono text-[10px] text-accent/70 uppercase">typography</div>
+					<div class="glitch neon-primary text-3xl font-bold tracking-widest" data-text="DISPLAY / GLITCH">DISPLAY / GLITCH</div>
+					<div class="neon-accent text-xl font-bold tracking-wider">HEADLINE / NEON</div>
+					<div class="text-lg font-semibold">Body lead — Rajdhani 500 for interface chrome.</div>
+					<div class="text-sm text-muted">Body — default leading-relaxed. The quick brown netrunner jacks into the ICE. 0123456789.</div>
+					<div class="font-mono text-xs text-accent">mono — terminal, metadata, code paths</div>
+					<div class="flicker neon-error font-mono text-xs">SYSTEM.FLICKER.ACTIVE</div>
+					<div class="caret font-mono text-sm text-primary">input_stream</div>
+				</div>
+			}
+			@section("02", "Navigation", "navbar, drawer, tabs, pagination") {
+				@ui.Breadcrumbs(
+					ui.Crumb{Label: "home", Href: "/"},
+					ui.Crumb{Label: "ui", Href: "/ui"},
+					ui.Crumb{Label: "navigation"},
+				)
+				@ui.Tabs("tab-over",
+					ui.TabItem{ID: "tab-over", Label: "Overview"},
+					ui.TabItem{ID: "tab-spec", Label: "Spec"},
+					ui.TabItem{ID: "tab-act", Label: "Activity"},
+				) {
+					@ui.TabPanel("tab-over") {
+						<div class="cp-panel p-4 mt-3 font-mono text-sm">overview panel</div>
+					}
+					@ui.TabPanel("tab-spec") {
+						<div class="cp-panel p-4 mt-3 font-mono text-sm">spec panel</div>
+					}
+					@ui.TabPanel("tab-act") {
+						<div class="cp-panel p-4 mt-3 font-mono text-sm">activity panel</div>
+					}
+				}
+				<div class="mt-4">
+					@ui.Pagination(3, 12)
+				</div>
+			}
+			@section("03", "Actions", "buttons, groups, fab, spinner, skeleton") {
+				<div class="flex flex-wrap gap-3">
+					<form hx-get="/healthcheck" { ui.WithLoading("demo-spin")... } class="space-y-4">
+						@components.CSRF(site.CSRF)
+						@ui.Button(ui.ButtonProps{Variant: ui.ButtonPrimary, Loading: "demo-spin", Type: "submit"}) {
+							PRIMARY
+						}
+					</form>
+					@ui.Button(ui.ButtonProps{Variant: ui.ButtonAccent}) {
+						ACCENT
+					}
+					@ui.Button(ui.ButtonProps{Variant: ui.ButtonGhost}) {
+						GHOST
+					}
+					@ui.Button(ui.ButtonProps{Variant: ui.ButtonDanger}) {
+						DANGER
+					}
+					// Static disable → pass through Attrs:
+					@ui.Button(ui.ButtonProps{
+						Variant: ui.ButtonPrimary,
+						Attrs:   templ.Attributes{"disabled": true},
+					}) {
+						DISABLED
+					}
+					// Reactive disable via Alpine :disabled:
+					<div x-data="{ busy: true }" class="contents">
+						@ui.Button(ui.ButtonProps{
+							Variant: ui.ButtonPrimary,
+							Attrs:   templ.Attributes{"@click": "busy = !busy"},
+						}) {
+							Switch
+						}
+						@ui.Button(ui.ButtonProps{
+							Variant: ui.ButtonPrimary,
+							Attrs:   templ.Attributes{":disabled": "busy"},
+						}) {
+							REACTIVE
+						}
+					</div>
+				</div>
+				<div class="flex flex-wrap items-center gap-3 mt-4">
+					@ui.IconButton(ui.ButtonProps{
+						Variant: ui.ButtonGhost,
+						Attrs:   templ.Attributes{"data-tip": "settings", "aria-label": "settings"},
+					}) {
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><circle cx="12" cy="12" r="3"></circle><path d="M19 12a7 7 0 0 0-.12-1.3l2.03-1.58-2-3.46-2.39.84a7.03 7.03 0 0 0-2.25-1.3L13.75 2h-4l-.52 2.2a7.03 7.03 0 0 0-2.25 1.3l-2.39-.84-2 3.46 2.03 1.58A7 7 0 0 0 4.25 12c0 .44.04.88.12 1.3L2.34 14.88l2 3.46 2.39-.84c.68.56 1.44 1 2.25 1.3L9.5 22h4l.52-2.2c.81-.3 1.57-.74 2.25-1.3l2.39.84 2-3.46-2.03-1.58c.08-.42.12-.86.12-1.3Z"></path></svg>
+					}
+					@ui.Segmented("view", "grid",
+						ui.SegmentedOption{Value: "grid", Label: "GRID"},
+						ui.SegmentedOption{Value: "list", Label: "LIST"},
+						ui.SegmentedOption{Value: "map", Label: "MAP"},
+					)
+					@ui.Spinner(ui.SpinnerMD)
+				</div>
+				<div class="mt-4 flex items-center gap-2">
+					<!-- Icon buttons -->
+					<button class="glow-btn w-9 h-9 clip-btn bg-primary text-primary-fg grid place-items-center" data-tip="Add">
+						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"></path></svg>
+					</button>
+					<button class="glow-btn w-9 h-9 clip-btn border border-accent text-accent grid place-items-center" data-tip="Edit">
+						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3l4 4L8 20H4v-4L17 3z"></path></svg>
+					</button>
+					<button class="glow-btn w-9 h-9 clip-btn border border-error text-error grid place-items-center" data-tip="Delete">
+						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"></path></svg>
+					</button>
+					<!-- Button group / segmented -->
+					<div class="flex" x-data="{sel:'day'}">
+						<template x-for="v in ['day','week','month']" :key="v">
+							<button
+								@click="sel = v"
+								:class="sel===v ? 'bg-primary text-primary-fg' : 'border border-border text-accent hover:bg-accent/10'"
+								class="px-3 py-2 font-mono text-xs uppercase tracking-widest first:clip-lbl last:clip-tag"
+								x-text="v"
+							></button>
+						</template>
+					</div>
+				</div>
+				<div class="grid gap-3 sm:grid-cols-3 mt-6">
+					@ui.Skeleton("h-4 w-3/4")
+					@ui.Skeleton("h-4 w-1/2")
+					@ui.Skeleton("h-4 w-2/3")
+				</div>
+				<!-- FAB + loading states -->
+				<div class="neon-border clip-panel p-4 relative">
+					<div class="font-mono text-[10px] text-accent/70 uppercase mb-3">
+						// @Spinner, @Skeleton, @FAB</div>
+						<div class="flex items-center gap-4 mb-4">
+							<div class="cp-spinner"></div>
+							<div class="cp-spinner" style="width:28px;height:28px;"></div>
+							<div class="cp-spinner" style="width:36px;height:36px;"></div>
+							<span class="font-mono text-xs text-muted">LOADING…</span>
+						</div>
+						<div class="space-y-2">
+							@ui.Skeleton("h-4 w-3/4")
+							@ui.Skeleton("h-8 w-full")
+							@ui.Skeleton("h-4 w-2/3")
+						</div>
+						<button
+							class="absolute bottom-4 right-4 w-12 h-12 clip-btn bg-primary text-primary-fg grid place-items-center glow-btn"
+							data-tip="New job"
+							hx-post="/api/tasks/new"
+							hx-target="#showcase-feed"
+							hx-swap="afterbegin"
+						>
+							<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 5v14M5 12h14"></path></svg>
+						</button>
+					</div>
+				</div>
+			}
+			@section("04", "Text Inputs", "input, textarea, search, stepper, password, otp, tags, file") {
+				<div class="grid gap-5 md:grid-cols-2">
+					@ui.Input(ui.InputProps{
+						Name: "name", Label: "OPERATOR NAME",
+						Placeholder: "V.",
+						Hint:        "// 3-24 chars // alphanumeric",
+					})
+					@ui.Input(ui.InputProps{
+						Name: "bad", Label: "WITH ERROR",
+						Value: "not@valid",
+						Error: "invalid email signature",
+					})
+					@ui.NumberStepper(ui.NumberStepperProps{
+						Name: "qty", Label: "QUANTITY",
+						Min: 0, Max: 99, Value: 12,
+					})
+					@ui.Search(ui.SearchProps{
+						Name: "q", Placeholder: "search the grid",
+						GetURL: "/api/search", TargetID: "demo-search-results",
+					})
+				</div>
+				<div id="demo-search-results" class="font-mono text-xs text-muted mt-2 min-h-4"></div>
+				<div class="mt-5">
+					@ui.Textarea(ui.TextareaProps{
+						Name: "brief", Label: "BRIEF",
+						MaxLength: 280, Rows: 4,
+						Placeholder: "describe the contract…",
+					})
+				</div>
+				<div class="grid gap-5 md:grid-cols-2 mt-5">
+					@ui.Password(ui.PasswordProps{
+						Name: "password", Label: "PASSWORD",
+						ShowStrength: true,
+					})
+					@ui.OTP(ui.OTPProps{
+						Name: "otp", Length: 6,
+						Label:   "NETWATCH CODE",
+						PostURL: "/api/auth/otp", TargetID: "demo-otp-result",
+					})
+				</div>
+				<div id="demo-otp-result" class="font-mono text-xs text-accent mt-2 min-h-4"></div>
+				<div class="mt-5">
+					@ui.TagInput(ui.TagInputProps{
+						Name: "tags", Label: "TAGS",
+						Initial: []string{"netrun", "stealth"},
+					})
+				</div>
+				<div class="mt-5">
+					@ui.FileUpload(ui.FileUploadProps{
+						Name:    "file",
+						PostURL: "/api/upload", TargetID: "demo-file-result",
+						Accept:   "image/*,.pdf",
+						Multiple: true,
+					})
+				</div>
+				<div id="demo-file-result" class="font-mono text-xs text-accent mt-2 min-h-4"></div>
+			}
+			@section("05", "Selection", "checkbox, radio, switch, droplist, chips, range, combobox") {
+				<div class="grid gap-5 md:grid-cols-2">
+					<div class="space-y-3">
+						@ui.Checkbox(ui.CheckboxProps{Name: "c1", Label: "Accept Trauma Team waiver", Checked: true})
+						@ui.Checkbox(ui.CheckboxProps{Name: "c2", Label: "Enroll in NetWatch beta"})
+						@ui.Checkbox(ui.CheckboxProps{Name: "c3", Label: "Disabled option", Disabled: true})
+					</div>
+					<div class="space-y-3">
+						@ui.RadioGroup("loadout", "net", "LOADOUT",
+							ui.RadioOption{Value: "net", Label: "Netrunner"},
+							ui.RadioOption{Value: "solo", Label: "Solo"},
+							ui.RadioOption{Value: "tech", Label: "Techie"},
+						)
+					</div>
+					<div class="space-y-3">
+						@ui.Switch(ui.SwitchProps{Name: "s1", Label: "Encrypted channel", Checked: true, PostURL: "/api/settings/enc"})
+						@ui.Switch(ui.SwitchProps{Name: "s2", Label: "Autosave to cloud", PostURL: "/api/settings/autosave"})
+					</div>
+					<div class="space-y-3">
+						@ui.Droplist(ui.DroplistProps{
+							Name: "district", Label: "DISTRICT",
+							Opts: []ui.DropOption{
+								{Value: "wc", Label: "Watson"},
+								{Value: "hw", Label: "Heywood"},
+								{Value: "pc", Label: "Pacifica"},
+								{Value: "nc", Label: "North City"},
+							},
+						})
+						@ui.Range(ui.RangeProps{Name: "vol", Label: "VOLUME", Min: 0, Max: 100, Value: 66, Unit: "%"})
+					</div>
+				</div>
+				<div class="mt-6">
+					@ui.FilterChips(ui.FilterChipsProps{
+						Name:    "filters",
+						Label:   "FILTERS",
+						Options: []string{"ALL", "ACTIVE", "URGENT", "DONE"},
+						Initial: []string{"ACTIVE"},
+					})
+				</div>
+				<div class="mt-6">
+					@ui.Combobox(ui.ComboboxProps{
+						Name: "fixers", Label: "FIXERS",
+						Placeholder: "search fixers…",
+						All:         []string{"Dexter DeShawn", "Rogue", "Padre", "Wakako Okada"},
+					})
+				</div>
+			}
+			@section("06", "Feedback", "progress, alerts, badges, rating, toasts") {
+				<div class="grid gap-4 md:grid-cols-2">
+					@ui.ProgressBar(ui.ProgressBarProps{Label: "DOWNLOAD", Value: 62, ShowValue: true})
+					@ui.ProgressBar(ui.ProgressBarProps{Label: "LIVE FEED", Indeterminate: true})
+				</div>
+				<div class="mt-6 flex flex-wrap items-center gap-6">
+					@ui.ProgressRing(ui.ProgressRingProps{Value: 74, Size: 110, Label: "UPTIME", Note: "24h"})
+					<div class="flex flex-col gap-2">
+						@ui.Badge(ui.BadgePrimary, false) {
+							NEW
+						}
+						@ui.Badge(ui.BadgeAccent, false) {
+							BETA
+						}
+						@ui.Badge(ui.BadgeError, false) {
+							FAIL
+						}
+						@ui.Badge(ui.BadgeSuccess, true) {
+							OK
+						}
+					</div>
+					<div class="flex flex-col gap-2">
+						@ui.StatusDot("online", "online")
+						@ui.StatusDot("pending", "pending")
+						@ui.StatusDot("offline", "offline")
+					</div>
+					@ui.Rating(ui.RatingProps{Name: "rating", Value: 3, Max: 5})
+				</div>
+				<div class="grid gap-3 md:grid-cols-2 mt-6">
+					@ui.Alert(ui.AlertInfo, "FYI") {
+						Night City weather: acid rain incoming.
+					}
+					@ui.Alert(ui.AlertSuccess, "DONE") {
+						Contract signed with Wakako.
+					}
+					@ui.Alert(ui.AlertWarning, "HEADS UP") {
+						Max-Tac sweeping Heywood in 12m.
+					}
+					@ui.Alert(ui.AlertError, "BREACH") {
+						Netrunner detected on secure channel.
+					}
+				</div>
+			}
+			@section("07", "Overlays", "modal, drawer, menu, tooltip, accordion, cmd+k") {
+				// Shared Alpine root owns open state for the two overlays below.
+				<div x-data="{ modal: false, drawer: false }">
+					<div class="flex flex-wrap gap-3">
+						@ui.Button(ui.ButtonProps{
+							Variant: ui.ButtonPrimary, Size: ui.ButtonSM,
+							Attrs: templ.Attributes{"@click": "modal = true"},
+						}) {
+							OPEN MODAL
+						}
+						@ui.Button(ui.ButtonProps{
+							Variant: ui.ButtonGhost, Size: ui.ButtonSM,
+							Attrs: templ.Attributes{"@click": "drawer = true"},
+						}) {
+							OPEN DRAWER
+						}
+						@ui.Button(ui.ButtonProps{
+							Variant: ui.ButtonGhost, Size: ui.ButtonSM,
+							Attrs: templ.Attributes{"@click": "$dispatch('cmdk:open')"},
+						}) {
+							COMMAND (⌘K)
+						}
+					</div>
+					@ui.Modal(ui.ModalProps{Title: "CONFIRM JACK-OUT", OpenExpr: "modal"}) {
+						<p class="font-mono text-sm">disconnecting will drop all open sessions. proceed?</p>
+						<div class="mt-4 flex justify-end gap-2">
+							@ui.Button(ui.ButtonProps{
+								Variant: ui.ButtonGhost, Size: ui.ButtonSM,
+								Attrs: templ.Attributes{"@click": "modal = false"},
+							}) {
+								CANCEL
+							}
+							@ui.Button(ui.ButtonProps{
+								Variant: ui.ButtonPrimary, Size: ui.ButtonSM,
+								Attrs: templ.Attributes{"@click": "modal = false; $dispatch('toast', { kind: 'success', msg: 'jacked out.' })"},
+							}) {
+								CONFIRM
+							}
+						</div>
+					}
+					@ui.Drawer(ui.DrawerProps{Title: "OPERATOR PANEL", OpenExpr: "drawer", Side: ui.DrawerRight}) {
+						<div class="space-y-3 font-mono text-sm">
+							<p>session_id: 0xA91F</p>
+							<p>latency: 12ms</p>
+							<p>district: watson</p>
+						</div>
+					}
+				</div>
+				<div class="mt-5">
+					@ui.DropdownMenu("MORE ▾",
+						ui.MenuItem{Label: "Edit", OnClick: "$dispatch('toast', { kind: 'info', msg: 'editing…' })"},
+						ui.MenuItem{Label: "Share", OnClick: "$dispatch('toast', { kind: 'info', msg: 'copied share link' })"},
+						ui.MenuItem{Divider: true},
+						ui.MenuItem{Label: "Archive", OnClick: "$dispatch('toast', { kind: 'warning', msg: 'archived.' })"},
+						ui.MenuItem{Label: "Delete", Danger: true, OnClick: "$dispatch('toast', { kind: 'error', msg: 'deleted.' })"},
+					)
+				</div>
+				<div class="mt-5 flex flex-wrap items-center gap-4">
+					<span data-tip="hover for intel" class="font-mono text-xs text-accent underline decoration-dotted">what is this?</span>
+				</div>
+				<div class="mt-6">
+					@ui.Accordion(
+						ui.AccordionItem{Title: "How do I sync with my Go server?", Body: "Every input that needs server state exposes PostURL/GetURL + TargetID props mapping to hx-post/hx-get / hx-target."},
+						ui.AccordionItem{Title: "Does this work without JS?", Body: "Core forms submit via HTMX (progressive). Only the flashy bits need Alpine."},
+						ui.AccordionItem{Title: "Is it accessible?", Body: "All interactive widgets ship focus rings, ARIA roles, and keyboard handlers."},
+					)
+				</div>
+				@ui.CommandPalette(
+					ui.Command{Label: "Create new contract", Keys: "⌘ N"},
+					ui.Command{Label: "Search operators", Keys: "/"},
+					ui.Command{Label: "Toggle theme", Keys: "⌘ J"},
+					ui.Command{Label: "Jack out", Keys: "⌘ Q"},
+				)
+			}
+			@section("08", "Data Display", "stats, table, activity, timeline, cards") {
+				<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+					@ui.StatCard(ui.StatCardProps{Label: "Eddies", Value: "1.2M", Delta: "+12%", DeltaClass: "text-success"})
+					@ui.StatCard(ui.StatCardProps{Label: "Contracts", Value: "48", Delta: "+3", DeltaClass: "text-success"})
+					@ui.StatCard(ui.StatCardProps{Label: "Latency", Value: "12ms", Delta: "-2ms", DeltaClass: "text-success"})
+					@ui.StatCard(ui.StatCardProps{Label: "Incidents", Value: "4", Delta: "+1", DeltaClass: "text-error"})
+				</div>
+				<div class="mt-6">
+					@ui.DataTable(
+						ui.Column{Header: "ID", Key: "id"},
+						ui.Column{Header: "OPERATOR", Key: "op"},
+						ui.Column{Header: "DISTRICT", Key: "dist", HideBelow: "sm"},
+						ui.Column{Header: "STATUS", Key: "status"},
+						ui.Column{Header: "PAYOUT", Key: "pay", Align: "right"},
+					) {
+						@ui.TableRow() {
+							<td class="px-4 py-3 text-muted">0x01</td>
+							<td class="px-4 py-3 text-fg">V.</td>
+							<td class="px-4 py-3 hidden sm:table-cell text-accent">Watson</td>
+							<td class="px-4 py-3">
+								@ui.Badge(ui.BadgePrimary, true) {
+									ACTIVE
+								}
+							</td>
+							<td class="px-4 py-3 text-right text-success">€$ 15,000</td>
+						}
+						@ui.TableRow() {
+							<td class="px-4 py-3 text-muted">0x02</td>
+							<td class="px-4 py-3 text-fg">Jackie</td>
+							<td class="px-4 py-3 hidden sm:table-cell text-accent">Heywood</td>
+							<td class="px-4 py-3">
+								@ui.Badge(ui.BadgeMuted, true) {
+									DONE
+								}
+							</td>
+							<td class="px-4 py-3 text-right text-success">€$ 9,400</td>
+						}
+						@ui.TableRow() {
+							<td class="px-4 py-3 text-muted">0x03</td>
+							<td class="px-4 py-3 text-fg">Judy</td>
+							<td class="px-4 py-3 hidden sm:table-cell text-accent">Watson</td>
+							<td class="px-4 py-3">
+								@ui.Badge(ui.BadgeWarning, true) {
+									PENDING
+								}
+							</td>
+							<td class="px-4 py-3 text-right text-success">€$ 3,250</td>
+						}
+						@ui.TableRow() {
+							<td class="px-4 py-3 text-muted">0x04</td>
+							<td class="px-4 py-3 text-fg">Panam</td>
+							<td class="px-4 py-3 hidden sm:table-cell text-accent">Badlands</td>
+							<td class="px-4 py-3">
+								@ui.Badge(ui.BadgePrimary, true) {
+									ACTIVE
+								}
+							</td>
+							<td class="px-4 py-3 text-right text-success">€$ 22,100</td>
+						}
+					}
+				</div>
+				<div class="grid gap-4 md:grid-cols-2 mt-6">
+					@ui.ActivityGrid(ui.ActivityGridProps{Cols: 14, Rows: 7})
+					@ui.Timeline(
+						ui.TimelineEvent{Time: "08:02", Title: "Contract accepted", Body: "Wakako forwarded the brief.", Kind: "accent"},
+						ui.TimelineEvent{Time: "09:41", Title: "Breach detected", Body: "IC on sub-7 spotted.", Kind: "error"},
+						ui.TimelineEvent{Time: "11:20", Title: "Payout cleared", Body: "€$ 22,100 credited.", Kind: "success"},
+					)
+				</div>
+				<div class="grid gap-4 md:grid-cols-3 mt-6">
+					@ui.Card(ui.CardProps{Eyebrow: "// afterlife", Title: "ROGUE AMENDIARES", Padded: true}) {
+						<p class="font-mono text-xs text-muted">tier S  trust 92%</p>
+					}
+					@ui.Card(ui.CardProps{Eyebrow: "// heywood", Title: "DEXTER DESHAWN", Padded: true}) {
+						<p class="font-mono text-xs text-muted">tier A  trust 41%</p>
+					}
+					@ui.Card(ui.CardProps{Eyebrow: "// heywood", Title: "PADRE", Padded: true}) {
+						<p class="font-mono text-xs text-muted">tier A  trust 78%</p>
+					}
+				</div>
+				<div class="flex flex-wrap items-center gap-4 mt-6">
+					@ui.Avatar(ui.AvatarProps{Initial: "V", Color: "primary", Size: "lg"})
+					@ui.Avatar(ui.AvatarProps{Initial: "JW", Color: "accent", Size: "md"})
+					@ui.Avatar(ui.AvatarProps{Initial: "RA", Color: "error", Size: "sm"})
+					@ui.AvatarGroup(2,
+						ui.AvatarProps{Initial: "V", Color: "primary"},
+						ui.AvatarProps{Initial: "JW", Color: "accent"},
+						ui.AvatarProps{Initial: "RA", Color: "error"},
+						ui.AvatarProps{Initial: "PA", Color: "success"},
+					)
+				</div>
+				<div class="mt-6">
+					@ui.EmptyState(ui.EmptyStateProps{
+						Title:       "NO CONTRACTS",
+						Description: "// no active contracts in this district. try another fixer.",
+						CTALabel:    "FIND FIXER",
+						CTAHref:     "#fixers",
+					})
+				</div>
+			}
+			@section("09", "Composed Forms", "login, signup, stepper, payment") {
+				<div class="grid gap-6 md:grid-cols-2">
+					@ui.LoginForm(ui.LoginFormProps{})
+					@ui.SignupForm(ui.SignupFormProps{})
+				</div>
+				<div class="grid gap-6 md:grid-cols-2 mt-6">
+					@ui.Stepper(ui.StepperProps{
+						Steps: []string{"Identity", "Preferences", "Confirm"},
+					},
+						stepIdentity(),
+						stepPreferences(),
+						stepConfirm(),
+					)
+					@ui.PaymentForm(ui.PaymentFormProps{})
+				</div>
+			}
+		</main>
+		@ui.ToastStack()
+	}
+}
+
+// -----------------------------------------------------------------------------
+// local helpers — kept in-file so @Index reads top-to-bottom
+// -----------------------------------------------------------------------------
+templ section(num, title, subtitle string) {
+	<section class="scroll-mt-20 space-y-4">
+		<header class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-1 border-b border-border pb-3">
+			<div>
+				<p class="font-mono text-[11px] text-accent uppercase tracking-widest">{ num } </p>
+				<h2 data-text={ title } class="font-sans text-2xl sm:text-3xl font-bold uppercase tracking-wide glitch neon-accent">{ title }</h2>
+			</div>
+			<p class="font-mono text-[11px] text-muted">{ subtitle }</p>
+		</header>
+		{ children... }
+	</section>
+}
+
+templ swatch(name, token string) {
+	<div class="cp-panel p-3">
+		<div class="h-14 clip-tag" style={ "background: var(" + token + ")" }></div>
+		<p class="font-mono text-[11px] mt-2">{ name }</p>
+		<p class="font-mono text-[10px] text-muted">{ token }</p>
+	</div>
+}
+
+// Stepper bodies — local compositions reused as templ.ui inside @Stepper.
+templ stepIdentity() {
+	<div class="space-y-4">
+		@ui.Input(ui.InputProps{Name: "w-name", Label: "NAME", Required: true})
+		@ui.Input(ui.InputProps{Name: "w-mail", Label: "EMAIL", Type: "email", Required: true})
+	</div>
+}
+
+templ stepPreferences() {
+	<div class="space-y-4">
+		@ui.RadioGroup("w-theme", "dark", "THEME",
+			ui.RadioOption{Value: "dark", Label: "Dark"},
+			ui.RadioOption{Value: "light", Label: "Light"},
+		)
+		@ui.Switch(ui.SwitchProps{Name: "w-nl", Label: "Newsletter"})
+	</div>
+}
+
+templ stepConfirm() {
+	<div class="space-y-2 font-mono text-sm">
+		<p>review your input, then submit.</p>
+		@ui.Checkbox(ui.CheckboxProps{
+			Name:  "w-tos",
+			Label: "I accept the ToS",
+			Attrs: templ.Attributes{"required": true},
+		})
+	</div>
+}

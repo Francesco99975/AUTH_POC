@@ -1,0 +1,299 @@
+package ui
+
+func WithLoading(indicatorID string) templ.Attributes {
+	return templ.Attributes{
+		"hx-indicator":    "#" + indicatorID,
+		"hx-disabled-elt": "find input, find select, find textarea, find checkbox, find radio, find button",
+	}
+}
+
+// =============================================================================
+// Composed forms — built from the lower-level primitives in this package.
+// These are "recipes": drop them in, or fork the body for your own layout.
+//
+// Every composite delegates to the real primitives (Input/Password/Checkbox/
+// Button), so anything they don't cover natively is plumbed through `Attrs`.
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// LoginForm
+// -----------------------------------------------------------------------------
+
+type LoginFormProps struct {
+	// Action is the hx-post endpoint the form submits to. Default: "/api/auth/login".
+	Action string
+	// TargetID is the element replaced with the server response. Default: "login-result".
+	TargetID string
+	// ForgotHref is the "forgot password" link. Default: "/auth/forgot".
+	ForgotHref string
+	// SignupHref is the "create account" link. Default: "/auth/signup".
+	SignupHref string
+}
+
+templ LoginForm(p LoginFormProps) {
+	{{
+		action := nonEmpty(p.Action, "/api/auth/login")
+		target := nonEmpty(p.TargetID, "login-result")
+		forgot := nonEmpty(p.ForgotHref, "/auth/forgot")
+		signup := nonEmpty(p.SignupHref, "/auth/signup")
+	}}
+	<form
+		class="cp-panel relative p-5 space-y-4"
+		hx-post={ action }
+		hx-target={ "#" + target }
+		hx-swap="outerHTML"
+		hx-indicator=".login-spin"
+	>
+		<header>
+			<h3 class="font-sans text-lg font-bold uppercase tracking-widest">JACK_IN</h3>
+			<p class="font-mono text-[11px] text-muted">credentials required</p>
+		</header>
+		@Input(InputProps{
+			Name:        "email",
+			Type:        "email",
+			Label:       "USERNAME / EMAIL",
+			Placeholder: "v@night.city",
+			Required:    true,
+			Attrs:       templ.Attributes{"autocomplete": "email"},
+		})
+		<div class="space-y-1.5">
+			<div class="flex items-center justify-between">
+				<span class="block font-mono text-[11px] text-muted uppercase tracking-widest">PASSWORD</span>
+				<a href={ templ.SafeURL(forgot) } class="font-mono text-[11px] text-accent hover:text-primary">forgot?</a>
+			</div>
+			@Password(PasswordProps{
+				Name:     "password",
+				Required: true,
+				Attrs:    templ.Attributes{"autocomplete": "current-password"},
+			})
+		</div>
+		@Checkbox(CheckboxProps{
+			Name:  "remember",
+			Label: "remember this deck",
+		})
+		<div class="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between pt-2">
+			<a href={ templ.SafeURL(signup) } class="font-mono text-[11px] text-muted hover:text-primary">
+				{ "// new operator? create account →" }
+			</a>
+			@Button(ButtonProps{
+				Type:    "submit",
+				Variant: ButtonPrimary,
+				Loading: "login-spin",
+			}) {
+				JACK IN
+			}
+		</div>
+		<div id={ target } class="font-mono text-[11px]"></div>
+	</form>
+}
+
+// -----------------------------------------------------------------------------
+// SignupForm — email gets live-validated via HTMX on blur into a sibling target.
+// -----------------------------------------------------------------------------
+
+type SignupFormProps struct {
+	// Action is the hx-post endpoint. Default: "/api/auth/signup".
+	Action string
+	// ValidateEmailEndpoint is pinged on email blur. Default: "/api/auth/validate-email".
+	ValidateEmailEndpoint string
+}
+
+templ SignupForm(p SignupFormProps) {
+	{{
+		action := nonEmpty(p.Action, "/api/auth/signup")
+		validate := nonEmpty(p.ValidateEmailEndpoint, "/api/auth/validate-email")
+	}}
+	<form class="cp-panel relative p-5 space-y-4" hx-post={ action } hx-swap="outerHTML" hx-indicator=".signup-spin">
+		<header>
+			<h3 class="font-sans text-lg font-bold uppercase tracking-widest">NEW OPERATOR</h3>
+			<p class="font-mono text-[11px] text-muted">register to Night City grid</p>
+		</header>
+		<div class="grid gap-4 sm:grid-cols-2">
+			@Input(InputProps{Name: "first_name", Label: "FIRST NAME", Required: true})
+			@Input(InputProps{Name: "last_name", Label: "LAST NAME", Required: true})
+		</div>
+		<div>
+			@Input(InputProps{
+				Name:     "email",
+				Type:     "email",
+				Label:    "EMAIL",
+				Required: true,
+				Attrs: templ.Attributes{
+					"autocomplete": "email",
+					"hx-post":      validate,
+					"hx-trigger":   "blur changed delay:300ms",
+					"hx-target":    "#su-email-err",
+					"hx-swap":      "innerHTML",
+				},
+			})
+			<p id="su-email-err" class="font-mono text-[11px] text-error mt-1 min-h-[14px]"></p>
+		</div>
+		@Password(PasswordProps{
+			Name:         "password",
+			Label:        "PASSWORD",
+			Required:     true,
+			ShowStrength: true,
+			Attrs:        templ.Attributes{"autocomplete": "new-password"},
+		})
+		@Checkbox(CheckboxProps{
+			Name:  "accept_tos",
+			Label: "I accept the Trauma Team™ waiver and Night City ToS",
+			Attrs: templ.Attributes{"required": true},
+		})
+		@Button(ButtonProps{
+			Type:    "submit",
+			Variant: ButtonPrimary,
+			Loading: "signup-spin",
+			FullW:   true,
+		}) {
+			CREATE ACCOUNT
+		}
+	</form>
+}
+
+// -----------------------------------------------------------------------------
+// Stepper — multi-step wizard shell. Body content per step goes in `steps`.
+// -----------------------------------------------------------------------------
+
+type StepperProps struct {
+	Steps []string // ordered step labels; falls back to a 3-step default
+}
+
+templ Stepper(p StepperProps, steps ...templ.Component) {
+	{{
+		if len(p.Steps) == 0 {
+			p.Steps = []string{"Identity", "Preferences", "Confirm"}
+		}
+		n := len(p.Steps)
+	}}
+	<section class="cp-panel relative p-5" x-data={ "{ step:0, total:" + itoa(n) + " }" }>
+		<!-- step header -->
+		<ol class="flex items-center gap-2 overflow-x-auto pb-3 -mx-1 px-1" aria-label="Progress">
+			for i, label := range p.Steps {
+				<li class="flex items-center gap-2 shrink-0">
+					<button
+						type="button"
+						class="flex items-center gap-2 px-2.5 py-1 font-mono text-[11px] uppercase tracking-widest border clip-tag transition-colors"
+						:class={ "step === " + itoa(i) + " ? 'border-primary text-primary bg-primary/10' : (step > " + itoa(i) + " ? 'border-accent text-accent' : 'border-border text-muted')" }
+						@click={ "step = " + itoa(i) }
+					>
+						<span class="inline-block w-5 text-center">{ itoa(i + 1) }</span>
+						<span>{ label }</span>
+					</button>
+					if i < len(p.Steps)-1 {
+						<span class="h-px w-4 sm:w-8 bg-border"></span>
+					}
+				</li>
+			}
+		</ol>
+		<!-- step bodies -->
+		<div class="mt-4 space-y-4">
+			for i, body := range steps {
+				<div x-show={ "step === " + itoa(i) } x-transition.opacity>
+					@body
+				</div>
+			}
+		</div>
+		<!-- nav -->
+		<div class="mt-5 flex items-center justify-between gap-3 pt-3 border-t border-border">
+			@Button(ButtonProps{
+				Variant: ButtonGhost,
+				Size:    ButtonSM,
+				Attrs: templ.Attributes{
+					":disabled": "step === 0",
+					"@click":    "step = Math.max(0, step - 1)",
+				},
+			}) {
+				← BACK
+			}
+			<span class="font-mono text-[11px] text-muted" x-text="`STEP ${step + 1} / ${total}`"></span>
+			@Button(ButtonProps{
+				Variant: ButtonPrimary,
+				Size:    ButtonSM,
+				Attrs: templ.Attributes{
+					"x-text": "step === total - 1 ? 'FINISH →' : 'NEXT →'",
+					"@click": "step < total - 1 ? step++ : $dispatch('stepper:finish')",
+				},
+			})
+		</div>
+	</section>
+}
+
+// -----------------------------------------------------------------------------
+// PaymentForm — eurodollar card form (pure UI mockup, NOT PCI-safe).
+// For real payments, delegate to Stripe Elements et al.
+// -----------------------------------------------------------------------------
+
+type PaymentFormProps struct {
+	// Action is the hx-post endpoint. Default: "/api/pay".
+	Action string
+	// AmountLabel shown on submit. Default: "PAY 2,500 eddies".
+	AmountLabel string
+}
+
+templ PaymentForm(p PaymentFormProps) {
+	{{
+		action := nonEmpty(p.Action, "/api/pay")
+		amount := nonEmpty(p.AmountLabel, "PAY 2,500 eddies")
+	}}
+	<form class="cp-panel relative p-5 space-y-4" hx-post={ action } hx-swap="outerHTML" hx-indicator=".pay-spin">
+		<header>
+			<h3 class="font-sans text-lg font-bold uppercase tracking-widest">PAYMENT</h3>
+			<p class="font-mono text-[11px] text-muted">encrypted channel eddies</p>
+		</header>
+		@Input(InputProps{
+			Name:     "cardholder",
+			Label:    "CARDHOLDER",
+			Required: true,
+			Attrs:    templ.Attributes{"autocomplete": "cc-name"},
+		})
+		@Input(InputProps{
+			Name:        "card_number",
+			Type:        "text",
+			Label:       "CARD NUMBER",
+			Placeholder: "0000 0000 0000 0000",
+			Required:    true,
+			Attrs: templ.Attributes{
+				"autocomplete": "cc-number",
+				"inputmode":    "numeric",
+				"maxlength":    "19",
+				"x-data":       "",
+				"x-on:input":   `$el.value = $el.value.replace(/\D/g,'').replace(/(.{4})/g,'$1 ').trim()`,
+			},
+		})
+		<div class="grid gap-4 sm:grid-cols-3">
+			@Input(InputProps{
+				Name:        "exp",
+				Label:       "EXPIRY",
+				Placeholder: "MM/YY",
+				Required:    true,
+				Attrs:       templ.Attributes{"autocomplete": "cc-exp"},
+			})
+			@Input(InputProps{
+				Name:        "cvc",
+				Label:       "CVC",
+				Placeholder: "000",
+				Required:    true,
+				Attrs:       templ.Attributes{"autocomplete": "cc-csc", "inputmode": "numeric"},
+			})
+			@Input(InputProps{
+				Name:        "zip",
+				Label:       "ZIP / POSTAL",
+				Placeholder: "90210",
+				Attrs:       templ.Attributes{"autocomplete": "postal-code"},
+			})
+		</div>
+		@Checkbox(CheckboxProps{Name: "save_card", Label: "save this card for next time"})
+		@Button(ButtonProps{
+			Type:    "submit",
+			Variant: ButtonPrimary,
+			Loading: "pay-spin",
+			FullW:   true,
+		}) {
+			{ amount }
+		}
+		<p class="font-mono text-[10px] text-muted text-center">
+			{ "// protected by Arasaka cryptosuite" }
+		</p>
+	</form>
+}

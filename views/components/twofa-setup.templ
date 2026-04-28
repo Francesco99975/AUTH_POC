@@ -1,7 +1,8 @@
 package components
 
 import "github.com/Francesco99975/authpoc/views/icons"
-import "github.com/Francesco99975/authpoc/views/ui/forms"
+
+import "github.com/Francesco99975/authpoc/views/ui"
 
 // TwoFASetupProps contains all data needed for 2FA setup flow
 type TwoFASetupProps struct {
@@ -172,13 +173,15 @@ templ TwoFAQRCodeCard(props TwoFASetupProps) {
 					>
 						Back to QR Code
 					</button>
-					<button
-						type="submit"
-						class="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-primary text-white font-medium text-sm hover:bg-primary/90 transition-all relative"
-					>
-						<span>Verify &amp; Continue</span>
-						@ui.LoadingIndicator("verify-code-indicator")
-					</button>
+					@ui.Button(ui.ButtonProps{
+						Variant: ui.ButtonPrimary,
+						Size:    ui.ButtonMD,
+						Type:    "button",
+						FullW:   true,
+						Loading: "profile-indicator",
+					}) {
+						"Verify & Continue"
+					}
 				</div>
 			</form>
 		</div>
@@ -206,7 +209,13 @@ templ TwoFACheck(token string, csrf string) {
 		</div>
 		<!-- Code Input -->
 		@ui.OTPInput()
-		@ui.SubmitButton("verify-code-indicator") {
+		@ui.Button(ui.ButtonProps{
+			Variant: ui.ButtonPrimary,
+			Size:    ui.ButtonMD,
+			Type:    "submit",
+			FullW:   true,
+			Loading: "verify-code-indicator",
+		}) {
 			<span>Verify & Continue</span>
 		}
 	</form>
@@ -295,15 +304,15 @@ templ TwoFARecoverySecretCard(recoverySecret string, csrf string) {
 				{ ui.WithLoading("complete-indicator")... }
 			>
 				@CSRF(csrf)
-				<button
-					type="submit"
-					:disabled="!confirmed"
-					:class="confirmed ? 'bg-success hover:bg-success/90' : 'bg-primary/30 cursor-not-allowed'"
-					class="w-full px-5 py-3 rounded-lg text-white font-medium text-sm transition-all relative"
-				>
+				@ui.Button(ui.ButtonProps{
+					Variant: ui.ButtonPrimary,
+					Size:    ui.ButtonMD,
+					Type:    "submit",
+					FullW:   true,
+					Loading: "complete-indicator",
+				}) {
 					<span>Complete 2FA Setup</span>
-					@ui.LoadingIndicator("complete-indicator")
-				</button>
+				}
 			</form>
 		</div>
 	</div>
@@ -477,15 +486,18 @@ templ TwoFAEnabledCard(csrf string) {
 								>
 									Cancel
 								</button>
-								<button
-									type="submit"
-									:disabled="!understandRisks"
-									:class="understandRisks ? 'bg-error hover:bg-error/90' : 'bg-error/30 cursor-not-allowed'"
-									class="w-full sm:w-auto px-5 py-2.5 rounded-lg text-white font-medium text-sm transition-all relative"
-								>
+								@ui.Button(ui.ButtonProps{
+									Variant: ui.ButtonPrimary,
+									Size:    ui.ButtonMD,
+									Type:    "submit",
+									FullW:   true,
+									Loading: "verify-code-indicator",
+									Attrs: templ.Attributes{
+										":disabled": "!understandRisks",
+									},
+								}) {
 									<span>Confirm Disable 2FA</span>
-									@ui.LoadingIndicator("disable-2fa-modal-indicator")
-								</button>
+								}
 							</div>
 						</form>
 					</div>
@@ -525,13 +537,15 @@ templ TwoFADisabledCard(csrf string) {
 					{ ui.WithLoading("enable-2fa-indicator")... }
 				>
 					@CSRF(csrf)
-					<button
-						type="submit"
-						class="w-full sm:w-auto px-4 py-2.5 rounded-lg bg-primary text-white font-medium text-sm hover:bg-primary/90 transition-all relative"
-					>
+					@ui.Button(ui.ButtonProps{
+						Variant: ui.ButtonPrimary,
+						Size:    ui.ButtonMD,
+						Type:    "submit",
+						FullW:   true,
+						Loading: "enable-2fa-indicator",
+					}) {
 						<span>Enable 2FA</span>
-						@ui.LoadingIndicator("enable-2fa-indicator")
-					</button>
+					}
 				</form>
 			</div>
 		</div>

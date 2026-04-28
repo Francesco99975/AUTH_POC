@@ -1,0 +1,211 @@
+package ui
+
+// ButtonVariant picks the palette. Unknown variants fall back to "primary".
+// Accepted: "primary" | "accent" | "ghost" | "danger".
+type ButtonVariant string
+
+const (
+	ButtonPrimary ButtonVariant = "primary"
+	ButtonAccent  ButtonVariant = "accent"
+	ButtonGhost   ButtonVariant = "ghost"
+	ButtonDanger  ButtonVariant = "danger"
+)
+
+// ButtonSize picks the padding. Unknown sizes fall back to "md".
+// Accepted: "sm" | "md" | "lg".
+type ButtonSize string
+
+const (
+	ButtonSM ButtonSize = "sm"
+	ButtonMD ButtonSize = "md"
+	ButtonLG ButtonSize = "lg"
+)
+
+// ButtonProps are the inputs for @Button and @IconButton.
+//
+// Disabled state is handled dynamically through Attrs — the struct has no
+// Disabled field on purpose. Pass a static disable with
+// templ.Attributes{"disabled": true}, or a reactive one with an Alpine
+// expression, e.g. templ.Attributes{":disabled": "!form.valid || busy"}.
+//
+// Loading is a string, not a bool. Leave empty to omit the spinner. When set,
+// its value is used both as the CSS class applied to the spinner element
+// inside the button AND as the hook that the parent form/element must target
+// via hx-indicator=".<Loading>" so HTMX can toggle the spinner visibility
+// during an in-flight request.
+//
+//	<form hx-post="/login" hx-indicator=".login-spin">
+//	    @components.Button(components.ButtonProps{Type: "submit", Loading: "login-spin"}) { "ACCESS" }
+//	</form>
+//
+// Pass Attrs for any other HTMX/Alpine bindings (hx-post, hx-target, @click, …).
+type ButtonProps struct {
+	Variant ButtonVariant
+	Size    ButtonSize
+	Type    string // "button" | "submit" | "reset"
+	FullW   bool
+	Loading string
+	Attrs   templ.Attributes
+}
+
+func btnVariant(v ButtonVariant) string {
+	switch v {
+	case ButtonAccent:
+		return "bg-accent text-accent-fg"
+	case ButtonGhost:
+		return "border border-accent text-accent hover:bg-accent/10"
+	case ButtonDanger:
+		return "bg-error text-std"
+	case ButtonPrimary:
+		return "bg-primary text-primary-fg"
+	}
+	return "bg-primary text-primary-fg"
+}
+
+func btnSize(s ButtonSize) string {
+	switch s {
+	case ButtonSM:
+		return "px-3 py-1.5 text-[11px]"
+	case ButtonLG:
+		return "px-5 py-2.5 text-sm"
+	}
+	return "px-4 py-2 text-xs"
+}
+
+// Button is the primary call-to-action primitive.
+//
+// When Loading is set, a spinner is rendered as a sibling of the label and
+// tagged with class="cp-spinner htmx-indicator <Loading>" so it stays hidden
+// until the parent form's hx-indicator=".<Loading>" fires during the request.
+// The disabled styling kicks in automatically whenever the button reports
+// [disabled] (either from a static disabled attribute or an Alpine :disabled
+// binding passed via Attrs).
+templ Button(p ButtonProps) {
+	<button
+		type={ nonEmpty(p.Type, "button") }
+		class={
+			"glow-btn clip-btn font-bold font-mono uppercase tracking-widest inline-flex items-center justify-center gap-2",
+			"cursor-pointer disabled:cursor-not-allowed aria-disabled:cursor-not-allowed relative",
+			btnVariant(p.Variant),
+			btnSize(p.Size),
+			templ.KV("w-full", p.FullW),
+		}
+		{ p.Attrs... }
+	>
+		if p.Loading != "" {
+			<div id={ p.Loading } class={ "htmx-indicator absolute inset-0 flex items-center justify-center rounded-xl pointer-events-none", btnVariant(p.Variant) }>
+				<span class={ "cp-spinner htmx-indicator" } aria-hidden="true"></span>
+			</div>
+		}
+		{ children... }
+	</button>
+}
+
+// IconButton is a square, icon-only action. Include `data-tip="Label"` in Attrs
+// for a tooltip, or wrap the caller in <span data-tip="…">. Same Disabled/Loading
+// semantics as @Button.
+templ IconButton(p ButtonProps) {
+	<button
+		type={ nonEmpty(p.Type, "button") }
+		class={
+			"glow-btn clip-btn grid place-items-center w-9 h-9 relative",
+			"disabled:cursor-not-allowed  aria-disabled:cursor-not-allowed",
+			btnVariant(p.Variant),
+		}
+		{ p.Attrs... }
+	>
+		if p.Loading != "" {
+			<div id={ p.Loading } class={ "htmx-indicator absolute inset-0 flex items-center justify-center rounded-xl pointer-events-none", btnVariant(p.Variant) }>
+				<span class={ "cp-spinner htmx-indicator" } aria-hidden="true"></span>
+			</div>
+		}
+		{ children... }
+	</button>
+}
+
+// ButtonGroup clips its first/last children with angled edges, creating a single
+// "bar" of related actions. Place @Button's inside as children.
+templ ButtonGroup() {
+	<div class="inline-flex [&>*:first-child]:clip-l [&>*:last-child]:clip-r [&>*:not(:first-child):not(:last-child)]:clip-none">
+		{ children... }
+	</div>
+}
+
+// SegmentedOption is one choice in a @Segmented control.
+type SegmentedOption struct {
+	Value string
+	Label string
+}
+
+// Segmented is a stateful single-select control (one option active at a time).
+// Emits a "segmented-change" custom event with the new value as `detail`.
+templ Segmented(name, initial string, opts ...SegmentedOption) {
+	<div
+		x-data={ "{ sel: '" + initial + "' }" }
+		role="radiogroup"
+		aria-label={ name }
+		class="inline-flex"
+	>
+		for i, o := range opts {
+			<button
+				type="button"
+				role="radio"
+				:aria-checked={ "sel === '" + o.Value + "'" }
+				@click={ "sel = '" + o.Value + "'; $dispatch('segmented-change', { name: '" + name + "', value: sel })" }
+				:class={ "sel === '" + o.Value + "' ? 'bg-accent text-accent-fg' : 'border border-border text-accent hover:bg-accent/10'" }
+				class={
+					"px-4 py-2 font-mono text-xs uppercase tracking-widest",
+					templ.KV("clip-l", i == 0),
+					templ.KV("clip-r", i == len(opts)-1),
+				}
+			>
+				{ o.Label }
+			</button>
+		}
+	</div>
+}
+
+// FAB is a bottom-right floating action button. Position it with absolute/fixed at
+// the call site — this just styles the pill. Pass HTMX attrs for async dispatch.
+templ FAB(attrs templ.Attributes) {
+	<button
+		type="button"
+		class="w-12 h-12 clip-btn bg-primary text-primary-fg grid place-items-center glow-btn"
+		{ attrs... }
+	>
+		{ children... }
+	</button>
+}
+
+// SpinnerSize maps to a pixel diameter.
+type SpinnerSize string
+
+const (
+	SpinnerSM SpinnerSize = "sm" // 16px
+	SpinnerMD SpinnerSize = "md" // 20px (default)
+	SpinnerLG SpinnerSize = "lg" // 28px
+	SpinnerXL SpinnerSize = "xl" // 36px
+)
+
+func spinnerPx(s SpinnerSize) string {
+	switch s {
+	case SpinnerSM:
+		return "width:16px;height:16px"
+	case SpinnerLG:
+		return "width:28px;height:28px"
+	case SpinnerXL:
+		return "width:36px;height:36px"
+	}
+	return "width:20px;height:20px"
+}
+
+// Spinner is the CP-style dual-arc ring. Use size `md` inline with text,
+// `lg`+ for full-panel loading states.
+templ Spinner(size SpinnerSize) {
+	<span class="cp-spinner" style={ spinnerPx(size) } role="status" aria-label="Loading"></span>
+}
+
+// Skeleton is a shimmer block used while content loads. Height/width from utilities.
+templ Skeleton(class string) {
+	<div class={ "skeleton", class } aria-hidden="true"></div>
+}

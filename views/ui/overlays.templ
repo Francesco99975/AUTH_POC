@@ -1,0 +1,251 @@
+package ui
+
+// ModalProps controls a dialog's behaviour.
+// The Alpine variable `open` is scoped inside the component, but you can expose
+// it to the outside by wrapping the opener & the @Modal in a shared x-data root,
+// or by using a named Alpine store.
+type ModalProps struct {
+	// Title appears in the glitch heading.
+	Title string
+	// OpenExpr is any Alpine expression that evaluates to a boolean, e.g. "modal".
+	// The Modal itself does NOT create this state — the parent must own it.
+	OpenExpr string
+	// MaxW controls width. Defaults to "max-w-md". Use "max-w-lg", "max-w-2xl", …
+	MaxW string
+}
+
+// Modal renders a centred dialog with scanline backdrop + focus trap.
+// The caller must provide `open` state via OpenExpr.
+//
+//	<div x-data="{ modal:false }">
+//	  @Button(ButtonProps{Attrs: templ.Attributes{"@click": "modal = true"}}) { Open }
+//	  @Modal(ModalProps{Title: "CONFIRM", OpenExpr: "modal"}) {
+//	    body...
+//	  }
+//	</div>
+templ Modal(p ModalProps) {
+	<div
+		x-show={ p.OpenExpr }
+		x-cloak
+		class="fixed inset-0 z-50 grid place-items-center p-4"
+		@keydown.escape.window={ p.OpenExpr + " = false" }
+		role="dialog"
+		aria-modal="true"
+	>
+		<div class="absolute inset-0 bg-std/70 backdrop-blur-sm" @click={ p.OpenExpr + " = false" }></div>
+		<div
+			x-show={ p.OpenExpr }
+			x-transition:enter="transition ease-out duration-200"
+			x-transition:enter-start="opacity-0 scale-95"
+			x-transition:enter-end="opacity-100 scale-100"
+			x-trap.inert.noscroll={ p.OpenExpr }
+			class={ "relative w-full neon-border clip-panel p-6", nonEmpty(p.MaxW, "max-w-md") }
+		>
+			<div class="flex items-start justify-between mb-3">
+				<div>
+					<div class="font-mono text-[10px] text-accent/70 uppercase">
+						// dialog</div>
+						<h3 class="glitch neon-primary text-xl font-bold tracking-widest" data-text={ p.Title }>{ p.Title }</h3>
+					</div>
+					<button type="button" @click={ p.OpenExpr + " = false" } class="text-accent" aria-label="Close">✕</button>
+				</div>
+				{ children... }
+			</div>
+		</div>
+	</div>
+}
+
+// DrawerSide is "left" or "right".
+type DrawerSide string
+
+const (
+	DrawerLeft  DrawerSide = "left"
+	DrawerRight DrawerSide = "right"
+)
+
+// DrawerProps — slide-in side panel. `OpenExpr` is caller-owned Alpine state.
+type DrawerProps struct {
+	Title    string
+	OpenExpr string
+	Side     DrawerSide
+	Width    string // e.g. "w-80". Defaults to w-80.
+}
+
+// Drawer is a side-sliding panel with backdrop. Provide OpenExpr on a shared Alpine root.
+templ Drawer(p DrawerProps) {
+	{{
+		side := p.Side
+		if side == "" {
+			side = DrawerRight
+		}
+		enterStart := "translate-x-full"
+		placement := "ml-auto border-l"
+		if side == DrawerLeft {
+			enterStart = "-translate-x-full"
+			placement = "mr-auto border-r"
+		}
+	}}
+	<div x-show={ p.OpenExpr } x-cloak class="fixed inset-0 z-50" @keydown.escape.window={ p.OpenExpr + " = false" } role="dialog" aria-modal="true">
+		<div class="absolute inset-0 bg-std/70 backdrop-blur-sm" @click={ p.OpenExpr + " = false" }></div>
+		<aside
+			x-show={ p.OpenExpr }
+			x-transition:enter="transition transform ease-out duration-200"
+			x-transition:enter-start={ enterStart }
+			x-transition:enter-end="translate-x-0"
+			x-transition:leave="transition transform ease-in duration-150"
+			x-transition:leave-start="translate-x-0"
+			x-transition:leave-end={ enterStart }
+			class={ "relative h-full bg-panel border-accent p-5 max-w-[90vw]", placement, nonEmpty(p.Width, "w-80") }
+		>
+			<div class="flex items-center justify-between mb-4">
+				<div class="neon-primary font-bold tracking-widest">{ p.Title }</div>
+				<button type="button" @click={ p.OpenExpr + " = false" } class="text-accent" aria-label="Close">✕</button>
+			</div>
+			{ children... }
+		</aside>
+	</div>
+}
+
+// MenuItem — single row in a @DropdownMenu.
+type MenuItem struct {
+	Label   string
+	OnClick string // Alpine expression, e.g. "export()" or "modal = true"
+	Danger  bool
+	Divider bool // when true, renders a horizontal separator; other fields ignored
+}
+
+// DropdownMenu — floating action menu. Self-contained (`open` is scoped).
+// The trigger button uses Label as its text.
+templ DropdownMenu(label string, items ...MenuItem) {
+	<div class="relative" x-data="{ open: false }">
+		<button
+			type="button"
+			@click="open = !open"
+			@click.away="open = false"
+			:aria-expanded="open.toString()"
+			class="glow-btn clip-btn border border-accent text-accent font-mono text-xs uppercase tracking-widest px-3 py-2"
+		>
+			{ label } ▾
+		</button>
+		<div
+			x-show="open"
+			x-cloak
+			x-transition.opacity
+			class="absolute z-20 mt-1 min-w-40 bg-panel border border-accent clip-panel font-mono text-xs uppercase tracking-widest"
+			role="menu"
+		>
+			for _, it := range items {
+				if it.Divider {
+					<div class="border-t border-border"></div>
+				} else if it.Danger {
+					<button type="button" @click={ it.OnClick + "; open = false" } class="w-full text-left px-3 py-2 text-error hover:bg-error hover:text-std" role="menuitem">
+						{ it.Label }
+					</button>
+				} else {
+					<button type="button" @click={ it.OnClick + "; open = false" } class="w-full text-left px-3 py-2 hover:bg-primary hover:text-primary-fg" role="menuitem">
+						{ it.Label }
+					</button>
+				}
+			}
+		</div>
+	</div>
+}
+
+// Tooltip wraps its children in a <span data-tip="…"> so the global CSS shows
+// the tip on hover. Position is always below.
+templ Tooltip(text string) {
+	<span data-tip={ text }>
+		{ children... }
+	</span>
+}
+
+// AccordionItem — one Q/A pair.
+type AccordionItem struct {
+	Title string
+	Body  string
+}
+
+// Accordion is a vertical stack of collapsible rows. At most one is open at a time.
+templ Accordion(items ...AccordionItem) {
+	<div x-data="{ o: 0 }" class="divide-y divide-border border border-border clip-panel">
+		for i, it := range items {
+			<div>
+				<button
+					type="button"
+					@click={ "o = (o === " + itoa(i) + " ? -1 : " + itoa(i) + ")" }
+					:aria-expanded={ "(o === " + itoa(i) + ").toString()" }
+					class="w-full flex items-center justify-between px-3 py-3 text-left font-mono text-xs uppercase tracking-widest"
+				>
+					<span>{ it.Title }</span>
+					<span class="text-primary" x-text={ "o === " + itoa(i) + " ? '−' : '+'" }></span>
+				</button>
+				<div x-show={ "o === " + itoa(i) } x-collapse class="px-3 pb-3 text-sm text-muted">
+					{ it.Body }
+				</div>
+			</div>
+		}
+	</div>
+}
+
+// Command — one @CommandPalette row.
+type Command struct {
+	Label string
+	Keys  string // display-only shortcut string, e.g. "⌘ K"
+	Href  string // optional — rendered as an <a> when set
+}
+
+// CommandPalette is a ⌘K / Ctrl+K global launcher. The trigger pill is always
+// rendered inline; the full modal is a portal-like overlay mounted to the page.
+// `cmds` are filtered live by the typed query.
+templ CommandPalette(cmds ...Command) {
+	<div
+		x-data={ "{ open:false, q:'', cmds: " + commandsToJS(cmds) + ", get filtered(){ return this.cmds.filter(c => c.l.toLowerCase().includes(this.q.toLowerCase())); } }" }
+		@keydown.window.prevent.ctrl.k="open = true"
+		@keydown.window.prevent.meta.k="open = true"
+	>
+		<button
+			type="button"
+			@click="open = true"
+			class="cp-field clip-tag w-full text-left flex items-center gap-2"
+		>
+			<svg class="text-muted" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+				<circle cx="11" cy="11" r="7"></circle>
+				<line x1="21" y1="21" x2="16.5" y2="16.5"></line>
+			</svg>
+			<span class="text-muted text-sm">search or run command…</span>
+			<span class="ml-auto font-mono text-[10px] text-accent border border-accent px-1.5 py-0.5">⌘K</span>
+		</button>
+		<div x-show="open" x-cloak class="fixed inset-0 z-50 grid items-start justify-center pt-24 px-4" @keydown.escape.window="open = false" role="dialog" aria-modal="true">
+			<div class="absolute inset-0 bg-std/70 backdrop-blur-sm" @click="open = false"></div>
+			<div
+				x-show="open"
+				x-transition:enter="transition ease-out duration-150"
+				x-transition:enter-start="opacity-0 -translate-y-2"
+				x-transition:enter-end="opacity-100 translate-y-0"
+				x-trap.inert.noscroll="open"
+				class="relative w-full max-w-lg neon-border clip-panel"
+			>
+				<input
+					x-model="q"
+					x-ref="q"
+					x-init="$nextTick(() => $refs.q.focus())"
+					@keydown.escape="open = false"
+					class="w-full px-4 py-3 bg-panel border-b border-border font-mono text-sm outline-none placeholder:text-muted"
+					placeholder="type a command…"
+					autofocus
+				/>
+				<ul class="max-h-72 overflow-auto" role="listbox">
+					<template x-for="c in filtered" :key="c.l">
+						<li>
+							<button type="button" class="w-full text-left px-4 py-2 font-mono text-xs uppercase tracking-widest flex justify-between hover:bg-primary hover:text-primary-fg">
+								<span x-text="c.l"></span>
+								<span class="text-muted" x-text="c.k"></span>
+							</button>
+						</li>
+					</template>
+					<li x-show="!filtered.length" class="px-4 py-6 text-center font-mono text-xs text-muted">no commands match</li>
+				</ul>
+			</div>
+		</div>
+	</div>
+}

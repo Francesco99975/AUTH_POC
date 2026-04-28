@@ -1,0 +1,91 @@
+package ui
+
+// Clock renders a live HH:MM:SS readout with a pulsing status dot.
+// Self-contained Alpine island — no Go state required.
+templ Clock() {
+	<div
+		x-data="{ time: '', tick(){ this.time = new Date().toLocaleTimeString('en-GB', {hour12:false}); } }"
+		x-init="tick(); setInterval(() => tick(), 1000)"
+		class="hidden sm:flex items-center gap-2 px-2 py-1 clip-tag border border-border font-mono text-xs"
+		aria-label="Current time"
+	>
+		<span class="pulse-dot"></span>
+		<span class="text-accent" x-text="time">--:--:--</span>
+	</div>
+}
+
+// ThemeToggle flips the inherited `darkMode` reactive property. HeaderCore
+// owns the $watch that persists to localStorage and toggles html.dark.
+//
+// REQUIRED PARENT SCOPE: an ancestor x-data must expose `darkMode` (bool).
+// If you use @HeaderCore (directly or via @Header) this is already true.
+templ ThemeToggle() {
+	<button
+		type="button"
+		@click="darkMode = !darkMode"
+		:aria-pressed="darkMode.toString()"
+		class="px-3 py-1.5 clip-btn border border-accent text-accent font-mono text-xs uppercase tracking-widest glow-btn inline-flex items-center gap-1.5"
+		aria-label="Toggle theme"
+	>
+		<span x-show="darkMode">☀<span class="hidden sm:inline">Day</span></span>
+		<span x-show="!darkMode" x-cloak>☾<span class="hidden sm:inline">Night</span></span>
+	</button>
+}
+
+// MarqueeItem is one ticker entry. Kind picks the text color.
+type MarqueeItem struct {
+	Text string
+	Kind string // "" | "primary" | "accent" | "error" | "warning" | "success" | "info" | "muted"
+}
+
+func marqueeClass(kind string) string {
+	switch kind {
+	case "primary":
+		return "text-primary"
+	case "accent":
+		return "text-accent"
+	case "error":
+		return "text-error"
+	case "warning":
+		return "text-warning"
+	case "success":
+		return "text-success"
+	case "info":
+		return "text-info"
+	case "muted":
+		return "text-muted"
+	}
+	return "text-accent"
+}
+
+// defaultMarqueeItems returns the sensible default ticker line if the caller
+// didn't pass any items. Exposed so apps can extend/override it.
+func defaultMarqueeItems() []MarqueeItem {
+	return []MarqueeItem{
+		{"// SYSTEM ONLINE", "error"},
+		{"// net.status :: stable", "accent"},
+		{"// 0 critical warnings", "primary"},
+		{"// press ? for command palette", "muted"},
+		{"// mobile-first, accessible, themable", "accent"},
+	}
+}
+
+// Marquee renders an infinitely scrolling ticker. Pass no items for the default set.
+templ Marquee(items ...MarqueeItem) {
+	{{list := items
+if len(list) == 0 {
+	list = defaultMarqueeItems()
+}
+	}}
+	<div class="border-b border-border bg-panel/40 overflow-hidden" role="marquee" aria-label="Status ticker">
+		<div class="marquee-track font-mono text-[11px] py-1.5 uppercase tracking-widest">
+			for i := 0; i < 2; i++ {
+				<span class="flex">
+					for _, it := range list {
+						<span class={ "mx-6", marqueeClass(it.Kind) }>{ it.Text }</span>
+					}
+				</span>
+			}
+		</div>
+	</div>
+}

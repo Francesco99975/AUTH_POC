@@ -1,6 +1,6 @@
 package components
 
-import ui "github.com/Francesco99975/authpoc/views/ui/forms"
+import "github.com/Francesco99975/authpoc/views/ui"
 
 type SecurityProps struct {
 	TwoFAEnabled bool
@@ -56,10 +56,13 @@ templ ChangePasswordForm(csrf string) {
 		</div>
 		<div id="password-response"></div>
 		<div class="flex justify-end pt-4 border-t border-primary/10">
-			<button type="submit" class="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-primary text-white font-medium hover:bg-primary/90 transition-all relative">
-				<span>Update Password</span>
-				@ui.LoadingIndicator("password-indicator")
-			</button>
+			@ui.Button(ui.ButtonProps{
+				Variant: ui.ButtonPrimary,
+				Size:    ui.ButtonMD,
+				Type:    "button",
+				FullW:   true,
+				Loading: "password-indicator",
+			})
 		</div>
 		<div id="success-message"></div>
 	</form>

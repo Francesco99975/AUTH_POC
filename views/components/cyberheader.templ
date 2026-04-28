@@ -1,0 +1,17 @@
+package components
+
+import "github.com/Francesco99975/authpoc/internal/models"
+import "github.com/Francesco99975/authpoc/views/ui"
+
+templ CyberHeader(site models.Site) {
+	@HeaderCore(site) {
+		@ui.HeaderBrand(site.AppName, site.Title, "/")
+		@ui.HeaderNav(ui.DefaultNavLinks...)
+		@ui.HeaderActions() {
+			@ui.Clock()
+			@ui.ThemeToggle()
+			@ui.HeaderBurger()
+		}
+		@ui.HeaderMobilePanel(ui.DefaultNavLinks...)
+	}
+}

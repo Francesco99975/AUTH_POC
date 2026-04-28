@@ -1,9 +1,7 @@
 package components
 
-import (
-	"github.com/Francesco99975/authpoc/views/icons"
-	ui "github.com/Francesco99975/authpoc/views/ui/forms"
-)
+import "github.com/Francesco99975/authpoc/views/icons"
+import "github.com/Francesco99975/authpoc/views/ui"
 
 type AccountProps struct {
 	IsActive     bool
@@ -216,13 +214,13 @@ templ DeactivateModal(csrf string) {
 						@htmx:after-request="showDeactivateModal = false"
 					>
 						@CSRF(csrf)
-						<button
-							type="submit"
-							class="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-error text-white font-medium text-sm hover:bg-error/90 transition-all relative"
-						>
-							<span>Deactivate Account</span>
-							@ui.LoadingIndicator("deactivate-modal-indicator")
-						</button>
+						@ui.Button(ui.ButtonProps{
+							Variant: ui.ButtonDanger,
+							Size:    ui.ButtonMD,
+							Type:    "submit",
+							FullW:   true,
+							Loading: "deactivate-modal-indicator",
+						})
 					</form>
 				</div>
 			</div>
@@ -303,13 +301,13 @@ templ ActivateModal(csrf string) {
 						@htmx:after-request="showActivateModal = false"
 					>
 						@CSRF(csrf)
-						<button
-							type="submit"
-							class="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-success text-white font-medium text-sm hover:bg-success/90 transition-all relative"
-						>
-							<span>Activate Account</span>
-							@ui.LoadingIndicator("activate-modal-indicator")
-						</button>
+						@ui.Button(ui.ButtonProps{
+							Variant: ui.ButtonAccent,
+							Size:    ui.ButtonMD,
+							Type:    "submit",
+							FullW:   true,
+							Loading: "activate-modal-indicator",
+						})
 					</form>
 				</div>
 			</div>

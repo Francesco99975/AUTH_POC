@@ -1,0 +1,260 @@
+package ui
+
+// ProgressBar is a determinate-or-indeterminate striped bar.
+// When Indeterminate is true, Value is ignored and the bar animates a 1/3-width shuttle.
+type ProgressBarProps struct {
+	Label         string
+	Value         int // 0..100
+	Indeterminate bool
+	ShowValue     bool
+}
+
+templ ProgressBar(p ProgressBarProps) {
+	<div>
+		if p.Label != "" || p.ShowValue {
+			<div class="flex justify-between font-mono text-[11px] mb-1">
+				<span class="text-accent">{ p.Label }</span>
+				if p.Indeterminate {
+					<span class="text-muted">indeterminate</span>
+				} else if p.ShowValue {
+					<span class="text-primary">{ itoa(p.Value) }%</span>
+				}
+			</div>
+		}
+		if p.Indeterminate {
+			<div class="cp-bar clip-tag" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+				<span style="width:33%;animation: marquee 1.6s linear infinite"></span>
+			</div>
+		} else {
+			<div class="cp-bar clip-tag" role="progressbar" aria-valuenow={ itoa(p.Value) } aria-valuemin="0" aria-valuemax="100">
+				<span style={ "width:" + itoa(p.Value) + "%" }></span>
+			</div>
+		}
+	</div>
+}
+
+// ProgressRingProps — circular progress with centre label.
+type ProgressRingProps struct {
+	Value int    // 0..100
+	Size  int    // px, defaults to 96
+	Label string // small top label
+	Note  string // small muted bottom note
+}
+
+// ProgressRing — SVG ring with glow. Pass Label+Note for an inline HUD.
+templ ProgressRing(p ProgressRingProps) {
+	{{ size := nonZero(p.Size, 96) }}
+	<div class="flex items-center gap-4">
+		<svg class="-rotate-90" width={ itoa(size) } height={ itoa(size) } viewBox="0 0 100 100" role="img" aria-label="progress">
+			<circle cx="50" cy="50" r="42" fill="none" stroke="var(--color-border)" stroke-width="4"></circle>
+			<circle
+				cx="50"
+				cy="50"
+				r="42"
+				fill="none"
+				stroke="var(--color-primary)"
+				stroke-width="4"
+				stroke-linecap="butt"
+				pathLength="100"
+				stroke-dasharray={ itoa(p.Value) + " 100" }
+				style="filter: drop-shadow(0 0 4px var(--color-primary)); transition: stroke-dasharray .4s ease;"
+			></circle>
+		</svg>
+		<div>
+			if p.Label != "" {
+				<div class="font-mono text-[10px] text-accent uppercase">{ p.Label }</div>
+			}
+			<div class="text-3xl font-bold neon-primary">{ itoa(p.Value) }%</div>
+			if p.Note != "" {
+				<div class="font-mono text-[10px] text-muted">{ p.Note }</div>
+			}
+		</div>
+	</div>
+}
+
+// AlertKind picks the palette and default heading text.
+type AlertKind string
+
+const (
+	AlertSuccess AlertKind = "success"
+	AlertWarning AlertKind = "warning"
+	AlertError   AlertKind = "error"
+	AlertInfo    AlertKind = "info"
+)
+
+func alertClasses(k AlertKind) (border, textHeader string) {
+	switch k {
+	case AlertSuccess:
+		return "border-success bg-success/10", "text-success"
+	case AlertWarning:
+		return "border-warning bg-warning/10", "text-warning"
+	case AlertError:
+		return "border-error bg-error/10", "text-error"
+	default:
+		return "border-info bg-info/10", "text-info"
+	}
+}
+
+// Alert is a bordered panel for a short system message. Children are the body.
+templ Alert(kind AlertKind, heading string) {
+	{{ bord, head := alertClasses(kind) }}
+	<div class={ "clip-panel border-l-4 p-3 font-mono text-xs", bord } role={ alertRole(kind) }>
+		<div class={ "uppercase tracking-widest", head }>{ heading }</div>
+		<div class="text-fg/90">
+			{ children... }
+		</div>
+	</div>
+}
+
+func alertRole(k AlertKind) string {
+	if k == AlertError || k == AlertWarning {
+		return "alert"
+	}
+	return "status"
+}
+
+// Badge is a short status pill. Variant picks the background; outlined makes
+// it border-only (useful for muted/neutral labels).
+type BadgeVariant string
+
+const (
+	BadgePrimary BadgeVariant = "primary"
+	BadgeAccent  BadgeVariant = "accent"
+	BadgeError   BadgeVariant = "error"
+	BadgeMuted   BadgeVariant = "muted"
+	BadgeSuccess BadgeVariant = "success"
+	BadgeWarning BadgeVariant = "warning"
+	BadgeInfo    BadgeVariant = "info"
+)
+
+func badgeClass(v BadgeVariant, outlined bool) string {
+	switch v {
+	case BadgeAccent:
+		if outlined {
+			return "border border-accent text-accent"
+		}
+		return "bg-accent text-accent-fg"
+	case BadgeError:
+		if outlined {
+			return "border border-error text-error"
+		}
+		return "bg-error text-std"
+	case BadgeMuted:
+		return "border border-muted text-muted"
+	case BadgeSuccess:
+		if outlined {
+			return "border border-success text-success"
+		}
+		return "bg-success text-std"
+	case BadgeWarning:
+		if outlined {
+			return "border border-warning text-warning"
+		}
+		return "bg-warning text-std"
+	case BadgeInfo:
+		if outlined {
+			return "border border-info text-info"
+		}
+		return "bg-info text-std"
+	}
+	if outlined {
+		return "border border-primary text-primary"
+	}
+	return "bg-primary text-primary-fg"
+}
+
+templ Badge(variant BadgeVariant, outlined bool) {
+	<span class={ "clip-tag font-mono text-[10px] uppercase px-2 py-0.5", badgeClass(variant, outlined) }>
+		{ children... }
+	</span>
+}
+
+// StatusDot is a small pulsing indicator. Kind drives colour.
+// When Kind == "offline" the pulse animation is removed.
+templ StatusDot(kind, label string) {
+	if kind == "offline" {
+		<span class="flex items-center gap-2 font-mono text-[11px]">
+			<span class="pulse-dot" style="background:var(--color-muted);box-shadow:none;animation:none"></span>
+			{ label }
+		</span>
+	} else if kind == "online" {
+		<span class="flex items-center gap-2 font-mono text-[11px]">
+			<span class="pulse-dot" style="background:var(--color-success);box-shadow:none;animation:none"></span>
+			{ label }
+		</span>
+	} else {
+		<span class="flex items-center gap-2 font-mono text-[11px]">
+			<span class="pulse-dot" style="background:var(--color-warning);box-shadow:none;animation:none"></span>
+			{ label }
+		</span>
+	}
+}
+
+// RatingProps — 1..N star input with hover preview.
+type RatingProps struct {
+	Name  string
+	Value int
+	Max   int
+}
+
+templ Rating(p RatingProps) {
+	{{ max := nonZero(p.Max, 5) }}
+	<div
+		x-data={ "{ r: " + itoa(p.Value) + ", hover: 0 }" }
+		class="flex gap-1 items-center"
+		role="radiogroup"
+	>
+		for i := 1; i <= max; i++ {
+			<button
+				type="button"
+				@click={ "r = " + itoa(i) }
+				@mouseenter={ "hover = " + itoa(i) }
+				@mouseleave="hover = 0"
+				:class={ "(hover || r) >= " + itoa(i) + " ? 'text-primary' : 'text-muted'" }
+				class="text-2xl leading-none transition"
+				aria-label={ itoa(i) + " star" }
+			>★</button>
+		}
+		<span class="ml-3 font-mono text-xs text-accent" x-text={ "r + '/" + itoa(max) + "'" }></span>
+		<input type="hidden" name={ p.Name } :value="r"/>
+	</div>
+}
+
+// ToastStack is the root-level container that renders messages pushed by
+// any component via `$root.pushToast(kind, msg)`. The Alpine state for
+// `toasts` + `pushToast` is defined on <body> in the root layout.
+templ ToastStack() {
+	<div class="fixed z-70 top-20 right-4 flex flex-col gap-2 w-[min(92vw,320px)]" aria-live="polite" aria-atomic="false">
+		<template x-for="t in toasts" :key="t.id">
+			<div
+				class="toast-in clip-panel p-3 border-l-4 bg-panel flex items-start gap-3"
+				:class="{
+					'border-success': t.kind==='success',
+					'border-error':   t.kind==='error',
+					'border-warning': t.kind==='warning',
+					'border-info':    t.kind==='info'
+				}"
+				role="status"
+			>
+				<span
+					class="pulse-dot mt-1.5"
+					:style="`background: var(--color-${t.kind}); box-shadow: 0 0 8px var(--color-${t.kind});`"
+				></span>
+				<div class="flex-1 min-w-0">
+					<div
+						class="font-mono text-[10px] uppercase tracking-widest"
+						:class="{
+							'text-success': t.kind==='success',
+							'text-error':   t.kind==='error',
+							'text-warning': t.kind==='warning',
+							'text-info':    t.kind==='info'
+						}"
+						x-text="t.kind"
+					></div>
+					<div class="text-sm" x-text="t.msg"></div>
+				</div>
+				<button @click="toasts = toasts.filter(x => x.id !== t.id)" class="text-muted hover:text-error" aria-label="Dismiss">✕</button>
+			</div>
+		</template>
+	</div>
+}

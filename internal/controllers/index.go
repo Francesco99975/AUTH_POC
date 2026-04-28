@@ -36,7 +36,7 @@ func Auth() echo.HandlerFunc {
 			return c.Redirect(http.StatusSeeOther, "/dashboard")
 		}
 
-		data := models.GetDefaultSite("Authentication", c.Request())
+		data := models.GetDefaultSite("Authenthication", c.Request())
 		data.Nonce = c.Get("nonce").(string)
 		data.CSRF = c.Get("csrf").(string)
 

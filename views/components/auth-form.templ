@@ -1,9 +1,7 @@
 package components
 
-import (
-	"github.com/Francesco99975/authpoc/views/icons"
-	ui "github.com/Francesco99975/authpoc/views/ui/forms"
-)
+import "github.com/Francesco99975/authpoc/views/icons"
+import "github.com/Francesco99975/authpoc/views/ui"
 
 templ AuthForm(csrf string) {
 	<div
@@ -117,7 +115,13 @@ templ LoginForm(csrf string) {
 				Forgot password?
 			</a>
 		</div>
-		@ui.SubmitButton("login-indicator") {
+		@ui.Button(ui.ButtonProps{
+			Variant: ui.ButtonPrimary,
+			FullW:   true,
+			Type:    "submit",
+			Loading: "login-indicator",
+			Size:    ui.ButtonMD,
+		}) {
 			<span>Sign In</span>
 		}
 	</form>
@@ -281,8 +285,14 @@ templ EmailVerification(email string, csrf string, verify_url string) {
 		>
 			@CSRF(csrf)
 			@ui.GenericCodeInput("token", "Verification Code", "Check your email for the verification token")
-			@ui.SubmitButton("verify-spinner") {
-				<span>Verify & Continue</span>
+			@ui.Button(ui.ButtonProps{
+				Variant: ui.ButtonPrimary,
+				FullW:   true,
+				Type:    "submit",
+				Loading: "verify-spinner",
+				Size:    ui.ButtonMD,
+			}) {
+				<span>Verify Email</span>
 			}
 		</form>
 		<div

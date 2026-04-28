@@ -9,15 +9,15 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func About() echo.HandlerFunc {
+func Theme() echo.HandlerFunc {
 	return func(c echo.Context) error {
 
-		data := models.GetDefaultSite("About", c.Request())
+		data := models.GetDefaultSite("Theme", c.Request())
 
 		data.Nonce = c.Get("nonce").(string)
 		data.CSRF = c.Get("csrf").(string)
 
-		html := helpers.MustRenderHTML(views.About(data))
+		html := helpers.MustRenderHTML(views.Theme(data))
 
 		return c.Blob(http.StatusOK, "text/html", html)
 

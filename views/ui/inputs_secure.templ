@@ -1,0 +1,245 @@
+package ui
+
+// PasswordProps — masked input with show/hide toggle and optional live strength meter.
+type PasswordProps struct {
+	Name        string
+	Label       string
+	Placeholder string
+	Value       string
+	Required    bool
+	// ShowStrength renders a 4-segment entropy meter beneath the field.
+	ShowStrength bool
+	Attrs        templ.Attributes
+}
+
+// Password is a masked input with reveal-toggle. Enable ShowStrength for a live
+// 4-bar entropy meter based on length + charset variety.
+templ Password(p PasswordProps) {
+	<div
+		x-data={ "{ show:false, v: '" + p.Value + "', " +
+				"score(){ let s=0; " +
+				"if(this.v.length>=8)s++; " +
+				"if(/[A-Z]/.test(this.v))s++; " +
+				"if(/[0-9]/.test(this.v))s++; " +
+				"if(/[^\\w]/.test(this.v))s++; return s; } }" }
+	>
+		if p.Label != "" {
+			@FieldLabel(p.Label, "")
+		}
+		<div class="relative">
+			<input
+				:type="show ? 'text' : 'password'"
+				name={ p.Name }
+				x-model="v"
+				placeholder={ nonEmpty(p.Placeholder, "••••••••") }
+				required?={ p.Required }
+				class="cp-field clip-tag pr-12"
+				autocomplete="current-password"
+				{ p.Attrs... }
+			/>
+			<button
+				type="button"
+				@click="show = !show"
+				class="absolute right-2 top-1/2 -translate-y-1/2 text-accent font-mono text-[10px] uppercase"
+				aria-label="Toggle password visibility"
+			>
+				<span x-text="show ? 'hide' : 'show'"></span>
+			</button>
+		</div>
+		if p.ShowStrength {
+			<div class="mt-2 grid grid-cols-4 gap-1" aria-hidden="true">
+				<template x-for="i in 4" :key="i">
+					<div
+						class="h-1"
+						:class="score() >= i
+							? (score()===1 ? 'bg-error' : score()===2 ? 'bg-warning' : score()===3 ? 'bg-info' : 'bg-success')
+							: 'bg-border'"
+					></div>
+				</template>
+			</div>
+			<div class="mt-1 font-mono text-[10px] text-muted">
+				entropy:
+				<span class="text-accent" x-text="['none','weak','ok','good','strong'][score()]"></span>
+			</div>
+		}
+	</div>
+}
+
+// OTPProps — N-digit one-time-code input with paste-spread, auto-advance, and
+// backspace-step-back behaviour.
+type OTPProps struct {
+	Name   string // the hidden input gets this name — its value is the joined code
+	Label  string
+	Length int // defaults to 6 when 0
+	// PostURL, when set, submits the code via hx-post once all slots are filled.
+	PostURL  string
+	TargetID string
+}
+
+// OTP renders the digit row plus a hidden input carrying the concatenated code
+// so it ships with the surrounding form on submit.
+templ OTP(p OTPProps) {
+	{{ length := p.Length
+if length == 0 {
+	length = 6
+} }}
+	<div
+		x-data={ "{ len: " + itoa(length) + ", code: Array(" + itoa(length) + ").fill(''), " +
+				"joined(){ return this.code.join(''); }, " +
+				"onInput(i,e){ const v=e.target.value.replace(/\\D/g,'').slice(-1); this.code[i]=v; if(v && i<this.len-1) this.$refs['d'+(i+1)].focus(); }, " +
+				"onKey(i,e){ if(e.key==='Backspace' && !this.code[i] && i>0) this.$refs['d'+(i-1)].focus(); }, " +
+				"onPaste(e){ const t=(e.clipboardData.getData('text')||'').replace(/\\D/g,'').slice(0,this.len).split(''); t.forEach((c,i)=> this.code[i]=c); e.preventDefault(); } }" }
+	>
+		if p.Label != "" {
+			@FieldLabel(p.Label, "")
+		}
+		<div class="flex gap-1.5" @paste="onPaste($event)">
+			for i := 0; i < length; i++ {
+				<input
+					x-ref={ "d" + itoa(i) }
+					type="text"
+					inputmode="numeric"
+					maxlength="1"
+					autocomplete="one-time-code"
+					:value={ "code[" + itoa(i) + "]" }
+					@input={ "onInput(" + itoa(i) + ",$event)" }
+					@keydown={ "onKey(" + itoa(i) + ",$event)" }
+					class="cp-field text-center text-lg font-mono w-10 h-12 px-0"
+				/>
+			}
+		</div>
+		<input type="hidden" name={ p.Name } :value="joined()"/>
+		if p.PostURL != "" {
+			<div class="mt-2">
+				@Button(ButtonProps{
+					Variant: ButtonPrimary,
+					Size:    ButtonSM,
+					Attrs: templ.Attributes{
+						"hx-post":         p.PostURL,
+						"hx-target":       "#" + p.TargetID,
+						"x-bind:disabled": "joined().length !== len",
+					},
+				}) {
+					Verify
+				}
+			</div>
+		}
+	</div>
+}
+
+// TagInputProps — list of short tag strings with inline add/remove.
+type TagInputProps struct {
+	Name        string // rendered as a hidden CSV input so it submits with the form
+	Label       string
+	Initial     []string
+	Placeholder string
+}
+
+// TagInput is a pill-based multi-value input. Enter or comma commits; Backspace
+// on an empty draft removes the last tag.
+templ TagInput(p TagInputProps) {
+	<div
+		x-data={ "{ tags: " + jsStringArray(p.Initial) + ", draft: '', " +
+				"add(){ const v=this.draft.trim(); if(v && !this.tags.includes(v)) this.tags.push(v); this.draft=''; }, " +
+				"remove(t){ this.tags = this.tags.filter(x => x !== t); } }" }
+	>
+		if p.Label != "" {
+			@FieldLabel(p.Label, "")
+		}
+		<div class="cp-field clip-tag flex flex-wrap gap-1 items-center min-h-[44px]">
+			<template x-for="t in tags" :key="t">
+				<span class="clip-tag bg-primary text-primary-fg font-mono text-[11px] uppercase px-2 py-0.5 flex items-center gap-1">
+					<span x-text="t"></span>
+					<button type="button" @click="remove(t)" class="text-primary-fg/80 hover:text-error" aria-label="Remove tag">✕</button>
+				</span>
+			</template>
+			<input
+				x-model="draft"
+				@keydown.enter.prevent="add()"
+				@keydown.comma.prevent="add()"
+				@keydown.backspace="if(!draft && tags.length) tags.pop()"
+				placeholder={ nonEmpty(p.Placeholder, "type + Enter") }
+				class="bg-transparent outline-none text-sm font-mono flex-1 min-w-[120px]"
+			/>
+		</div>
+		<input type="hidden" name={ p.Name } :value="tags.join(',')"/>
+	</div>
+}
+
+// FileUploadProps — drag-and-drop zone with a selected-files preview list.
+type FileUploadProps struct {
+	Name     string
+	Label    string
+	Accept   string // MIME filter e.g. ".png,.jpg,image/*"
+	Multiple bool
+	// PostURL, when set, posts the files via multipart hx-post on `change`.
+	PostURL  string
+	TargetID string
+	Hint     string // overrides the default "max 10MB" line
+}
+
+// FileUpload is a themed dropzone + picker. Client-side preview list appears as
+// files are added; server upload kicks off automatically if PostURL is provided.
+templ FileUpload(p FileUploadProps) {
+	<div
+		x-data="{
+			over:false, files:[],
+			onDrop(e){ this.over=false; this.add([...e.dataTransfer.files]); },
+			onPick(e){ this.add([...e.target.files]); },
+			add(list){ this.files = [...this.files, ...list]; },
+			rm(i){ this.files.splice(i,1); },
+			size(b){ const u=['B','KB','MB','GB']; let i=0; while(b>=1024 && i<u.length-1){ b/=1024; i++; } return b.toFixed(1)+u[i]; }
+		}"
+	>
+		if p.Label != "" {
+			<div class="font-mono text-[11px] text-accent uppercase tracking-widest mb-1">{ p.Label }</div>
+		}
+		<label
+			@dragover.prevent="over=true"
+			@dragleave.prevent="over=false"
+			@drop.prevent="onDrop($event)"
+			:class="over ? 'border-primary bg-primary/10' : 'border-accent/50'"
+			class="clip-panel block p-6 border-2 border-dashed text-center cursor-pointer transition-colors"
+		>
+			<svg class="mx-auto text-accent" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+				<path d="M12 16V4m0 0l-4 4m4-4l4 4M4 20h16"></path>
+			</svg>
+			<div class="mt-2 font-mono text-xs text-accent uppercase tracking-widest">
+				Drop shards or <span class="text-primary">browse</span>
+			</div>
+			<div class="mt-1 font-mono text-[10px] text-muted">{ nonEmpty(p.Hint, "max 10MB") }</div>
+			if p.PostURL != "" {
+				<input
+					type="file"
+					name={ p.Name }
+					accept={ p.Accept }
+					multiple?={ p.Multiple }
+					class="sr-only"
+					@change="onPick($event)"
+					hx-post={ p.PostURL }
+					hx-encoding="multipart/form-data"
+					hx-trigger="change"
+					hx-target={ "#" + p.TargetID }
+				/>
+			} else {
+				<input
+					type="file"
+					name={ p.Name }
+					accept={ p.Accept }
+					multiple?={ p.Multiple }
+					class="sr-only"
+					@change="onPick($event)"
+				/>
+			}
+		</label>
+		<ul class="mt-3 space-y-1" x-show="files.length">
+			<template x-for="(f,i) in files" :key="i">
+				<li class="flex items-center justify-between gap-2 font-mono text-xs px-2 py-1 bg-panel border-l-2 border-accent">
+					<span class="truncate"><span class="text-primary" x-text="f.name"></span></span>
+					<span class="text-muted flex-none" x-text="size(f.size)"></span>
+					<button type="button" @click="rm(i)" class="text-error" aria-label="Remove file">✕</button>
+				</li>
+			</template>
+		</ul>
+	</div>
+}

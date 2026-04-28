@@ -1,0 +1,250 @@
+package ui
+
+import "strings"
+
+// NavLink is one entry in the navigation. No `Active` field — the client
+// computes active state on the fly from the inherited `path` reactive value
+// owned by HeaderCore.
+type NavLink struct {
+	Label string
+	Href  string
+	// CTA flips a link into the highlighted "Contact"-style button at the
+	// end of the row. Use it for the one action the page wants users to
+	// take (Contact, Sign up, Get started, …). Optional.
+	CTA bool
+}
+
+// DefaultNavLinks are the site-wide nav items rendered when no links are passed.
+// Apps can override with their own slice.
+var DefaultNavLinks = []NavLink{
+	{Label: "Home", Href: "/auth"},
+	{Label: "Theme", Href: "/theme"},
+	{Label: "About", Href: "/about"},
+}
+
+// activeExpr returns an Alpine boolean expression that is true when the
+// inherited `path` reactive value matches `href` exactly or as a sub-route.
+// "/" only matches "/". Empty/anchor hrefs are never active.
+//
+// This is the entire active-route system: one tiny helper, one reactive
+// string on HeaderCore. No store, no method, no scope-inheritance trick.
+func activeExpr(href string) string {
+	if href == "" || strings.HasPrefix(href, "#") {
+		return "false"
+	}
+	if href == "/" {
+		return "path === '/'"
+	}
+	h := strings.TrimRight(href, "/")
+	return "(path === '" + h + "' || path.startsWith('" + h + "/'))"
+}
+
+// HeaderBrand renders the logo glyph + app name / title block on the left.
+// The glyph uses the first letter of `title` (or `appName` if title is empty).
+// Pass `homeHref="/"` for the standard landing-page link.
+templ HeaderBrand(appName, title, homeHref string) {
+	<a
+		href={ templ.SafeURL(nonEmpty(homeHref, "/")) }
+		class="flex items-center gap-3 group min-w-0"
+		aria-label={ nonEmpty(title, appName) }
+	>
+		<span class="w-10 h-10 clip-btn bg-primary grid place-items-center flex-none group-hover:scale-110 transition-transform duration-300 shadow-md">
+			<span class="text-primary-fg font-black text-lg leading-none">
+				{ string(firstRune(nonEmpty(title, appName), 'V')) }
+			</span>
+		</span>
+		<span class="leading-tight min-w-0 hidden sm:block">
+			<span class="block font-mono text-[10px] text-accent/80 uppercase tracking-widest truncate">{ appName }</span>
+			<span class="block font-bold text-base lg:text-lg neon-primary tracking-widest truncate">{ title }</span>
+		</span>
+	</a>
+}
+
+// HeaderNav is the desktop primary nav (hidden under md). It reads the
+// inherited `path` from HeaderCore for active-route highlighting and renders
+// CTA links as the highlighted button variant.
+templ HeaderNav(links ...NavLink) {
+	{{list := links
+if len(list) == 0 {
+	list = DefaultNavLinks
+}
+	}}
+	<nav class="hidden md:flex items-center gap-2 lg:gap-3" aria-label="Primary">
+		for _, l := range list {
+			{{ active := activeExpr(l.Href) }}
+			if l.CTA {
+				<a
+					href={ templ.SafeURL(l.Href) }
+					:aria-current={ active + " ? 'page' : null" }
+					class="px-4 py-1.5 clip-btn bg-primary text-primary-fg font-mono text-xs uppercase tracking-widest font-bold glow-btn"
+				>{ l.Label }</a>
+			} else {
+				<a
+					href={ templ.SafeURL(l.Href) }
+					:aria-current={ active + " ? 'page' : null" }
+					class="px-3 py-1.5 clip-tag font-mono text-xs uppercase tracking-widest transition-colors"
+					:class={ active + " ? 'bg-primary text-primary-fg font-bold' : 'text-accent hover:bg-accent/10'" }
+				>{ l.Label }</a>
+			}
+		}
+	</nav>
+}
+
+// HeaderActions is a plain right-side cluster wrapper. Use it as a slot for
+// any combination of @Clock / @ThemeToggle / @HeaderBurger / custom buttons.
+templ HeaderActions() {
+	<div class="flex items-center gap-1 sm:gap-2">
+		{ children... }
+	</div>
+}
+
+// HeaderBurger is the mobile-only hamburger that toggles the inherited
+// `mobileMenuOpen` from HeaderCore. Hidden at md+.
+templ HeaderBurger() {
+	<button
+		type="button"
+		@click="mobileMenuOpen = !mobileMenuOpen"
+		class="md:hidden w-9 h-9 clip-btn border border-accent text-accent grid place-items-center glow-btn hover:bg-accent/10"
+		:aria-expanded="mobileMenuOpen.toString()"
+		aria-controls="mobile-menu"
+		aria-label="Toggle menu"
+	>
+		<svg x-show="!mobileMenuOpen" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+			<path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"></path>
+		</svg>
+		<svg x-show="mobileMenuOpen" x-cloak class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+			<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path>
+		</svg>
+	</button>
+}
+
+// HeaderMobilePanel is the slide-down mobile menu (md:hidden). Bound to the
+// inherited `mobileMenuOpen`. Closes on link tap, ESC (handled by HeaderCore),
+// and tap-on-backdrop. Pass the same NavLink slice you gave HeaderNav.
+templ HeaderMobilePanel(links ...NavLink) {
+	{{list := links
+if len(list) == 0 {
+	list = DefaultNavLinks
+}
+	}}
+	<div
+		id="mobile-menu"
+		x-show="mobileMenuOpen"
+		x-cloak
+		x-transition:enter="transition ease-out duration-300"
+		x-transition:enter-start="opacity-0"
+		x-transition:enter-end="opacity-100"
+		x-transition:leave="transition ease-in duration-200"
+		x-transition:leave-start="opacity-100"
+		x-transition:leave-end="opacity-0"
+		@click.self="mobileMenuOpen = false"
+		class="fixed inset-0 top-16 lg:top-20 bg-std/60 backdrop-blur-sm md:hidden z-40"
+	>
+		<nav
+			x-show="mobileMenuOpen"
+			x-transition:enter="transition ease-out duration-300 delay-100"
+			x-transition:enter-start="opacity-0 -translate-y-4"
+			x-transition:enter-end="opacity-100 translate-y-0"
+			class="flex flex-col gap-3 py-5 px-2 bg-std/95 backdrop-blur-md border-b border-border shadow-2xl"
+			aria-label="Mobile"
+		>
+			for _, l := range list {
+				{{ active := activeExpr(l.Href) }}
+				if l.CTA {
+					<a
+						href={ templ.SafeURL(l.Href) }
+						@click="mobileMenuOpen = false"
+						:aria-current={ active + " ? 'page' : null" }
+						class="mt-2 self-start px-6 py-2.5 clip-btn bg-primary text-primary-fg font-mono text-sm uppercase tracking-widest font-bold glow-btn"
+					>{ l.Label }</a>
+				} else {
+					<a
+						href={ templ.SafeURL(l.Href) }
+						@click="mobileMenuOpen = false"
+						:aria-current={ active + " ? 'page' : null" }
+						class="block px-3 py-3 font-mono text-sm uppercase tracking-widest border-l-2 transition-colors"
+						:class={ active + " ? 'text-primary bg-accent/20 border-accent/80' : 'text-fg/85 hover:text-primary hover:bg-accent/20 border-primary/80'" }
+					>{ l.Label }</a>
+				}
+			}
+		</nav>
+	</div>
+}
+
+// ── Breadcrumbs / Pagination / Tabs (unchanged, kept for parity) ──────────
+
+// Crumb is one breadcrumb segment. Last one renders as current.
+type Crumb struct {
+	Label string
+	Href  string
+}
+
+templ Breadcrumbs(crumbs ...Crumb) {
+	<nav class="flex flex-wrap items-center gap-1 font-mono text-xs" aria-label="Breadcrumb">
+		for i, c := range crumbs {
+			if i > 0 {
+				<span class="text-muted">/</span>
+			}
+			if i == len(crumbs)-1 {
+				<span class="text-primary" aria-current="page">{ c.Label }</span>
+			} else {
+				<a href={ templ.SafeURL(c.Href) } class="text-accent hover:text-primary">{ c.Label }</a>
+			}
+		}
+	</nav>
+}
+
+// Pagination is a compact 1..N pager. Wire `hx-get` on the parent if you need server paging.
+templ Pagination(current, total int) {
+	<div class="flex items-center gap-1 font-mono text-xs" x-data={ "{ p: " + itoa(current) + ", total: " + itoa(total) + " }" }>
+		<button @click="p = Math.max(1, p-1)" class="px-2 py-1 clip-tag border border-border text-accent hover:bg-accent/10" aria-label="Previous page">‹</button>
+		<template x-for="n in Math.min(5, total)" :key="n">
+			<button
+				@click="p = n"
+				:class="p === n ? 'bg-primary text-primary-fg' : 'border border-border text-accent hover:bg-accent/10'"
+				class="w-8 h-7 clip-tag"
+				x-text="n"
+			></button>
+		</template>
+		<template x-if="total > 5">
+			<div class="flex items-center gap-1">
+				<span class="px-1 text-muted">…</span>
+				<button @click="p = total" class="w-8 h-7 clip-tag border border-border text-accent hover:bg-accent/10" x-text="total"></button>
+			</div>
+		</template>
+		<button @click="p = Math.min(total, p+1)" class="px-2 py-1 clip-tag border border-border text-accent hover:bg-accent/10" aria-label="Next page">›</button>
+	</div>
+}
+
+// TabItem = one tab. ID is used for Alpine's active-tab comparison and as aria-controls.
+type TabItem struct {
+	ID    string
+	Label string
+}
+
+templ Tabs(initialID string, items ...TabItem) {
+	<div x-data={ "{ tab: '" + initialID + "' }" }>
+		<div role="tablist" class="flex gap-1 border-b border-border overflow-x-auto">
+			for _, it := range items {
+				<button
+					role="tab"
+					:aria-selected={ "tab === '" + it.ID + "'" }
+					@click={ "tab = '" + it.ID + "'" }
+					:class={ "tab === '" + it.ID + "' ? 'bg-primary text-primary-fg' : 'text-accent hover:bg-accent/10'" }
+					class="px-3 py-1.5 clip-tag font-mono text-xs uppercase tracking-widest whitespace-nowrap"
+				>
+					{ it.Label }
+				</button>
+			}
+		</div>
+		<div class="pt-4">
+			{ children... }
+		</div>
+	</div>
+}
+
+templ TabPanel(id string) {
+	<div x-show={ "tab === '" + id + "'" } role="tabpanel">
+		{ children... }
+	</div>
+}

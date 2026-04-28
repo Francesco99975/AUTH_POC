@@ -2,13 +2,37 @@ package components
 
 import "github.com/Francesco99975/authpoc/internal/models"
 
+// HeaderCore is the sticky <header> shell + the *single* Alpine root shared
+// by every child piece. Drop the standard composition into it as children:
+//
+//	@components.HeaderCore(site) {
+//	    @components.HeaderBrand(site.AppName, site.Title, "/")
+//	    @components.HeaderNav(components.DefaultNavLinks...)
+//	    @components.HeaderActions() {
+//	        @components.Clock()
+//	        @components.ThemeToggle()
+//	        @components.HeaderBurger()
+//	    }
+//	    @components.HeaderMobilePanel(components.DefaultNavLinks...)
+//	}
+//
+// The single x-data exposes:
+//   - mobileMenuOpen — burger ↔ HeaderMobilePanel visibility
+//   - darkMode       — persisted in localStorage, mirrored on html.dark
+//   - path           — reactive URL, used for active-route highlighting,
+//                      auto-resyncs after popstate and hx-boost navigations
+//
+// hx-boost is on by default so any <a> inside performs an htmx-boosted
+// partial swap; the root listens to htmx:pushedIntoHistory to keep `path`
+// honest after each boosted nav.
 templ HeaderCore(site models.Site) {
-	<header class="sticky top-0 z-50 bg-primary/95 backdrop-blur-md text-std shadow-lg border-b border-accent/20" hx-boost="true">
+	<header class="sticky top-0 z-50 bg-std/95 backdrop-blur-md text-std shadow-lg border-b border-accent/20" hx-boost="true">
 		<div class="container mx-auto px-4 lg:px-6">
 			<div
 				class="flex items-center justify-between h-16"
 				x-data="{
 							mobileMenuOpen: false,
+							path: window.location.pathname,
 							darkMode: localStorage.getItem('darkMode') === 'true' ? true :
 									(localStorage.getItem('darkMode') === 'false' ? false :
 									window.matchMedia('(prefers-color-scheme: dark)').matches)
@@ -36,8 +60,13 @@ templ HeaderCore(site models.Site) {
 						}
 						});
 					"
+				@keydown.escape.window="mobileMenuOpen = false"
 			>
-				{ children... }
+				<div class="container mx-auto px-4 lg:px-6">
+					<div class="flex items-center justify-between h-16 lg:h-20">
+						{ children... }
+					</div>
+				</div>
 			</div>
 		</div>
 	</header>

@@ -18,6 +18,8 @@
   "author": "Francesco99975",
   "license": "ISC",
   "dependencies": {
+    "@alpinejs/collapse": "^3.15.11",
+    "@alpinejs/focus": "^3.15.11",
     "alpinejs": "^3.14.9",
     "htmx.org": "^2.0.4"
   },

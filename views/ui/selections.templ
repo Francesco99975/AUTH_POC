@@ -1,0 +1,293 @@
+package ui
+
+// CheckboxProps — single boolean field rendered as the CP cross-mark.
+type CheckboxProps struct {
+	Name     string
+	Value    string // form-submitted value when checked (defaults to "on")
+	Label    string
+	Checked  bool
+	Disabled bool
+	Attrs    templ.Attributes
+}
+
+// Checkbox — labelled boolean. Clicking the label toggles via native <label> binding.
+templ Checkbox(p CheckboxProps) {
+	<label class="flex items-center gap-2 cursor-pointer py-1">
+		<input
+			type="checkbox"
+			class="cp-check"
+			name={ p.Name }
+			value={ nonEmpty(p.Value, "on") }
+			checked?={ p.Checked }
+			disabled?={ p.Disabled }
+			{ p.Attrs... }
+		/>
+		if p.Label != "" {
+			<span class="text-sm">{ p.Label }</span>
+		}
+		{ children... }
+	</label>
+}
+
+// RadioOption is one choice inside a @RadioGroup.
+type RadioOption struct {
+	Value string
+	Label string
+}
+
+// RadioGroup renders a labelled vertical radio list. Selection is controlled by `initial`.
+templ RadioGroup(name, initial, label string, opts ...RadioOption) {
+	<fieldset>
+		if label != "" {
+			<legend class="font-mono text-[11px] text-accent uppercase tracking-widest mb-2">{ label }</legend>
+		}
+		<div class="flex flex-col gap-1">
+			for _, o := range opts {
+				<label class="flex items-center gap-2 cursor-pointer py-0.5">
+					<input
+						type="radio"
+						name={ name }
+						value={ o.Value }
+						checked?={ o.Value == initial }
+						class="cp-radio"
+					/>
+					<span class="text-sm">{ o.Label }</span>
+				</label>
+			}
+		</div>
+	</fieldset>
+}
+
+// SwitchProps — on/off toggle, styled as a neon slider.
+type SwitchProps struct {
+	Name     string
+	Label    string // text to the LEFT of the switch
+	Checked  bool
+	Disabled bool
+	// When set, toggling fires hx-post to this URL with the new state.
+	PostURL string
+	Attrs   templ.Attributes
+}
+
+// Switch — labelled on/off control. Pair with PostURL for one-liner settings toggles.
+templ Switch(p SwitchProps) {
+	<label class="flex items-center justify-between py-1 gap-3">
+		if p.Label != "" {
+			<span class="text-sm">{ p.Label }</span>
+		}
+		if p.PostURL != "" {
+			<input
+				type="checkbox"
+				class="cp-switch"
+				name={ p.Name }
+				checked?={ p.Checked }
+				disabled?={ p.Disabled }
+				hx-post={ p.PostURL }
+				hx-swap="none"
+				{ p.Attrs... }
+			/>
+		} else {
+			<input
+				type="checkbox"
+				class="cp-switch"
+				name={ p.Name }
+				checked?={ p.Checked }
+				disabled?={ p.Disabled }
+				{ p.Attrs... }
+			/>
+		}
+	</label>
+}
+
+// DropOption is one entry in @Droplist / @Combobox.
+type DropOption struct {
+	Value string
+	Label string
+}
+
+// DroplistProps — single-select custom dropdown.
+type DroplistProps struct {
+	Name     string
+	Label    string
+	Selected string
+	Opts     []DropOption
+}
+
+// Droplist is a single-select dropdown. The selected value is also kept in a
+// hidden input so the component integrates with normal form submission.
+templ Droplist(p DroplistProps) {
+	<div
+		x-data={ "{ open:false, sel: '" + p.Selected + "', " +
+				"labelOf(v){ const o = this.$root._opts.find(x => x.v === v); return o ? o.l : ''; } }" }
+		x-init={ "$root._opts = " + dropOptsToJS(p.Opts) }
+		class="relative"
+	>
+		if p.Label != "" {
+			@FieldLabel(p.Label, "")
+		}
+		<button
+			type="button"
+			@click="open = !open"
+			@click.away="open = false"
+			@keydown.escape="open = false"
+			:aria-expanded="open.toString()"
+			class="cp-field clip-tag flex items-center justify-between w-full text-left"
+		>
+			<span x-text="labelOf(sel) || 'Select…'"></span>
+			<span class="text-accent">▾</span>
+		</button>
+		<input type="hidden" name={ p.Name } :value="sel"/>
+		<div
+			x-show="open"
+			x-cloak
+			x-transition.opacity.duration.150ms
+			class="absolute z-10 top-full left-0 right-0 mt-1 bg-panel border border-accent clip-panel max-h-52 overflow-auto"
+			role="listbox"
+		>
+			for _, o := range p.Opts {
+				<button
+					type="button"
+					@click={ "sel = '" + o.Value + "'; open = false" }
+					:class={ "sel === '" + o.Value + "' ? 'bg-primary text-primary-fg' : 'hover:bg-accent/10'" }
+					class="w-full text-left px-3 py-2 font-mono text-xs uppercase tracking-widest"
+				>
+					{ o.Label }
+				</button>
+			}
+		</div>
+	</div>
+}
+
+// ComboboxProps — searchable multi-select.
+type ComboboxProps struct {
+	Name        string
+	Label       string
+	Placeholder string
+	All         []string
+	Initial     []string
+}
+
+// Combobox is a searchable multi-select. Posts the selection as a CSV hidden input.
+templ Combobox(p ComboboxProps) {
+	<div
+		x-data={ "{ all: " + jsStringArray(p.All) + ", sel: " + jsStringArray(p.Initial) + ", " +
+				"q:'', open:false, " +
+				"get filtered(){ return this.all.filter(x => x.toLowerCase().includes(this.q.toLowerCase())); }, " +
+				"toggle(x){ this.sel.includes(x) ? this.sel = this.sel.filter(y => y !== x) : this.sel.push(x); } }" }
+	>
+		if p.Label != "" {
+			@FieldLabel(p.Label, "")
+		}
+		<div class="relative">
+			<div
+				class="cp-field clip-tag flex flex-wrap gap-1 items-center min-h-[44px]"
+				@click="open = true; $refs.q.focus()"
+			>
+				<template x-for="t in sel" :key="t">
+					<span class="clip-tag bg-accent text-accent-fg font-mono text-[11px] uppercase px-2 py-0.5 flex items-center gap-1">
+						<span x-text="t"></span>
+						<button type="button" @click.stop="toggle(t)" class="hover:text-error" aria-label="Remove">✕</button>
+					</span>
+				</template>
+				<input
+					x-ref="q"
+					x-model="q"
+					@focus="open = true"
+					@click.away="open = false"
+					placeholder={ nonEmpty(p.Placeholder, "search…") }
+					class="bg-transparent outline-none text-sm font-mono flex-1 min-w-[120px]"
+				/>
+			</div>
+			<input type="hidden" name={ p.Name } :value="sel.join(',')"/>
+			<div
+				x-show="open"
+				x-cloak
+				x-transition.opacity
+				class="absolute z-10 top-full left-0 right-0 mt-1 bg-panel border border-accent clip-panel max-h-52 overflow-auto"
+				role="listbox"
+			>
+				<template x-for="o in filtered" :key="o">
+					<button
+						type="button"
+						@click="toggle(o)"
+						class="w-full text-left px-3 py-2 font-mono text-xs uppercase tracking-widest flex items-center justify-between hover:bg-accent/10"
+					>
+						<span x-text="o"></span>
+						<span x-show="sel.includes(o)" class="text-primary">✓</span>
+					</button>
+				</template>
+				<div x-show="!filtered.length" class="px-3 py-2 font-mono text-xs text-muted">no matches</div>
+			</div>
+		</div>
+	</div>
+}
+
+// FilterChipsProps — toggle-able tag chips. Selection is live in Alpine.
+type FilterChipsProps struct {
+	Name    string
+	Label   string
+	Options []string
+	Initial []string
+}
+
+// FilterChips is a multi-select chip row (stealth/combat/hack/…). Submits as CSV.
+templ FilterChips(p FilterChipsProps) {
+	<div
+		x-data={ "{ f: " + jsStringArray(p.Initial) + " }" }
+	>
+		if p.Label != "" {
+			@FieldLabel(p.Label, "")
+		}
+		<div class="flex flex-wrap gap-1.5">
+			for _, t := range p.Options {
+				<button
+					type="button"
+					@click={ "f.includes('" + t + "') ? f = f.filter(x => x !== '" + t + "') : f.push('" + t + "')" }
+					:class={ "f.includes('" + t + "') ? 'bg-primary text-primary-fg' : 'border border-accent text-accent hover:bg-accent/10'" }
+					class="clip-tag px-3 py-1 font-mono text-[11px] uppercase tracking-widest"
+				>
+					{ t }
+				</button>
+			}
+		</div>
+		<input type="hidden" name={ p.Name } :value="f.join(',')"/>
+	</div>
+}
+
+// RangeProps — themed slider with live numeric readout.
+type RangeProps struct {
+	Name  string
+	Label string
+	Min   int
+	Max   int
+	Step  int
+	Value int
+	Unit  string // e.g. "%", "ms", "km/h"
+}
+
+// Range is a slider with a coloured diamond thumb and a live-updating value chip.
+templ Range(p RangeProps) {
+	{{ step := p.Step
+if step == 0 {
+	step = 1
+} }}
+	<div x-data={ "{ v: " + itoa(p.Value) + " }" }>
+		if p.Label != "" {
+			<div class="font-mono text-[11px] text-accent uppercase tracking-widest mb-1 flex justify-between">
+				<span>{ p.Label }</span>
+				<span class="text-primary">
+					<span x-text="v"></span>{ p.Unit }
+				</span>
+			</div>
+		}
+		<input
+			type="range"
+			name={ p.Name }
+			min={ itoa(p.Min) }
+			max={ itoa(p.Max) }
+			step={ itoa(step) }
+			x-model.number="v"
+			class="cp-range"
+		/>
+	</div>
+}

@@ -1,3 +1,5 @@
+import collapse from "@alpinejs/collapse";
+import focus from "@alpinejs/focus";
 import Alpine from "alpinejs";
 import "./css/style.css";
 
@@ -13,6 +15,8 @@ declare global {
 window.htmx = htmx;
 window.Alpine = Alpine;
 
+Alpine.plugin(focus);
+Alpine.plugin(collapse);
 Alpine.start();
 
 document.body.addEventListener('htmx:responseError', function(event: any) {

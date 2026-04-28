@@ -10,7 +10,7 @@ import (
 templ Base(site models.Site) {
 	@CoreHTML(site) {
 		<div class="min-h-screen flex flex-col">
-			@components.Header(site)
+			@components.CyberHeader(site)
 			{ children... }
 			@components.Footer(site.AppName, strconv.Itoa(site.Year))
 		</div>
