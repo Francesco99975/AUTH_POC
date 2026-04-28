@@ -3,6 +3,7 @@ package components
 import (
 	"github.com/Francesco99975/authpoc/internal/models"
 	"github.com/Francesco99975/authpoc/views/icons"
+	"github.com/Francesco99975/authpoc/views/ui"
 )
 
 templ AdminNav(site models.Site) {
@@ -116,4 +117,58 @@ templ AdminNav(site models.Site) {
 			</div>
 		</nav>
 	</div>
+}
+
+templ CyberAdminNav(site models.Site) {
+	@HeaderCore(site) {
+		@ui.HeaderBrand(site.AppName, site.Title, "/")
+		@ui.HeaderNav(ui.AdminNavLinks...)
+		@ui.HeaderActions() {
+			@ui.Clock()
+			@ui.ThemeToggle()
+			@ui.HeaderBurger()
+			<form
+				hx-post="/logout"
+				hx-swap="outerHTML"
+				hx-indicator="#desktop-logout-spinner"
+				hx-disabled-elt="button"
+				hx-confirm="Are you sure you want to logout?"
+				class="hidden md:inline-block"
+			>
+				@CSRF(site.CSRF)
+				@ui.Button(ui.ButtonProps{
+					Variant: ui.ButtonDanger,
+					Size:    ui.ButtonLG,
+					Type:    "submit",
+					Loading: "desktop-logout-spinner",
+				}) {
+					@icons.LogOut("w-5 h-5")
+					<span>Logout</span>
+				}
+			</form>
+		}
+		@ui.HeaderMobilePanel(ui.AdminNavLinks...) {
+			<form
+				hx-post="/logout"
+				hx-swap="outerHTML"
+				hx-indicator="#mobile-logout-spinner"
+				hx-disabled-elt="button"
+				hx-confirm="Are you sure you want to logout?"
+				class="mt-2 pt-2 border-t border-border"
+				@submit="mobileMenuOpen = false"
+			>
+				@CSRF(site.CSRF)
+				@ui.Button(ui.ButtonProps{
+					Variant: ui.ButtonDanger,
+					Size:    ui.ButtonLG,
+					Type:    "submit",
+					FullW:   true,
+					Loading: "mobile-logout-spinner",
+				}) {
+					@icons.LogOut("w-5 h-5")
+					<span>Logout</span>
+				}
+			</form>
+		}
+	}
 }

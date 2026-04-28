@@ -1,6 +1,7 @@
 package ui
 
 import "strings"
+import "github.com/Francesco99975/authpoc/views/icons"
 
 // NavLink is one entry in the navigation. No `Active` field — the client
 // computes active state on the fly from the inherited `path` reactive value
@@ -20,6 +21,11 @@ var DefaultNavLinks = []NavLink{
 	{Label: "Home", Href: "/auth"},
 	{Label: "Theme", Href: "/theme"},
 	{Label: "About", Href: "/about"},
+}
+
+var AdminNavLinks = []NavLink{
+	{Label: "Dashboard", Href: "/dashboard"},
+	{Label: "Settings", Href: "/settings"},
 }
 
 // activeExpr returns an Alpine boolean expression that is true when the
@@ -167,7 +173,31 @@ if len(list) == 0 {
 					>{ l.Label }</a>
 				}
 			}
+			{ children... }
 		</nav>
+	</div>
+}
+
+// HeaderMobileLogout is the mobile-panel logout row, designed to drop into
+// the @HeaderMobilePanel children slot so it appears below the nav links
+// separated by a thin border. Closes the mobile panel on tap before HTMX
+// confirmation fires.
+//
+//	@HeaderMobilePanel(components.DefaultNavLinks...) {
+//	    @HeaderMobileLogout("/logout")
+//	}
+templ HeaderMobileLogout(endpoint string) {
+	<div class="mt-2 pt-2 border-t border-border">
+		<button
+			type="button"
+			hx-post={ endpoint }
+			hx-confirm="DISCONNECT FROM NIGHT CITY GRID?"
+			@click="mobileMenuOpen = false"
+			class="w-full inline-flex items-center gap-2 px-3 py-3 font-mono text-sm uppercase tracking-widest border-l-2 border-transparent text-error hover:border-error hover:bg-error/10 transition-colors text-left"
+		>
+			@icons.LogOut("w-4 h-4")
+			<span>Logout</span>
+		</button>
 	</div>
 }
 

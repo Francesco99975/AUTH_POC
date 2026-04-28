@@ -10,9 +10,7 @@ import (
 templ AdminLayout(site models.Site) {
 	@CoreHTML(site) {
 		<div class="min-h-screen flex flex-col">
-			@components.HeaderCore(site) {
-				@components.AdminNav(site)
-			}
+			@components.CyberAdminNav(site)
 			{ children... }
 			@components.Footer(site.AppName, strconv.Itoa(site.Year))
 		</div>

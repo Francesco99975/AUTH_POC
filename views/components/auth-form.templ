@@ -24,7 +24,7 @@ templ AuthForm(csrf string) {
 				<button
 					type="button"
 					@click="mode = 'login'"
-					:class="mode === 'login' ? 'bg-primary text-white shadow-md' : 'bg-transparent text-primary/70'"
+					:class="mode === 'login' ? 'bg-primary text-primary-fg shadow-md' : 'bg-transparent text-primary/85'"
 					class="flex-1 py-2.5 md:py-3 font-medium text-sm md:text-base rounded-lg transition-all duration-200"
 				>
 					Sign In
@@ -32,7 +32,7 @@ templ AuthForm(csrf string) {
 				<button
 					type="button"
 					@click="mode = 'signup'"
-					:class="mode === 'signup' ? 'bg-primary text-white shadow-md' : 'bg-transparent text-primary/70'"
+					:class="mode === 'signup' ? 'bg-primary text-primary-fg shadow-md' : 'bg-transparent text-primary/85'"
 					class="flex-1 py-2.5 md:py-3 font-medium text-sm md:text-base rounded-lg transition-all duration-200"
 				>
 					Sign Up
@@ -186,7 +186,7 @@ templ SignupForm(csrf string) {
 		<div class="relative">
 			<button
 				type="submit"
-				class="w-full py-3 md:py-3.5 bg-primary text-white font-semibold rounded-xl hover:bg-primary/90 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 disabled:opacity-75 disabled:cursor-not-allowed"
+				class="w-full py-3 md:py-3.5 bg-primary text-primary-fg font-semibold rounded-xl hover:bg-primary/90 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 disabled:opacity-75 disabled:cursor-not-allowed"
 			>
 				Create Account
 			</button>
