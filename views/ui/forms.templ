@@ -1,10 +1,19 @@
 package ui
 
+import "github.com/Francesco99975/authpoc/views/icons"
+
 func WithLoading(indicatorID string) templ.Attributes {
 	return templ.Attributes{
 		"hx-indicator":    "#" + indicatorID,
 		"hx-disabled-elt": "find input, find select, find textarea, find checkbox, find radio, find button",
 	}
+}
+
+templ FormLoading(indicatorID string, label string) {
+	<div id={ indicatorID } class="htmx-indicator absolute inset-0 flex flex-col items-center justify-center bg-primary/95 backdrop-blur-sm rounded-lg pointer-events-none">
+		@icons.Loading("w-10 h-10 animate-spin text-accent mb-2")
+		<p class="text-sm text-std/70 font-medium">{ label }</p>
+	</div>
 }
 
 // =============================================================================

@@ -77,19 +77,22 @@ templ TwoFAQRCodeCard(props TwoFASetupProps) {
 						<code class="flex-1 px-3 py-2.5 rounded-lg bg-std border border-primary/20 font-mono text-sm text-primary break-all select-all">
 							{ props.Secret }
 						</code>
-						<button
-							type="button"
-							@click={ "navigator.clipboard.writeText('" + props.Secret + "'); copied = true; setTimeout(() => copied = false, 2000)" }
-							class="shrink-0 p-2.5 rounded-lg border border-primary/20 text-primary hover:bg-primary/5 transition-all"
-							:class="copied && 'bg-success/10 border-success/30 text-success'"
-						>
+						@ui.BasicButton(ui.ButtonProps{
+							Variant: ui.ButtonGhostSuccess,
+							Size:    ui.ButtonMD,
+							FullW:   false,
+							Attrs: templ.Attributes{
+								"@click": "navigator.clipboard.writeText('" + props.Secret + "'); copied = true; setTimeout(() => copied = false, 2000)",
+								":class": "copied && 'bg-success/10 border-success/30 text-success'",
+							},
+						}) {
 							<span x-show="!copied">
 								@icons.Copy("w-5 h-5")
 							</span>
 							<span x-show="copied" x-cloak>
 								@icons.CheckIcon("w-5 h-5")
 							</span>
-						</button>
+						}
 					</div>
 					<p class="mt-2 text-xs text-primary/60">Enter this key manually in your authenticator app</p>
 				</div>
@@ -99,23 +102,30 @@ templ TwoFAQRCodeCard(props TwoFASetupProps) {
 				<form
 					hx-delete="/settings/2fa/cancel"
 					hx-target="#twofa-setup-container"
+					{ ui.WithLoading("cancel-indicator")... }
 					hx-swap="outerHTML"
 				>
 					@CSRF(props.CSRF)
-					<button
-						type="submit"
-						class="w-full sm:w-auto px-5 py-2.5 rounded-lg border border-primary/20 text-primary font-medium text-sm hover:bg-primary/5 transition-all"
-					>
-						Cancel Setup
-					</button>
+					@ui.BasicButton(ui.ButtonProps{
+						Variant: ui.ButtonGhost,
+						Size:    ui.ButtonMD,
+						Type:    "submit",
+					
+						Loading: ui.LoadingConfig{IndicatorID: "cancel-indicator"},
+					}) {
+						<span>Cancel Setup</span>
+					}
 				</form>
-				<button
-					type="button"
-					@click="step = 'verify'"
-					class="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-primary text-primary-fg font-medium text-sm hover:bg-primary/90 transition-all"
-				>
-					I've Added the Account
-				</button>
+				@ui.BasicButton(ui.ButtonProps{
+					Variant: ui.ButtonPrimary,
+					Size:    ui.ButtonMD,
+					Type:    ui.TypeButton,
+					Attrs: templ.Attributes{
+						"@click": "step = 'verify'",
+					},
+				}) {
+					<span>I've Added the Account</span>
+				}
 			</div>
 		</div>
 		<!-- Verification Step -->
@@ -150,35 +160,24 @@ templ TwoFAQRCodeCard(props TwoFASetupProps) {
 					</div>
 				</div>
 				<!-- Code Input -->
-				<div>
-					<label class="block text-sm font-medium text-primary mb-2">Verification Code</label>
-					<input
-						type="text"
-						name="otp"
-						inputmode="numeric"
-						pattern="[0-9]*"
-						maxlength="6"
-						placeholder="000000"
-						autocomplete="one-time-code"
-						class="w-full px-4 py-3 rounded-lg border border-primary/20 bg-std text-primary text-center font-mono text-2xl tracking-[0.5em] placeholder-primary/30 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
-						required
-					/>
-				</div>
+				@ui.OTPInput("Code", "Enter the 6-digit code shown in your authenticator app")
 				<!-- Actions -->
 				<div class="flex flex-col-reverse sm:flex-row gap-3 sm:justify-between pt-4 border-t border-primary/10">
-					<button
-						type="button"
-						@click="step = 'qr'"
-						class="w-full sm:w-auto px-5 py-2.5 rounded-lg border border-primary/20 text-primary font-medium text-sm hover:bg-primary/5 transition-all"
-					>
-						Back to QR Code
-					</button>
-					@ui.Button(ui.ButtonProps{
+					@ui.BasicButton(ui.ButtonProps{
+						Variant: ui.ButtonGhost,
+						Size:    ui.ButtonMD,
+						Type:    ui.TypeButton,
+						Attrs: templ.Attributes{
+							"@click": "step = 'qr'",
+						},
+					}) {
+						<span>Back to QR Code</span>
+					}
+					@ui.BasicButton(ui.ButtonProps{
 						Variant: ui.ButtonPrimary,
 						Size:    ui.ButtonMD,
 						Type:    ui.TypeSubmit,
-						FullW:   true,
-						Loading: ui.LoadingConfig{IndicatorID: "profile-indicator"},
+						Loading: ui.LoadingConfig{IndicatorID: "verify-code-indicator"},
 					}) {
 						<span>Verify & Continue</span>
 					}
@@ -208,11 +207,11 @@ templ TwoFACheck(token string, csrf string) {
 			</div>
 		</div>
 		<!-- Code Input -->
-		@ui.OTPInput()
-		@ui.Button(ui.ButtonProps{
+		@ui.OTPInput("verification code", "Enter the 6-digit code from your authenticator app")
+		@ui.BasicButton(ui.ButtonProps{
 			Variant: ui.ButtonPrimary,
 			Size:    ui.ButtonMD,
-			Type:    "submit",
+			Type:    ui.TypeSubmit,
 			FullW:   true,
 			Loading: ui.LoadingConfig{
 				IndicatorID: "verify-code-indicator",
@@ -269,20 +268,25 @@ templ TwoFARecoverySecretCard(recoverySecret string, csrf string) {
 					</code>
 				</div>
 				<div class="flex justify-center">
-					<button
-						type="button"
-						@click={ "navigator.clipboard.writeText('" + recoverySecret + "'); copied = true" }
-						class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
-						:class="copied ? 'bg-success/10 text-success border border-success/30' : 'bg-primary/5 text-primary border border-primary/20 hover:bg-primary/10'"
-					>
-						<span x-show="!copied">
-							@icons.Copy("w-4 h-4")
-						</span>
-						<span x-show="copied" x-cloak>
-							@icons.CheckIcon("w-4 h-4")
-						</span>
-						<span x-text="copied ? 'Copied to clipboard!' : 'Copy to clipboard'"></span>
-					</button>
+					@ui.BasicButton(ui.ButtonProps{
+						Variant: ui.ButtonGhostSuccess,
+						Size:    ui.ButtonMD,
+						Type:    ui.TypeButton,
+						Attrs: templ.Attributes{
+							"@click": "navigator.clipboard.writeText('" + recoverySecret + "'); copied = true",
+							":class": "copied ? 'bg-success/10 text-success border border-success/30' : 'bg-primary/5 text-primary border border-primary/20 hover:bg-primary/10'",
+						},
+					}) {
+						<div class="flex items-center gap-2">
+							<span x-show="!copied">
+								@icons.Copy("w-4 h-4")
+							</span>
+							<span x-show="copied" x-cloak>
+								@icons.CheckIcon("w-4 h-4")
+							</span>
+							<span x-text="copied ? 'Copied to clipboard!' : 'Copy to clipboard'"></span>
+						</div>
+					}
 				</div>
 			</div>
 			<!-- Confirmation Checkbox -->
@@ -306,12 +310,14 @@ templ TwoFARecoverySecretCard(recoverySecret string, csrf string) {
 				{ ui.WithLoading("complete-indicator")... }
 			>
 				@CSRF(csrf)
-				@ui.Button(ui.ButtonProps{
+				@ui.BasicButton(ui.ButtonProps{
 					Variant: ui.ButtonPrimary,
 					Size:    ui.ButtonMD,
-					Type:    "submit",
-					FullW:   true,
+					Type:    ui.TypeSubmit,
 					Loading: ui.LoadingConfig{IndicatorID: "complete-indicator"},
+					Attrs: templ.Attributes{
+						":disabled": "!confirmed",
+					},
 				}) {
 					<span>Complete 2FA Setup</span>
 				}
@@ -351,13 +357,16 @@ templ TwoFAEnabledCard(csrf string) {
 						<p class="text-sm text-primary/60 mt-0.5">2FA is currently enabled</p>
 					</div>
 				</div>
-				<button
-					type="button"
-					@click="showDisableModal = true"
-					class="w-full sm:w-auto px-4 py-2.5 rounded-lg bg-error/10 text-error font-medium text-sm hover:bg-error/20 transition-all"
-				>
-					Disable 2FA
-				</button>
+				@ui.BasicButton(ui.ButtonProps{
+					Variant: ui.ButtonGhostDanger,
+					Size:    ui.ButtonMD,
+					Type:    ui.TypeButton,
+					Attrs: templ.Attributes{
+						"@click": "showDisableModal = true",
+					},
+				}) {
+					<span>Disable 2FA</span>
+				}
 			</div>
 		</div>
 		<!-- Disable 2FA Modal -->
@@ -441,32 +450,9 @@ templ TwoFAEnabledCard(csrf string) {
 						>
 							@CSRF(csrf)
 							<!-- Password Input -->
-							<div>
-								<label class="block text-sm font-medium text-primary mb-2">Password</label>
-								<input
-									type="password"
-									name="password"
-									placeholder="Enter your password"
-									required
-									class="w-full px-4 py-3 rounded-lg border border-primary/20 bg-std text-primary placeholder-primary/40 focus:outline-none focus:ring-2 focus:ring-error/30 focus:border-error/50 transition-all"
-								/>
-							</div>
+							@ui.BasicPasswordInput("password", "Password", true)
 							<!-- TOTP Code Input -->
-							<div>
-								<label class="block text-sm font-medium text-primary mb-2">Authentication Code</label>
-								<input
-									type="text"
-									name="otp"
-									inputmode="numeric"
-									pattern="[0-9]*"
-									maxlength="6"
-									placeholder="000000"
-									autocomplete="one-time-code"
-									required
-									class="w-full px-4 py-3 rounded-lg border border-primary/20 bg-std text-primary text-center font-mono text-xl tracking-[0.3em] placeholder-primary/30 focus:outline-none focus:ring-2 focus:ring-error/30 focus:border-error/50 transition-all"
-								/>
-								<p class="mt-1 text-xs text-primary/60">Enter the 6-digit code from your authenticator app</p>
-							</div>
+							@ui.OTPInput("Authentication Code", "Enter the 6-digit code from your authenticator app")
 							<!-- Confirmation Checkbox -->
 							<label class="flex items-start gap-3 p-4 rounded-lg border border-error/20 cursor-pointer hover:bg-error/5 transition-colors">
 								<input
@@ -481,14 +467,18 @@ templ TwoFAEnabledCard(csrf string) {
 							<div id="disable-2fa-response"></div>
 							<!-- Footer inside form -->
 							<div class="pt-4 border-t border-error/20 flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
-								<button
-									type="button"
-									@click="showDisableModal = false; understandRisks = false"
-									class="w-full sm:w-auto px-5 py-2.5 rounded-lg border border-primary/20 text-primary font-medium text-sm hover:bg-primary/5 transition-all"
-								>
-									Cancel
-								</button>
-								@ui.Button(ui.ButtonProps{
+								@ui.BasicButton(ui.ButtonProps{
+									Variant: ui.ButtonGhost,
+									Size:    ui.ButtonMD,
+									Type:    ui.TypeButton,
+								
+									Attrs: templ.Attributes{
+										"@click": "showDisableModal = false; understandRisks = false",
+									},
+								}) {
+									<span>Cancel</span>
+								}
+								@ui.BasicButton(ui.ButtonProps{
 									Variant: ui.ButtonPrimary,
 									Size:    ui.ButtonMD,
 									Type:    "submit",
@@ -541,7 +531,7 @@ templ TwoFADisabledCard(csrf string) {
 					{ ui.WithLoading("enable-2fa-indicator")... }
 				>
 					@CSRF(csrf)
-					@ui.Button(ui.ButtonProps{
+					@ui.BasicButton(ui.ButtonProps{
 						Variant: ui.ButtonPrimary,
 						Size:    ui.ButtonMD,
 						Type:    "submit",

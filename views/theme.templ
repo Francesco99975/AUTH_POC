@@ -105,13 +105,13 @@ templ Theme(site models.Site) {
 							PRIMARY
 						}
 					</form>
-					@ui.Button(ui.ButtonProps{Variant: ui.ButtonAccent}) {
+					@ui.Button(ui.ButtonProps{Variant: ui.ButtonAccent, Size: ui.ButtonSM}) {
 						ACCENT
 					}
-					@ui.Button(ui.ButtonProps{Variant: ui.ButtonGhost}) {
+					@ui.Button(ui.ButtonProps{Variant: ui.ButtonGhost, Size: ui.ButtonMD}) {
 						GHOST
 					}
-					@ui.Button(ui.ButtonProps{Variant: ui.ButtonDanger}) {
+					@ui.Button(ui.ButtonProps{Variant: ui.ButtonDanger, Size: ui.ButtonLG}) {
 						DANGER
 					}
 					<form hx-get="/healthcheck" { ui.WithLoading("demo-spin2")... } class="space-y-4">

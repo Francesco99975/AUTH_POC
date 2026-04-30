@@ -1,14 +1,19 @@
 package ui
 
+import "github.com/Francesco99975/authpoc/views/icons"
+
 // ButtonVariant picks the palette. Unknown variants fall back to "primary".
 // Accepted: "primary" | "accent" | "ghost" | "danger".
 type ButtonVariant string
 
 const (
-	ButtonPrimary ButtonVariant = "primary"
-	ButtonAccent  ButtonVariant = "accent"
-	ButtonGhost   ButtonVariant = "ghost"
-	ButtonDanger  ButtonVariant = "danger"
+	ButtonPrimary      ButtonVariant = "primary"
+	ButtonAccent       ButtonVariant = "accent"
+	ButtonGhost        ButtonVariant = "ghost"
+	ButtonDanger       ButtonVariant = "danger"
+	ButtonSuccess      ButtonVariant = "success"
+	ButtonGhostDanger  ButtonVariant = "ghost-danger"
+	ButtonGhostSuccess ButtonVariant = "ghost-success"
 )
 
 // ButtonSize picks the padding. Unknown sizes fall back to "md".
@@ -71,6 +76,12 @@ func btnVariant(v ButtonVariant) string {
 		return "bg-error text-std"
 	case ButtonPrimary:
 		return "bg-primary text-primary-fg"
+	case ButtonSuccess:
+		return "bg-success text-std"
+	case ButtonGhostDanger:
+		return "border border-error bg-std text-error hover:bg-error/10"
+	case ButtonGhostSuccess:
+		return "border border-success bg-std text-success hover:bg-success/10"
 	}
 	return "bg-primary text-primary-fg"
 }
@@ -83,6 +94,38 @@ func btnSize(s ButtonSize) string {
 		return "px-5 py-2.5 text-sm"
 	}
 	return "px-4 py-2 text-xs"
+}
+
+templ BasicButton(p ButtonProps) {
+	<button
+		{ p.Attrs... }
+		type={ nonEmpty(string(p.Type), "button") }
+		class={
+			"py-3 md:py-3.5 font-semibold rounded-xl hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 disabled:opacity-75 disabled:cursor-not-allowed relative",
+			btnVariant(p.Variant),
+			btnSize(p.Size),
+			templ.KV("w-full", p.FullW),
+		}
+	>
+		if p.Loading.IndicatorID != "" {
+			if p.Loading.Text == "" {
+				<div id={ p.Loading.IndicatorID } class={ "htmx-indicator absolute inset-0 flex items-center justify-center rounded-xl pointer-events-none", btnVariant(p.Variant) }>
+					@icons.Loading("w-5 h-5 animate-spin text-accent")
+				</div>
+			} else {
+				<div
+					id={ p.Loading.IndicatorID }
+					class={ "htmx-indicator absolute inset-0 flex items-center justify-center rounded-xl pointer-events-none", btnVariant(p.Variant) }
+				>
+					<span class="inline-flex items-center gap-2 font-mono text-xs tracking-widest">
+						@icons.Loading("w-5 h-5 animate-spin text-accent")
+						<span>{ p.Loading.Text }</span>
+					</span>
+				</div>
+			}
+		}
+		{ children... }
+	</button>
 }
 
 // Button is the primary call-to-action primitive.

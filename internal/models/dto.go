@@ -107,8 +107,8 @@ func (r VerifyEmailRequest) Validate() error {
 
 type ResetPasswordRequest struct {
 	Token    string `form:"token"`
-	Password string `form:"password"`
-	Confirm  string `form:"confirm"`
+	Password string `form:"new-password"`
+	Confirm  string `form:"confirm-password"`
 }
 
 func (r ResetPasswordRequest) Validate(passwordSecurityLevel int) error {

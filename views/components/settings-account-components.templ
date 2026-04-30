@@ -92,13 +92,17 @@ templ DangerZoneCard(isActive bool, csrf string) {
 					<h3 class="text-sm font-semibold text-error">Delete Account</h3>
 					<p class="text-sm text-error/70">Permanently delete all data</p>
 				</div>
-				<button
-					type="button"
-					@click="showDeleteModal = true"
-					class="w-full sm:w-auto px-4 py-2.5 rounded-lg bg-error text-white font-medium text-sm hover:bg-error/90 transition-all"
-				>
-					Delete Account
-				</button>
+				@ui.BasicButton(ui.ButtonProps{
+					Variant: ui.ButtonDanger,
+					Size:    ui.ButtonMD,
+					Type:    ui.TypeButton,
+					FullW:   false,
+					Attrs: templ.Attributes{
+						"@click": "showDeleteModal = true",
+					},
+				}) {
+					<span>Delete Account</span>
+				}
 			</div>
 		</div>
 	</div>
@@ -122,21 +126,29 @@ templ DeactivateSection(isActive bool, csrf string, oob bool) {
 			}
 		</div>
 		if isActive {
-			<button
-				type="button"
-				@click="showDeactivateModal = true"
-				class="w-full sm:w-auto px-4 py-2.5 rounded-lg border border-error/30 text-error font-medium text-sm hover:bg-error/5 transition-all"
-			>
-				Deactivate
-			</button>
+			@ui.BasicButton(ui.ButtonProps{
+				Variant: ui.ButtonGhostDanger,
+				Size:    ui.ButtonMD,
+				Type:    ui.TypeButton,
+				FullW:   false,
+				Attrs: templ.Attributes{
+					"@click": "showDeactivateModal = true",
+				},
+			}) {
+				<span>Deactivate</span>
+			}
 		} else {
-			<button
-				type="button"
-				@click="showActivateModal = true"
-				class="w-full sm:w-auto px-4 py-2.5 rounded-lg border border-success/30 text-success font-medium text-sm hover:bg-success/5 transition-all"
-			>
-				Activate
-			</button>
+			@ui.BasicButton(ui.ButtonProps{
+				Variant: ui.ButtonGhostSuccess,
+				Size:    ui.ButtonMD,
+				Type:    ui.TypeButton,
+				FullW:   false,
+				Attrs: templ.Attributes{
+					"@click": "showActivateModal = true",
+				},
+			}) {
+				<span>Activate</span>
+			}
 		}
 	</div>
 }
@@ -200,13 +212,17 @@ templ DeactivateModal(csrf string) {
 				</div>
 				<!-- Footer -->
 				<div class="px-6 py-4 border-t flex flex-col-reverse sm:flex-row gap-3 sm:justify-end rounded-b-2xl border-error/20">
-					<button
-						type="button"
-						@click="showDeactivateModal = false"
-						class="w-full sm:w-auto px-5 py-2.5 rounded-lg border border-primary/20 text-primary font-medium text-sm hover:bg-primary/5 transition-all"
-					>
-						Cancel
-					</button>
+					@ui.BasicButton(ui.ButtonProps{
+						Variant: ui.ButtonGhost,
+						Size:    ui.ButtonMD,
+						Type:    ui.TypeButton,
+						FullW:   false,
+						Attrs: templ.Attributes{
+							"@click": "showDeactivateModal = false",
+						},
+					}) {
+						<span>Cancel</span>
+					}
 					<form
 						hx-delete="/settings/account/deactivate"
 						hx-swap="none"
@@ -214,10 +230,10 @@ templ DeactivateModal(csrf string) {
 						@htmx:after-request="showDeactivateModal = false"
 					>
 						@CSRF(csrf)
-						@ui.Button(ui.ButtonProps{
+						@ui.BasicButton(ui.ButtonProps{
 							Variant: ui.ButtonDanger,
 							Size:    ui.ButtonMD,
-							Type:    "submit",
+							Type:    ui.TypeSubmit,
 							FullW:   true,
 							Loading: ui.LoadingConfig{
 								IndicatorID: "deactivate-modal-indicator",
@@ -291,13 +307,14 @@ templ ActivateModal(csrf string) {
 				</div>
 				<!-- Footer -->
 				<div class="px-6 py-4 border-t flex flex-col-reverse sm:flex-row gap-3 sm:justify-end rounded-b-2xl border-success/20">
-					<button
-						type="button"
-						@click="showActivateModal = false"
-						class="w-full sm:w-auto px-5 py-2.5 rounded-lg border border-primary/20 text-primary font-medium text-sm hover:bg-primary/5 transition-all"
-					>
-						Cancel
-					</button>
+					@ui.BasicButton(ui.ButtonProps{
+						Variant: ui.ButtonGhost,
+						Size:    ui.ButtonMD,
+						Type:    ui.TypeButton,
+						Attrs:   templ.Attributes{"@click": "showActivateModal = false"},
+					}) {
+						<span>Cancel</span>
+					}
 					<form
 						hx-post="/settings/account/activate"
 						hx-swap="none"
@@ -305,7 +322,7 @@ templ ActivateModal(csrf string) {
 						@htmx:after-request="showActivateModal = false"
 					>
 						@CSRF(csrf)
-						@ui.Button(ui.ButtonProps{
+						@ui.BasicButton(ui.ButtonProps{
 							Variant: ui.ButtonAccent,
 							Size:    ui.ButtonMD,
 							Type:    "submit",

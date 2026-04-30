@@ -68,7 +68,7 @@ templ ChangeUsernameForm(username string, csrf string) {
 			</div>
 		</div>
 		<div class="flex justify-end pt-4 border-t border-primary/10">
-			@ui.Button(ui.ButtonProps{
+			@ui.BasicButton(ui.ButtonProps{
 				Variant: ui.ButtonPrimary,
 				Size:    ui.ButtonMD,
 				Type:    ui.TypeSubmit,
@@ -110,7 +110,7 @@ templ ChangeUserEmailForm(email string, verified bool, csrf string) {
 			</div>
 		</div>
 		<div class="flex justify-end pt-4 border-t border-primary/10">
-			@ui.Button(ui.ButtonProps{
+			@ui.BasicButton(ui.ButtonProps{
 				Variant: ui.ButtonPrimary,
 				Size:    ui.ButtonMD,
 				Type:    ui.TypeSubmit,
@@ -131,27 +131,35 @@ templ AccountDetailsCard(props ProfileProps) {
 			<h2 class="text-base sm:text-lg font-semibold text-primary">Account Details</h2>
 			<p class="text-sm text-primary/60">Your account information</p>
 		</div>
-		<div class="p-4 sm:p-6">
-			<dl class="grid grid-cols-2 gap-3 sm:gap-4">
-				<div class="rounded-lg bg-primary/5 p-3 sm:p-4">
-					<dt class="text-xs font-medium text-primary/60 uppercase tracking-wider">User ID</dt>
-					<dd class="mt-1 text-xs sm:text-sm font-mono text-primary truncate">{ props.UserID }</dd>
-				</div>
-				<div class="rounded-lg bg-primary/5 p-3 sm:p-4">
-					<dt class="text-xs font-medium text-primary/60 uppercase tracking-wider">Role</dt>
-					<dd class="mt-1">
-						@RoleBadge(props.Role)
-					</dd>
-				</div>
-				<div class="rounded-lg bg-primary/5 p-3 sm:p-4">
-					<dt class="text-xs font-medium text-primary/60 uppercase tracking-wider">Created</dt>
-					<dd class="mt-1 text-xs sm:text-sm text-primary">{ props.Created }</dd>
-				</div>
-				<div class="rounded-lg bg-primary/5 p-3 sm:p-4">
-					<dt class="text-xs font-medium text-primary/60 uppercase tracking-wider">Last Login</dt>
-					<dd class="mt-1 text-xs sm:text-sm text-primary">{ props.LastLogin }</dd>
-				</div>
-			</dl>
-		</div>
+		@DataListgroup() {
+			@DataListItemText("User ID", props.UserID)
+			@DataListItemBadge("Role", props.Role)
+			@DataListItemText("Created", props.Created)
+			@DataListItemText("Last Login", props.LastLogin)
+		}
+	</div>
+}
+
+templ DataListgroup() {
+	<div class="p-4 sm:p-6">
+		<dl class="grid grid-cols-2 gap-3 sm:gap-4">
+			{ children... }
+		</dl>
+	</div>
+}
+
+templ DataListItemText(key string, value string) {
+	<div class="rounded-lg bg-primary/5 p-3 sm:p-4">
+		<dt class="text-xs font-medium text-primary/60 uppercase tracking-wider">{ key }</dt>
+		<dd class="mt-1 text-xs sm:text-sm text-primary">{ value }</dd>
+	</div>
+}
+
+templ DataListItemBadge(key string, value string) {
+	<div class="rounded-lg bg-primary/5 p-3 sm:p-4">
+		<dt class="text-xs font-medium text-primary/60 uppercase tracking-wider">{ key }</dt>
+		<dd class="mt-1">
+			@RoleBadge(value)
+		</dd>
 	</div>
 }

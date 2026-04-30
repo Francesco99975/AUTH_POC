@@ -3,6 +3,64 @@ package components
 import "github.com/Francesco99975/authpoc/views/icons"
 import "github.com/Francesco99975/authpoc/views/ui"
 
+templ CyberAuthForm(csrf string) {
+	<div
+		class="w-full max-w-md"
+		x-data="{ mode: 'login' }"
+	>
+		<!-- Auth Card -->
+		<div class="bg-std rounded-2xl shadow-xl p-6 md:p-8">
+			<!-- Header -->
+			<div class="text-center mb-6 md:mb-8">
+				<h2 class="text-2xl md:text-3xl font-bold bg-linear-to-r from-primary to-accent bg-clip-text text-transparent mb-2 glitch" data-text="Welcome Back">
+					Welcome Back
+				</h2>
+				<p class="text-sm md:text-base text-text-muted">
+					Sign in to continue to your account
+				</p>
+			</div>
+			<!-- Toggle Buttons -->
+			<div class="flex gap-2 p-1.5 mb-6 md:mb-8 bg-std/50 rounded-xl border border-primary/10">
+				<button
+					type="button"
+					@click="mode = 'login'"
+					:class="mode === 'login' ? 'bg-primary text-primary-fg shadow-md' : 'bg-transparent text-primary/85'"
+					class="flex-1 py-2.5 md:py-3 font-medium text-sm md:text-base rounded-lg transition-all duration-200"
+				>
+					Sign In
+				</button>
+				<button
+					type="button"
+					@click="mode = 'signup'"
+					:class="mode === 'signup' ? 'bg-primary text-primary-fg shadow-md' : 'bg-transparent text-primary/85'"
+					class="flex-1 py-2.5 md:py-3 font-medium text-sm md:text-base rounded-lg transition-all duration-200"
+				>
+					Sign Up
+				</button>
+			</div>
+			<!-- Forms -->
+			<div
+				x-show="mode === 'login'"
+				x-cloak
+				x-transition:enter="transition ease-out duration-300"
+				x-transition:enter-start="opacity-0 transform translate-y-2"
+				x-transition:enter-end="opacity-100 transform translate-y-0"
+			>
+				@LoginForm(csrf)
+			</div>
+			<div
+				x-show="mode === 'signup'"
+				x-cloak
+				x-transition:enter="transition ease-out duration-300"
+				x-transition:enter-start="opacity-0 transform translate-y-2"
+				x-transition:enter-end="opacity-100 transform translate-y-0"
+			>
+				@SignupForm(csrf)
+			</div>
+		</div>
+	</div>
+}
+
 templ AuthForm(csrf string) {
 	<div
 		class="w-full max-w-md"
@@ -70,59 +128,20 @@ templ LoginForm(csrf string) {
 		class="space-y-4 md:space-y-5"
 	>
 		@CSRF(csrf)
-		<div>
-			<label class="block text-sm font-medium text-primary mb-2" for="login-eou">Email or Username</label>
-			<input
-				type="text"
-				id="login-eou"
-				name="eou"
-				class="w-full px-4 py-3 border-2 border-primary/20 rounded-xl bg-std text-primary placeholder:text-primary/50 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all duration-200"
-				placeholder="Email or Username"
-				required
-			/>
-		</div>
-		<div>
-			<label class="block text-sm font-medium text-primary mb-2" for="login-password">Password</label>
-			<input
-				type="password"
-				id="login-password"
-				name="password"
-				class="w-full px-4 py-3 border-2 border-primary/20 rounded-xl bg-std text-primary placeholder:text-primary/50 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all duration-200"
-				placeholder="••••••••"
-				required
-			/>
-		</div>
+		@ui.BasicInput("eou", "Email or Username", true)
+		@ui.BasicPasswordInput("password", "Password", true)
 		<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-			<div class="flex items-center gap-2">
-				<input
-					type="checkbox"
-					id="remember"
-					name="remember"
-					class="w-4 h-4 rounded border-2 border-primary/20 accent-primary cursor-pointer"
-					checked
-				/>
-				<label for="remember" class="text-sm text-primary/80 cursor-pointer">
-					Remember me
-				</label>
-			</div>
-			<a
-				href="/reset"
-				hx-boost="true"
-				hx-push-url="true"
-				hx-target="body"
-				class="text-sm font-medium text-primary hover:text-accent transition-colors"
-			>
-				Forgot password?
-			</a>
+			@ui.BasicCheckbox("remember", "Remember Me", false, false)
+			@ui.BasicForgotPassword()
 		</div>
-		@ui.Button(ui.ButtonProps{
+		@ui.BasicButton(ui.ButtonProps{
 			Variant: ui.ButtonPrimary,
 			FullW:   true,
 			Type:    "submit",
 			Loading: ui.LoadingConfig{
 				IndicatorID: "login-indicator",
 			},
-			Size: ui.ButtonMD,
+			Size: ui.ButtonLG,
 		}) {
 			<span>Sign In</span>
 		}
@@ -139,63 +158,19 @@ templ SignupForm(csrf string) {
 		class="space-y-4 md:space-y-5"
 	>
 		@CSRF(csrf)
-		<div>
-			<label class="block text-sm font-medium text-primary mb-2" for="signup-email">Email Address</label>
-			<input
-				type="email"
-				id="signup-email"
-				name="email"
-				class="w-full px-4 py-3 border-2 border-primary/20 rounded-xl bg-std text-primary placeholder:text-primary/50 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all duration-200"
-				placeholder="Email Address"
-				required
-			/>
-		</div>
-		<div>
-			<label class="block text-sm font-medium text-primary mb-2" for="signup-username">Username</label>
-			<input
-				type="text"
-				id="signup-username"
-				name="username"
-				class="w-full px-4 py-3 border-2 border-primary/20 rounded-xl bg-std text-primary placeholder:text-primary/50 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all duration-200"
-				placeholder="Username"
-				required
-			/>
-		</div>
-		<div>
-			<label class="block text-sm font-medium text-primary mb-2" for="signup-password">Password</label>
-			<input
-				type="password"
-				id="signup-password"
-				name="password"
-				minlength="8"
-				class="w-full px-4 py-3 border-2 border-primary/20 rounded-xl bg-std text-primary placeholder:text-primary/50 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all duration-200"
-				placeholder="••••••••"
-				required
-			/>
-		</div>
-		<div>
-			<label class="block text-sm font-medium text-primary mb-2" for="signup-confirm">Confirm Password</label>
-			<input
-				type="password"
-				id="signup-confirm"
-				minlength="8"
-				name="confirm"
-				class="w-full px-4 py-3 border-2 border-primary/20 rounded-xl bg-std text-primary placeholder:text-primary/50 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all duration-200"
-				placeholder="••••••••"
-				required
-			/>
-		</div>
-		<div class="relative">
-			<button
-				type="submit"
-				class="w-full py-3 md:py-3.5 bg-primary text-primary-fg font-semibold rounded-xl hover:bg-primary/90 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 disabled:opacity-75 disabled:cursor-not-allowed"
-			>
-				Create Account
-			</button>
-			<div id="signup-indicator" class="htmx-indicator absolute inset-0 flex items-center justify-center bg-primary/95 rounded-xl pointer-events-none">
-				@icons.Loading("w-5 h-5 animate-spin text-white")
-			</div>
-		</div>
+		@ui.BasicInput("email", "Email Address", true)
+		@ui.BasicInput("username", "Username", true)
+		@ui.BasicPasswordInput("password", "Password", true)
+		@ui.BasicPasswordInput("confirm", "Confirm Password", true)
+		@ui.BasicButton(ui.ButtonProps{
+			Variant: ui.ButtonPrimary,
+			Size:    ui.ButtonLG,
+			Type:    ui.TypeSubmit,
+			FullW:   true,
+			Loading: ui.LoadingConfig{IndicatorID: "signup-indicator"},
+		}) {
+			<span>Create Account</span>
+		}
 		<p class="text-xs text-center text-primary/60">
 			By signing up, you agree to our
 			<a
@@ -250,9 +225,7 @@ templ EmailVerification(email string, csrf string, verify_url string) {
 	<div id="email-verification-container" class="bg-std rounded-2xl shadow-xl p-8 max-w-md w-full mx-auto">
 		<div class="text-center mb-6">
 			<div class="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
-				<svg class="w-8 h-8 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-				</svg>
+				@icons.EmailVerifyIcon()
 			</div>
 			<h2 class="text-2xl font-bold text-primary mb-2">Verify Your Email</h2>
 			<p class="text-primary/70">
@@ -261,9 +234,7 @@ templ EmailVerification(email string, csrf string, verify_url string) {
 		</div>
 		<div class="bg-std/50 rounded-xl p-6 mb-6 border border-primary/10">
 			<h3 class="font-semibold text-primary mb-3 flex items-center gap-2">
-				<svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-				</svg>
+				@icons.Info("w-5 h-5 text-primary")
 				Two ways to verify:
 			</h3>
 			<ol class="space-y-2 text-sm text-primary/80">
@@ -287,14 +258,14 @@ templ EmailVerification(email string, csrf string, verify_url string) {
 		>
 			@CSRF(csrf)
 			@ui.GenericCodeInput("token", "Verification Code", "Check your email for the verification token")
-			@ui.Button(ui.ButtonProps{
+			@ui.BasicButton(ui.ButtonProps{
 				Variant: ui.ButtonPrimary,
 				FullW:   true,
 				Type:    "submit",
 				Loading: ui.LoadingConfig{
 					IndicatorID: "verify-spinner",
 				},
-				Size: ui.ButtonMD,
+				Size: ui.ButtonLG,
 			}) {
 				<span>Verify Email</span>
 			}
