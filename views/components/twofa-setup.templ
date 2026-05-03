@@ -207,18 +207,14 @@ templ TwoFACheck(token string, csrf string) {
 			</div>
 		</div>
 		<!-- Code Input -->
-		@ui.OTPInput("verification code", "Enter the 6-digit code from your authenticator app")
-		@ui.BasicButton(ui.ButtonProps{
-			Variant: ui.ButtonPrimary,
-			Size:    ui.ButtonMD,
-			Type:    ui.TypeSubmit,
-			FullW:   true,
-			Loading: ui.LoadingConfig{
-				IndicatorID: "verify-code-indicator",
-			},
-		}) {
-			<span>Verify & Continue</span>
-		}
+		@ui.OTP(ui.OTPProps{
+			Name:       "otp",
+			Label:      "One Time Password",
+			Length:     6,
+			Required:   true,
+			AutoSubmit: true,
+		})
+		@ui.FormLoading("verify-code-indicator", "Verifying...")
 	</form>
 }
 

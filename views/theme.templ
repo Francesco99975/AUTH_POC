@@ -216,20 +216,26 @@ templ Theme(site models.Site) {
 				</div>
 			}
 			@section("04", "Text Inputs", "input, textarea, search, stepper, password, otp, tags, file") {
-				<div class="grid gap-5 md:grid-cols-2">
+				<div class="grid gap-5 md:grid-cols-2" x-data="{email: ''}">
 					@ui.Input(ui.InputProps{
 						Name: "name", Label: "OPERATOR NAME",
 						Placeholder: "V.",
 						Hint:        "// 3-24 chars // alphanumeric",
 					})
 					@ui.Input(ui.InputProps{
-						Name: "bad", Label: "WITH ERROR",
-						Value: "not@valid",
-						Error: "invalid email signature",
+						Name:        "bad",
+						Type:        ui.InputEmail,
+						Label:       "WITH ERROR (alpine)",
+						Placeholder: "invalid email signature",
+						Attrs: templ.Attributes{
+							"x-model":       "email",
+							":aria-invalid": "!!err",
+							"@blur":         "err = /\\S+@\\S+\\.\\S+/.test(email) ? '' : 'invalid email signature'",
+						},
 					})
 					@ui.NumberStepper(ui.NumberStepperProps{
 						Name: "qty", Label: "QUANTITY",
-						Min: 0, Max: 99, Value: 12,
+						Min: 0, Max: 99,
 					})
 					@ui.Search(ui.SearchProps{
 						Name: "q", Placeholder: "search the grid",
@@ -245,14 +251,17 @@ templ Theme(site models.Site) {
 					})
 				</div>
 				<div class="grid gap-5 md:grid-cols-2 mt-5">
-					@ui.Password(ui.PasswordProps{
+					@ui.SecurePasswordInput(ui.PasswordProps{
 						Name: "password", Label: "PASSWORD",
-						ShowStrength: true,
+						ShowStrength:  true,
+						MinLen:        8,
+						RequireNumber: true,
+						RequireCaps:   true,
+						RequireSymbol: true,
 					})
 					@ui.OTP(ui.OTPProps{
 						Name: "otp", Length: 6,
-						Label:   "NETWATCH CODE",
-						PostURL: "/api/auth/otp", TargetID: "demo-otp-result",
+						Label: "NETWATCH CODE",
 					})
 				</div>
 				<div id="demo-otp-result" class="font-mono text-xs text-accent mt-2 min-h-4"></div>

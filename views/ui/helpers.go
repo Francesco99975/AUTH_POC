@@ -91,3 +91,7 @@ func firstRune(s string, fallback rune) rune {
 	}
 	return fallback
 }
+
+// repeat returns s concatenated n times. Used for input placeholders such as
+// the OTPSingle "000000" dots that scale with Length.
+func repeat(s string, n int) string { return strings.Repeat(s, n) }

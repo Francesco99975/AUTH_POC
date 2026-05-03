@@ -220,6 +220,37 @@ templ BasicForgotPassword() {
 
 //////
 
+// InputType is the typed enum over standard HTML <input type="..."> values.
+// Pass one of the exported InputXxx constants to InputProps.Type. The zero
+// value (an empty InputType) renders as "text", matching the HTML default.
+type InputType string
+
+const (
+	InputText          InputType = "text"
+	InputEmail         InputType = "email"
+	InputPassword      InputType = "password" // prefer @Password for the full UX
+	InputURL           InputType = "url"
+	InputTel           InputType = "tel"
+	InputNumber        InputType = "number"
+	InputSearch        InputType = "search"
+	InputDate          InputType = "date"
+	InputTime          InputType = "time"
+	InputDatetimeLocal InputType = "datetime-local"
+	InputMonth         InputType = "month"
+	InputWeek          InputType = "week"
+	InputColor         InputType = "color"
+	InputFile          InputType = "file"
+	InputHidden        InputType = "hidden"
+)
+
+// String resolves the type attribute string, falling back to "text" when zero.
+func (t InputType) String() string {
+	if t == "" {
+		return "text"
+	}
+	return string(t)
+}
+
 // FieldLabel is the shared label-chrome: uppercase tracking-wide caption, optional
 // right-aligned hint (e.g. "required", "optional", character counters).
 templ FieldLabel(label, hint string) {
@@ -231,108 +262,129 @@ templ FieldLabel(label, hint string) {
 	</div>
 }
 
-// InputProps is the config for @Input. Anything not covered — hx-*, @blur handlers,
-// x-model, maxlength, autocomplete, etc. — goes through Attrs.
+// InputProps is the *static* config for @Input. Anything dynamic — current
+// value, disabled state, validation errors, x-model, hx-* hooks, @blur
+// handlers, :class, :aria-invalid, etc. — flows through Attrs and is owned
+// by the parent's Alpine scope.
+//
+// The Name field doubles as the element's id so wrapping <label> clicks focus
+// the input and external aria-describedby / aria-controls can target it.
+//
+// The component exposes a children slot for inline frontend feedback markup
+// (error/help spans bound with x-show + x-text). See Input docs.
 type InputProps struct {
 	Name        string
-	Type        string // "text" | "email" | "url" | "tel" | "number" | ...
+	Type        InputType
 	Label       string
-	Hint        string // right-aligned hint in the label row
+	Hint        string
 	Placeholder string
-	Value       string
-	Error       string // non-empty renders aria-invalid + error line
 	Required    bool
-	Disabled    bool
-	Readonly    bool
 	Attrs       templ.Attributes
 }
 
-// Input is the standard labelled single-line field.
-// Wrap it in a <label> for free click-to-focus; this already renders the label text.
+// Input renders a labelled single-line field. Compose the parent's Alpine for
+// any dynamic behaviour:
+//
+//	<div x-data="{ email: '', err: '' }">
+//	    @Input(InputProps{
+//	        Name: "email", Type: InputEmail, Label: "EMAIL", Required: true,
+//	        Attrs: templ.Attributes{
+//	            "x-model":      "email",
+//	            ":disabled":    "loading",
+//	            ":aria-invalid":"!!err",
+//	            "@blur":        "err = /\\S+@\\S+\\.\\S+/.test(email) ? '' : 'invalid'",
+//	        },
+//	    }) {
+//	        <p x-show="err" x-text="err" x-cloak
+//	           class="mt-1 font-mono text-[11px] text-error"></p>
+//	    }
+//	</div>
 templ Input(p InputProps) {
-	<label class="block">
+	<label class="block" x-data="{ err: '' }">
 		@FieldLabel(p.Label, p.Hint)
 		<input
-			type={ nonEmpty(p.Type, "text") }
+			type={ p.Type.String() }
+			id={ p.Name }
 			name={ p.Name }
-			value={ p.Value }
 			placeholder={ p.Placeholder }
 			required?={ p.Required }
-			disabled?={ p.Disabled }
-			readonly?={ p.Readonly }
-			aria-invalid?={ p.Error != "" }
 			class="cp-field clip-tag"
 			{ p.Attrs... }
 		/>
-		if p.Error != "" {
-			<div class="mt-1 font-mono text-[11px] text-error">ERR: { p.Error }</div>
-		}
+		<p x-show="err" x-text="'ERR: ' + err" x-cloak class="mt-1 font-mono text-[11px] text-error"></p>
 	</label>
 }
 
-// TextareaProps — multi-line input. Rows defaults to 3 when zero.
+// TextareaProps — multi-line input. MaxLength > 0 enables a built-in live
+// char counter rendered in the label hint slot; the count is read from the
+// element's input event so it stays accurate even when the parent supplies
+// its own x-model. Rows defaults to 3.
+//
+// Like @Input, the children slot is for parent-owned feedback (errors / help)
+// and dynamic state flows through Attrs.
 type TextareaProps struct {
 	Name        string
 	Label       string
 	Placeholder string
-	Value       string
 	Rows        int
-	MaxLength   int // when > 0, renders a live char counter via Alpine
+	MaxLength   int
 	Required    bool
-	Disabled    bool
 	Attrs       templ.Attributes
 }
 
-// Textarea is a labelled multi-line input. When MaxLength > 0 it adds an Alpine
-// char counter in the label hint slot.
+// Textarea is a labelled multi-line input.
 templ Textarea(p TextareaProps) {
 	if p.MaxLength > 0 {
-		<div x-data={ "{ v: '" + p.Value + "', max: " + itoa(p.MaxLength) + " }" }>
+		<div x-data="{ n: 0 }" x-init="$nextTick(() => { n = ($refs.ta && $refs.ta.value.length) || 0 })">
 			<div class="font-mono text-[11px] text-accent uppercase tracking-widest mb-1 flex justify-between">
 				<span>{ p.Label }</span>
-				<span class="text-muted"><span x-text="v.length"></span>/<span x-text="max"></span></span>
+				<span class="text-muted"><span x-text="n"></span>/{ itoa(p.MaxLength) }</span>
 			</div>
 			<textarea
+				x-ref="ta"
+				@input="n = $el.value.length"
+				id={ p.Name }
 				name={ p.Name }
 				placeholder={ p.Placeholder }
 				rows={ itoa(nonZero(p.Rows, 3)) }
 				required?={ p.Required }
-				disabled?={ p.Disabled }
-				x-model="v"
-				:maxlength="max"
+				maxlength={ itoa(p.MaxLength) }
 				class="cp-field clip-tag resize-none"
 				{ p.Attrs... }
 			></textarea>
+			{ children... }
 		</div>
 	} else {
 		<label class="block">
 			@FieldLabel(p.Label, "")
 			<textarea
+				id={ p.Name }
 				name={ p.Name }
 				placeholder={ p.Placeholder }
 				rows={ itoa(nonZero(p.Rows, 3)) }
 				required?={ p.Required }
-				disabled?={ p.Disabled }
 				class="cp-field clip-tag resize-none"
 				{ p.Attrs... }
-			>{ p.Value }</textarea>
+			></textarea>
+			{ children... }
 		</label>
 	}
 }
 
 // SearchProps — search field with a leading magnifier and HTMX live-search hooks.
+//   - TargetID: id of the container live results swap into (renders below)
+//   - GetURL:   server endpoint returning result HTML; required when TargetID is set
+//   - DebounceMS: debounce on the keyup trigger; 0 → 300ms
+//
+// Dynamic value / disabled / aria state belong on Attrs.
 type SearchProps struct {
 	Name        string
 	Label       string
 	Placeholder string
-	// TargetID is the DOM id that live results should be swapped into.
-	// If set, the component wires hx-get + debounced hx-trigger for you.
-	TargetID string
-	// GetURL is the server endpoint returning results HTML. Required when TargetID is set.
-	GetURL string
-	// DebounceMS overrides the default 300ms debounce. 0 = 300.
-	DebounceMS int
-	Attrs      templ.Attributes
+	TargetID    string
+	GetURL      string
+	DebounceMS  int
+	Attrs       templ.Attributes
 }
 
 // Search is a debounced live-search input. Renders the results target container
@@ -350,6 +402,7 @@ templ Search(p SearchProps) {
 			if p.TargetID != "" && p.GetURL != "" {
 				<input
 					type="search"
+					id={ nonEmpty(p.Name, "q") }
 					name={ nonEmpty(p.Name, "q") }
 					placeholder={ nonEmpty(p.Placeholder, "search…") }
 					class="cp-field clip-tag pl-9"
@@ -362,6 +415,7 @@ templ Search(p SearchProps) {
 			} else {
 				<input
 					type="search"
+					id={ nonEmpty(p.Name, "q") }
 					name={ nonEmpty(p.Name, "q") }
 					placeholder={ nonEmpty(p.Placeholder, "search…") }
 					class="cp-field clip-tag pl-9"
@@ -372,18 +426,22 @@ templ Search(p SearchProps) {
 		if p.TargetID != "" {
 			<div id={ p.TargetID } class="mt-2 font-mono text-[11px] text-muted"></div>
 		}
+		{ children... }
 	</div>
 }
 
-// NumberStepperProps — bounded integer input with − / + buttons.
+// NumberStepperProps — bounded integer input with − / + buttons, fully
+// Alpine-driven (`n` is the live value, exposed inside the component's
+// x-data scope). Min seeds the initial value; Max=0 means unbounded;
+// Step defaults to 1. Pass dynamic disabled / hx-* / extra bindings on
+// the inner <input> via Attrs.
 type NumberStepperProps struct {
-	Name     string
-	Label    string
-	Value    int
-	Min      int
-	Max      int
-	Step     int
-	Disabled bool
+	Name  string
+	Label string
+	Min   int
+	Max   int
+	Step  int
+	Attrs templ.Attributes
 }
 
 // NumberStepper is a compact integer control with glyph buttons at each end.
@@ -394,7 +452,7 @@ if step == 0 {
 }
 	}}
 	<div
-		x-data={ "{ n: " + itoa(p.Value) +
+		x-data={ "{ n: " + itoa(p.Min) +
 				", min: " + itoa(p.Min) +
 				", max: " + itoa(p.Max) +
 				", step: " + itoa(step) + " }" }
@@ -411,13 +469,14 @@ if step == 0 {
 			>−</button>
 			<input
 				type="number"
+				id={ p.Name }
 				name={ p.Name }
 				x-model.number="n"
 				:min="min"
 				:max="max || undefined"
 				:step="step"
-				disabled?={ p.Disabled }
 				class="cp-field text-center rounded-none"
+				{ p.Attrs... }
 			/>
 			<button
 				type="button"
@@ -426,5 +485,6 @@ if step == 0 {
 				aria-label="Increase"
 			>+</button>
 		</div>
+		{ children... }
 	</div>
 }

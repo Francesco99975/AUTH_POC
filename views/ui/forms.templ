@@ -10,9 +10,9 @@ func WithLoading(indicatorID string) templ.Attributes {
 }
 
 templ FormLoading(indicatorID string, label string) {
-	<div id={ indicatorID } class="htmx-indicator absolute inset-0 flex flex-col items-center justify-center bg-primary/95 backdrop-blur-sm rounded-lg pointer-events-none">
+	<div id={ indicatorID } class="htmx-indicator absolute inset-0 flex flex-col items-center justify-center bg-std/95 backdrop-blur-sm rounded-lg pointer-events-none">
 		@icons.Loading("w-10 h-10 animate-spin text-accent mb-2")
-		<p class="text-sm text-std/70 font-medium">{ label }</p>
+		<p class="text-sm text-primary/70 font-medium">{ label }</p>
 	</div>
 }
 
@@ -70,7 +70,7 @@ templ LoginForm(p LoginFormProps) {
 				<span class="block font-mono text-[11px] text-muted uppercase tracking-widest">PASSWORD</span>
 				<a href={ templ.SafeURL(forgot) } class="font-mono text-[11px] text-accent hover:text-primary">forgot?</a>
 			</div>
-			@Password(PasswordProps{
+			@SecurePasswordInput(PasswordProps{
 				Name:     "password",
 				Required: true,
 				Attrs:    templ.Attributes{"autocomplete": "current-password"},
@@ -137,7 +137,7 @@ templ SignupForm(p SignupFormProps) {
 			})
 			<p id="su-email-err" class="font-mono text-[11px] text-error mt-1 min-h-[14px]"></p>
 		</div>
-		@Password(PasswordProps{
+		@SecurePasswordInput(PasswordProps{
 			Name:         "password",
 			Label:        "PASSWORD",
 			Required:     true,

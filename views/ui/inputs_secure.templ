@@ -1,6 +1,13 @@
 package ui
 
-// PasswordProps — masked input with show/hide toggle and optional live strength meter.
+// PasswordProps — masked input with show/hide toggle, optional live strength
+// meter, and optional rule-based validation.
+//
+// Rule fields are independent. Setting any of them turns on a reactive `err`
+// state that surfaces the first failing rule under the entropy meter (or
+// directly under the field when ShowStrength is off). All validation is
+// purely client-side via Alpine — server-side validation should still be
+// performed independently.
 type PasswordProps struct {
 	Name        string
 	Label       string
@@ -9,19 +16,54 @@ type PasswordProps struct {
 	Required    bool
 	// ShowStrength renders a 4-segment entropy meter beneath the field.
 	ShowStrength bool
-	Attrs        templ.Attributes
+	// MinLen, when > 0, requires the password to be at least N characters.
+	MinLen int
+	// RequireNumber requires at least one [0-9] digit.
+	RequireNumber bool
+	// RequireCaps requires at least one [A-Z] uppercase letter.
+	RequireCaps bool
+	// RequireSymbol requires at least one non-word character.
+	RequireSymbol bool
+
+	Attrs templ.Attributes
 }
 
-// Password is a masked input with reveal-toggle. Enable ShowStrength for a live
-// 4-bar entropy meter based on length + charset variety.
-templ Password(p PasswordProps) {
+// 4-bar entropy meter based on length + charset variety. Set any of MinLen /
+// RequireNumber / RequireCaps / RequireSymbol to add live rule validation
+// surfaced through a reactive `err` string under the meter.
+templ SecurePasswordInput(p PasswordProps) {
+	{{ minLenStr := itoa(p.MinLen) }}
+	{{reqNum := "false"
+if p.RequireNumber {
+	reqNum = "true"
+}
+	}}
+	{{reqCap := "false"
+if p.RequireCaps {
+	reqCap = "true"
+}
+	}}
+	{{reqSym := "false"
+if p.RequireSymbol {
+	reqSym = "true"
+}
+	}}
+	{{ hasRules := p.MinLen > 0 || p.RequireNumber || p.RequireCaps || p.RequireSymbol }}
 	<div
-		x-data={ "{ show:false, v: '" + p.Value + "', " +
+		x-data={ "{ show:false, v: '" + p.Value + "', err: '', " +
+				"minLen: " + minLenStr + ", reqNum: " + reqNum + ", reqCap: " + reqCap + ", reqSym: " + reqSym + ", " +
 				"score(){ let s=0; " +
 				"if(this.v.length>=8)s++; " +
 				"if(/[A-Z]/.test(this.v))s++; " +
 				"if(/[0-9]/.test(this.v))s++; " +
-				"if(/[^\\w]/.test(this.v))s++; return s; } }" }
+				"if(/[^\\w]/.test(this.v))s++; return s; }, " +
+				"validate(){ " +
+				"if(!this.v.length){ this.err=''; return; } " +
+				"if(this.minLen && this.v.length < this.minLen){ this.err = 'min ' + this.minLen + ' chars required'; return; } " +
+				"if(this.reqCap && !/[A-Z]/.test(this.v)){ this.err = 'uppercase letter required'; return; } " +
+				"if(this.reqNum && !/[0-9]/.test(this.v)){ this.err = 'number required'; return; } " +
+				"if(this.reqSym && !/[^\\w]/.test(this.v)){ this.err = 'symbol required'; return; } " +
+				"this.err = ''; } }" }
 	>
 		if p.Label != "" {
 			@FieldLabel(p.Label, "")
@@ -31,6 +73,11 @@ templ Password(p PasswordProps) {
 				:type="show ? 'text' : 'password'"
 				name={ p.Name }
 				x-model="v"
+				if hasRules {
+					@input="validate()"
+					@blur="validate()"
+					:aria-invalid="!!err"
+				}
 				placeholder={ nonEmpty(p.Placeholder, "••••••••") }
 				required?={ p.Required }
 				class="cp-field clip-tag pr-12"
@@ -62,67 +109,239 @@ templ Password(p PasswordProps) {
 				<span class="text-accent" x-text="['none','weak','ok','good','strong'][score()]"></span>
 			</div>
 		}
+		if hasRules {
+			<p
+				x-show="err"
+				x-cloak
+				x-text="'// ' + err"
+				class="mt-1 font-mono text-[10px] text-error uppercase tracking-widest"
+				role="alert"
+				aria-live="polite"
+			></p>
+		}
 	</div>
 }
 
-// OTPProps — N-digit one-time-code input with paste-spread, auto-advance, and
-// backspace-step-back behaviour.
+// OTPProps — N-digit one-time-code input rendered as separated cells. Driven
+// by a single hidden <input> overlaid on the cells so paste, autocomplete
+// "one-time-code", iOS SMS auto-fill, and form submission all work without
+// per-cell focus management. The cell at index v.length is highlighted while
+// focused, mimicking a per-cell caret.
+//
+// AutoSubmit fires requestSubmit() on the closest <form> as soon as the
+// user types the Length-th digit. PostURL/TargetID still work as a manual
+// "Verify" button below the row when AutoSubmit is off.
 type OTPProps struct {
-	Name   string // the hidden input gets this name — its value is the joined code
-	Label  string
-	Length int // defaults to 6 when 0
-	// PostURL, when set, submits the code via hx-post once all slots are filled.
-	PostURL  string
-	TargetID string
+	Name       string // becomes both id and name
+	Label      string
+	Length     int // defaults to 6 when 0
+	Required   bool
+	AutoSubmit bool
+	Attrs      templ.Attributes
 }
 
-// OTP renders the digit row plus a hidden input carrying the concatenated code
-// so it ships with the surrounding form on submit.
+// OTP renders a row of separated cyberpunk cells driven by one hidden input.
 templ OTP(p OTPProps) {
-	{{ length := p.Length
+	{{length := p.Length
 if length == 0 {
 	length = 6
-} }}
-	<div
-		x-data={ "{ len: " + itoa(length) + ", code: Array(" + itoa(length) + ").fill(''), " +
-				"joined(){ return this.code.join(''); }, " +
-				"onInput(i,e){ const v=e.target.value.replace(/\\D/g,'').slice(-1); this.code[i]=v; if(v && i<this.len-1) this.$refs['d'+(i+1)].focus(); }, " +
-				"onKey(i,e){ if(e.key==='Backspace' && !this.code[i] && i>0) this.$refs['d'+(i-1)].focus(); }, " +
-				"onPaste(e){ const t=(e.clipboardData.getData('text')||'').replace(/\\D/g,'').slice(0,this.len).split(''); t.forEach((c,i)=> this.code[i]=c); e.preventDefault(); } }" }
-	>
+}
+	}}
+	{{ lenStr := itoa(length) }}
+	{{ submitJS := "" }}
+	{{if p.AutoSubmit {
+	submitJS = "; if(v.length===" + lenStr + " && $el.form){ $nextTick(()=>$el.form.requestSubmit()) }"
+}
+	}}
+	<div x-data={ "{ v: '', focused: false, len: " + lenStr + " }" }>
 		if p.Label != "" {
-			@FieldLabel(p.Label, "")
+			@FieldLabel(p.Label, p.Name)
 		}
-		<div class="flex gap-1.5" @paste="onPaste($event)">
-			for i := 0; i < length; i++ {
-				<input
-					x-ref={ "d" + itoa(i) }
-					type="text"
-					inputmode="numeric"
-					maxlength="1"
-					autocomplete="one-time-code"
-					:value={ "code[" + itoa(i) + "]" }
-					@input={ "onInput(" + itoa(i) + ",$event)" }
-					@keydown={ "onKey(" + itoa(i) + ",$event)" }
-					class="cp-field text-center text-lg font-mono w-10 h-12 px-0"
-				/>
-			}
+		<div class="relative" @click="$refs.otp.focus()">
+			<div class="flex gap-2 sm:gap-3 pointer-events-none select-none" aria-hidden="true">
+				<template x-for="i in len" :key="i">
+					<div
+						class="flex-1 aspect-square max-w-14 grid place-items-center clip-tag border-2 transition-all font-mono text-2xl"
+						:class="
+							focused && (i - 1) === Math.min(v.length, len - 1)
+								? 'border-primary bg-primary/10 text-primary shadow-[0_0_12px_var(--color-primary)]'
+								: v[i-1]
+									? 'border-accent text-primary bg-panel'
+									: 'border-border bg-panel/60 text-muted'
+						"
+					>
+						<span x-text="v[i-1] || ''"></span>
+					</div>
+				</template>
+			</div>
+			<input
+				x-ref="otp"
+				type="text"
+				id={ p.Name }
+				name={ p.Name }
+				inputmode="numeric"
+				pattern="[0-9]*"
+				maxlength={ lenStr }
+				autocomplete="one-time-code"
+				required?={ p.Required }
+				x-model="v"
+				@focus="focused = true"
+				@blur="focused = false"
+				@input={ "v = $event.target.value.replace(/\\D/g,'').slice(0," + lenStr + "); $event.target.value = v" + submitJS }
+				class="absolute inset-0 w-full h-full opacity-0 cursor-pointer focus:outline-none"
+				style="caret-color: transparent;"
+				aria-label={ nonEmpty(p.Label, "One-time code") }
+				{ p.Attrs... }
+			/>
 		</div>
-		<input type="hidden" name={ p.Name } :value="joined()"/>
-		if p.PostURL != "" {
-			<div class="mt-2">
+		if  !p.AutoSubmit {
+			<div class="mt-3">
 				@Button(ButtonProps{
 					Variant: ButtonPrimary,
 					Size:    ButtonSM,
+					Type:    TypeSubmit,
 					Attrs: templ.Attributes{
-						"hx-post":         p.PostURL,
-						"hx-target":       "#" + p.TargetID,
-						"x-bind:disabled": "joined().length !== len",
+						"x-bind:disabled": "v.length !== len",
 					},
 				}) {
 					Verify
 				}
 			</div>
+		}
+	</div>
+}
+
+// OTPSingleProps — single-field numeric one-time-code input. Distinct from
+// the multi-cell @OTP component: this renders one wide field with letter-spaced
+// digits, ideal for compact 2FA / magic-link flows where per-cell focus jumps
+// would feel heavy.
+//
+// Sanitisation: every keystroke strips non-digits and clamps to Length, so
+// pasted strings like "123 456" become "123456" automatically.
+//
+// AutoSubmit, when true, fires `requestSubmit()` on the closest <form> as
+// soon as the user types the Length-th digit. requestSubmit() is interceptable
+// by both native form handlers and HTMX, so it works inside hx-post / hx-boost
+// forms without extra wiring.
+type OTPSingleProps struct {
+	Name       string // becomes both id and name
+	Label      string
+	Hint       string
+	Length     int // defaults to 6 when 0
+	Required   bool
+	AutoSubmit bool
+	Attrs      templ.Attributes
+}
+
+// CyberOTPInput is a single-field numeric one-time-code input styled for the
+// cyberpunk theme: clip-tag corner cuts, mono digits, wide letter-spacing.
+templ CyberOTPInput(p OTPSingleProps) {
+	{{length := p.Length
+if length == 0 {
+	length = 6
+}
+	}}
+	{{ lenStr := itoa(length) }}
+	{{ submitJS := "" }}
+	{{if p.AutoSubmit {
+	submitJS = "; if(v.length===" + lenStr + " && $el.form){ $nextTick(()=>$el.form.requestSubmit()) }"
+}
+	}}
+	<div x-data="{ v: '' }">
+		if p.Label != "" {
+			@FieldLabel(p.Label, p.Name)
+		}
+		<input
+			type="text"
+			id={ p.Name }
+			name={ p.Name }
+			inputmode="numeric"
+			pattern="[0-9]*"
+			maxlength={ lenStr }
+			placeholder={ repeat("0", length) }
+			autocomplete="one-time-code"
+			required?={ p.Required }
+			x-model="v"
+			@input={ "v = $event.target.value.replace(/\\D/g,'').slice(0," + lenStr + "); $event.target.value = v" + submitJS }
+			class="cp-field clip-tag text-center font-mono text-2xl tracking-[0.5em] text-primary placeholder:text-muted/50"
+			{ p.Attrs... }
+		/>
+		if p.Hint != "" {
+			<p class="mt-1 font-mono text-[10px] text-muted uppercase tracking-widest">\\ { p.Hint }</p>
+		}
+	</div>
+}
+
+// CodeInputProps — generic alphanumeric code field for license keys, backup
+// codes, redemption codes, recovery phrases (single token), etc.
+//
+// MaxLength defaults to 21 (matches typical XXXXX-XXXXX-XXXXX-XXX shapes).
+// Set Uppercase=true to display + submit the code in upper-case as the user
+// types — useful for license-style codes where casing is irrelevant. The
+// browser's autocapitalize is also flipped to "characters" in that mode.
+//
+// AutoSubmit fires requestSubmit() on the closest form when the user types
+// the MaxLength-th character; works with both native and hx-* forms.
+type CodeInputProps struct {
+	Name        string
+	Label       string
+	Hint        string
+	MaxLength   int    // defaults to 21 when 0
+	Placeholder string // defaults to "ENTER CODE"
+	Required    bool
+	Uppercase   bool
+	AutoSubmit  bool
+	Attrs       templ.Attributes
+}
+
+// CyberCodeInput is a single-field alphanumeric code input styled for the
+// cyberpunk theme.
+templ CyberCodeInput(p CodeInputProps) {
+	{{maxLen := p.MaxLength
+if maxLen == 0 {
+	maxLen = 21
+}
+	}}
+	{{ maxLenStr := itoa(maxLen) }}
+	{{caseJS := ""
+if p.Uppercase {
+	caseJS = ".toUpperCase()"
+}
+	}}
+	{{ submitJS := "" }}
+	{{if p.AutoSubmit {
+	submitJS = "; if(v.length===" + maxLenStr + " && $el.form){ $nextTick(()=>$el.form.requestSubmit()) }"
+}
+	}}
+	{{autoCap := "off"
+if p.Uppercase {
+	autoCap = "characters"
+}
+	}}
+	<div x-data="{ v: '' }">
+		if p.Label != "" {
+			@FieldLabel(p.Label, p.Name)
+		}
+		<input
+			type="text"
+			id={ p.Name }
+			name={ p.Name }
+			placeholder={ nonEmpty(p.Placeholder, "ENTER CODE") }
+			required?={ p.Required }
+			maxlength={ maxLenStr }
+			autocomplete="off"
+			autocapitalize={ autoCap }
+			spellcheck="false"
+			x-model="v"
+			@input={ "v = $event.target.value" + caseJS + ".slice(0," + maxLenStr + "); $event.target.value = v" + submitJS }
+			class={
+				"cp-field clip-tag text-center font-mono text-lg tracking-wider text-primary placeholder:text-muted/50",
+				templ.KV("uppercase", p.Uppercase),
+			}
+			{ p.Attrs... }
+		/>
+		if p.Hint != "" {
+			<p class="mt-1 font-mono text-[10px] text-muted uppercase tracking-widest">\\ { p.Hint }</p>
 		}
 	</div>
 }

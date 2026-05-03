@@ -3,64 +3,6 @@ package components
 import "github.com/Francesco99975/authpoc/views/icons"
 import "github.com/Francesco99975/authpoc/views/ui"
 
-templ CyberAuthForm(csrf string) {
-	<div
-		class="w-full max-w-md"
-		x-data="{ mode: 'login' }"
-	>
-		<!-- Auth Card -->
-		<div class="bg-std rounded-2xl shadow-xl p-6 md:p-8">
-			<!-- Header -->
-			<div class="text-center mb-6 md:mb-8">
-				<h2 class="text-2xl md:text-3xl font-bold bg-linear-to-r from-primary to-accent bg-clip-text text-transparent mb-2 glitch" data-text="Welcome Back">
-					Welcome Back
-				</h2>
-				<p class="text-sm md:text-base text-text-muted">
-					Sign in to continue to your account
-				</p>
-			</div>
-			<!-- Toggle Buttons -->
-			<div class="flex gap-2 p-1.5 mb-6 md:mb-8 bg-std/50 rounded-xl border border-primary/10">
-				<button
-					type="button"
-					@click="mode = 'login'"
-					:class="mode === 'login' ? 'bg-primary text-primary-fg shadow-md' : 'bg-transparent text-primary/85'"
-					class="flex-1 py-2.5 md:py-3 font-medium text-sm md:text-base rounded-lg transition-all duration-200"
-				>
-					Sign In
-				</button>
-				<button
-					type="button"
-					@click="mode = 'signup'"
-					:class="mode === 'signup' ? 'bg-primary text-primary-fg shadow-md' : 'bg-transparent text-primary/85'"
-					class="flex-1 py-2.5 md:py-3 font-medium text-sm md:text-base rounded-lg transition-all duration-200"
-				>
-					Sign Up
-				</button>
-			</div>
-			<!-- Forms -->
-			<div
-				x-show="mode === 'login'"
-				x-cloak
-				x-transition:enter="transition ease-out duration-300"
-				x-transition:enter-start="opacity-0 transform translate-y-2"
-				x-transition:enter-end="opacity-100 transform translate-y-0"
-			>
-				@LoginForm(csrf)
-			</div>
-			<div
-				x-show="mode === 'signup'"
-				x-cloak
-				x-transition:enter="transition ease-out duration-300"
-				x-transition:enter-start="opacity-0 transform translate-y-2"
-				x-transition:enter-end="opacity-100 transform translate-y-0"
-			>
-				@SignupForm(csrf)
-			</div>
-		</div>
-	</div>
-}
-
 templ AuthForm(csrf string) {
 	<div
 		class="w-full max-w-md"
@@ -257,8 +199,13 @@ templ EmailVerification(email string, csrf string, verify_url string) {
 			class="space-y-4"
 		>
 			@CSRF(csrf)
-			@ui.GenericCodeInput("token", "Verification Code", "Check your email for the verification token")
-			@ui.BasicButton(ui.ButtonProps{
+			@ui.CyberCodeInput(ui.CodeInputProps{
+				Name:     "token",
+				Label:    "Verification Code",
+				Hint:     "Check your email for the verification token",
+				Required: true,
+			})
+			@ui.Button(ui.ButtonProps{
 				Variant: ui.ButtonPrimary,
 				FullW:   true,
 				Type:    "submit",
@@ -321,6 +268,318 @@ templ EmailVerification(email string, csrf string, verify_url string) {
 				<span>Resend available in <span x-text="seconds" class="font-semibold text-primary"></span>s</span>
 			</div>
 			<div id="resend-response"></div>
+		</div>
+	</div>
+}
+
+// Cyberpunk
+templ CyberAuthForm(csrf string) {
+	<div
+		class="w-full max-w-md mx-auto"
+		x-data="{ mode: 'login' }"
+	>
+		<div class="cp-panel relative p-6 md:p-8">
+			<header class="text-center mb-6 md:mb-8">
+				<div class="font-mono text-[10px] uppercase tracking-[0.3em] text-accent/70 mb-2">
+					\\ secure.access \\ night-city.grid
+				</div>
+				<h2
+					class="glitch neon-primary text-2xl md:text-3xl font-bold tracking-widest uppercase mb-2"
+					data-text="JACK_IN"
+				>
+					JACK_IN
+				</h2>
+				<p class="font-mono text-xs md:text-sm text-muted uppercase tracking-wider">
+					\\ authenticate to continue
+				</p>
+			</header>
+			<div
+				class="flex gap-1 p-1 mb-6 md:mb-8 bg-panel/60 border border-border"
+				role="tablist"
+				aria-label="Auth mode"
+			>
+				<button
+					type="button"
+					role="tab"
+					@click="mode = 'login'"
+					:aria-selected="(mode === 'login').toString()"
+					:class="mode === 'login' ? 'bg-primary text-primary-fg shadow-[0_0_12px_var(--color-primary)]' : 'bg-transparent text-accent hover:bg-accent/10'"
+					class="flex-1 py-2.5 md:py-3 clip-tag font-mono text-xs md:text-sm font-bold uppercase tracking-widest transition-all duration-200"
+				>
+					Sign In
+				</button>
+				<button
+					type="button"
+					role="tab"
+					@click="mode = 'signup'"
+					:aria-selected="(mode === 'signup').toString()"
+					:class="mode === 'signup' ? 'bg-primary text-primary-fg shadow-[0_0_12px_var(--color-primary)]' : 'bg-transparent text-accent hover:bg-accent/10'"
+					class="flex-1 py-2.5 md:py-3 clip-tag font-mono text-xs md:text-sm font-bold uppercase tracking-widest transition-all duration-200"
+				>
+					Sign Up
+				</button>
+			</div>
+			<div
+				x-show="mode === 'login'"
+				x-cloak
+				x-transition:enter="transition ease-out duration-300"
+				x-transition:enter-start="opacity-0 transform translate-y-2"
+				x-transition:enter-end="opacity-100 transform translate-y-0"
+			>
+				@CyberLoginForm(csrf)
+			</div>
+			<div
+				x-show="mode === 'signup'"
+				x-cloak
+				x-transition:enter="transition ease-out duration-300"
+				x-transition:enter-start="opacity-0 transform translate-y-2"
+				x-transition:enter-end="opacity-100 transform translate-y-0"
+			>
+				@CyberSignupForm(csrf)
+			</div>
+		</div>
+	</div>
+}
+
+templ CyberLoginForm(csrf string) {
+	<form
+		hx-post="/login"
+		hx-target="this"
+		hx-swap="outerHTML"
+		{ ui.WithLoading("login-indicator")... }
+		class="flex flex-col gap-4 md:gap-5"
+	>
+		@CSRF(csrf)
+		@ui.Input(ui.InputProps{
+			Name:     "eou",
+			Label:    "Email or Username",
+			Required: true,
+		})
+		@ui.SecurePasswordInput(ui.PasswordProps{
+			Name:     "password",
+			Label:    "Password",
+			Required: true,
+		})
+		<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+			@ui.Checkbox(ui.CheckboxProps{Name: "remember", Label: "Remember me"})
+			@ui.BasicForgotPassword()
+		</div>
+		@ui.Button(ui.ButtonProps{
+			Variant: ui.ButtonPrimary,
+			FullW:   true,
+			Type:    "submit",
+			Loading: ui.LoadingConfig{
+				IndicatorID: "login-indicator",
+			},
+			Size: ui.ButtonLG,
+		}) {
+			<span>Sign In</span>
+		}
+	</form>
+	@CyberSocialButtons()
+}
+
+templ CyberSignupForm(csrf string) {
+	<form
+		hx-post="/signup"
+		hx-target="this"
+		hx-swap="outerHTML"
+		{ ui.WithLoading("signup-indicator")... }
+		class="flex flex-col gap-4 md:gap-5"
+	>
+		@CSRF(csrf)
+		@ui.Input(ui.InputProps{
+			Name:     "email",
+			Label:    "Email Address",
+			Required: true,
+		})
+		@ui.Input(ui.InputProps{
+			Name:     "username",
+			Label:    "Username",
+			Required: true,
+		})
+		@ui.SecurePasswordInput(ui.PasswordProps{
+			Name:         "password",
+			Label:        "Password",
+			Required:     true,
+			ShowStrength: true,
+			MinLen:       8,
+		})
+		@ui.SecurePasswordInput(ui.PasswordProps{
+			Name:         "confirm",
+			Label:        "Confirm Password",
+			Required:     true,
+			ShowStrength: true,
+			MinLen:       8,
+		})
+		@ui.Button(ui.ButtonProps{
+			Variant: ui.ButtonPrimary,
+			Size:    ui.ButtonLG,
+			Type:    ui.TypeSubmit,
+			FullW:   true,
+			Loading: ui.LoadingConfig{IndicatorID: "signup-indicator"},
+		}) {
+			<span>Create Account</span>
+		}
+		<p class="font-mono text-[10px] uppercase tracking-widest text-center text-muted">
+			-- by signing up you agree to our
+			<a
+				href="/terms"
+				hx-get="/terms"
+				hx-target="#main-content"
+				hx-push-url="true"
+				class="font-bold text-accent hover:text-primary transition-colors"
+			>Terms of Service</a>
+			--
+			<a
+				href="/privacy"
+				hx-get="/privacy"
+				hx-target="#main-content"
+				hx-push-url="true"
+				class="font-bold text-accent hover:text-primary transition-colors"
+			>Privacy Policy</a>
+		</p>
+	</form>
+	@CyberSocialButtons()
+}
+
+templ CyberSocialButtons() {
+	<div class="flex items-center my-6" aria-hidden="true">
+		<div class="flex-1 border-t border-dashed border-accent/30"></div>
+		<span class="px-4 font-mono text-[10px] uppercase tracking-widest text-muted">
+			-- or continue with
+		</span>
+		<div class="flex-1 border-t border-dashed border-accent/30"></div>
+	</div>
+	<div class="grid grid-cols-2 gap-3">
+		<button
+			type="button"
+			hx-post="/auth/google"
+			hx-target="#auth-response"
+			class="glow-btn clip-btn flex items-center justify-center gap-2 px-4 py-3 border border-accent/40 text-accent hover:border-accent hover:bg-accent/10 transition-all duration-200"
+		>
+			@icons.Google("w-5 h-5")
+			<span class="font-mono text-xs font-bold uppercase tracking-widest hidden sm:inline">Google</span>
+		</button>
+		<button
+			type="button"
+			hx-post="/auth/github"
+			hx-target="#auth-response"
+			class="glow-btn clip-btn flex items-center justify-center gap-2 px-4 py-3 border border-accent/40 text-accent hover:border-accent hover:bg-accent/10 transition-all duration-200"
+		>
+			@icons.GitHub("w-5 h-5")
+			<span class="font-mono text-xs font-bold uppercase tracking-widest hidden sm:inline">GitHub</span>
+		</button>
+	</div>
+}
+
+templ CyberEmailVerification(email string, csrf string, verify_url string) {
+	<div id="email-verification-container" class="cp-panel relative p-6 md:p-8 max-w-md w-full mx-auto">
+		<header class="text-center mb-6">
+			<div class="w-16 h-16 mx-auto mb-4 clip-tag bg-accent/15 border border-accent/40 flex items-center justify-center text-accent">
+				@icons.EmailVerifyIcon()
+			</div>
+			<div class="font-mono text-[10px] uppercase tracking-[0.3em] text-accent/70 mb-2">
+				\\ verification.required
+			</div>
+			<h2
+				class="glitch neon-primary text-2xl font-bold tracking-widest uppercase mb-2"
+				data-text="VERIFY UPLINK"
+			>
+				VERIFY UPLINK
+			</h2>
+			<p class="font-mono text-xs text-muted leading-relaxed">
+				\\ transmission sent to
+				<span class="text-accent font-bold break-all">{ email }</span>
+			</p>
+		</header>
+		<div class="bg-panel/60 border border-accent/30 p-5 mb-6">
+			<h3 class="font-mono text-xs font-bold uppercase tracking-widest text-primary mb-3 flex items-center gap-2">
+				@icons.Info("w-4 h-4 text-primary")
+				Two ways to verify
+			</h3>
+			<ol class="flex flex-col gap-2 font-mono text-xs text-fg/80 uppercase tracking-wide">
+				<li class="flex items-start gap-2">
+					<span class="font-bold text-primary min-w-[20px]">01</span>
+					<span>Tap the <strong class="text-accent">verification link</strong> in your email</span>
+				</li>
+				<li class="flex items-start gap-2">
+					<span class="font-bold text-primary min-w-[20px]">02</span>
+					<span>Or paste the <strong class="text-accent">verification code</strong> below</span>
+				</li>
+			</ol>
+		</div>
+		<form
+			hx-post={ verify_url }
+			hx-target="#email-verification-container"
+			hx-swap="outerHTML"
+			{ ui.WithLoading("verify-spinner")... }
+			@submit="verifying = true"
+			class="flex flex-col gap-4"
+		>
+			@CSRF(csrf)
+			@ui.GenericCodeInput("token", "Verification Code", "Check your email for the verification token")
+			@ui.Button(ui.ButtonProps{
+				Variant: ui.ButtonPrimary,
+				FullW:   true,
+				Type:    "submit",
+				Loading: ui.LoadingConfig{
+					IndicatorID: "verify-spinner",
+				},
+				Size: ui.ButtonLG,
+			}) {
+				<span>Verify Email</span>
+			}
+		</form>
+		<div
+			class="mt-6 text-center"
+			x-data="{
+				sent: false,
+				seconds: 60,
+				interval: null,
+				startTimer() {
+					this.sent = true;
+					this.seconds = 60;
+					this.interval = setInterval(() => {
+						this.seconds--;
+						if (this.seconds <= 0) {
+							clearInterval(this.interval);
+							this.sent = false;
+						}
+					}, 1000);
+				}
+			}"
+		>
+			<form
+				x-show="!sent"
+				x-transition:enter="transition ease-out duration-200"
+				x-transition:enter-start="opacity-0"
+				x-transition:enter-end="opacity-100"
+				hx-post="/verification/resend"
+				hx-target="#resend-response"
+				hx-swap="innerHTML"
+				@htmx:after-request="startTimer()"
+			>
+				@ui.HiddenInput("email", email)
+				@CSRF(csrf)
+				<button
+					type="submit"
+					class="font-mono text-xs uppercase tracking-widest text-accent hover:text-primary transition-colors"
+				>
+					\\ transmission failed? resend signal
+				</button>
+			</form>
+			<div
+				x-show="sent"
+				x-transition:enter="transition ease-out duration-200"
+				x-transition:enter-start="opacity-0"
+				x-transition:enter-end="opacity-100"
+				class="inline-flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-widest text-muted"
+			>
+				@icons.Loading("w-4 h-4 animate-spin text-primary")
+				<span>\\ retry available in <span x-text="seconds" class="font-bold text-primary"></span>s</span>
+			</div>
+			<div id="resend-response" class="mt-2"></div>
 		</div>
 	</div>
 }
