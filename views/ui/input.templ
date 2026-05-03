@@ -262,6 +262,15 @@ templ FieldLabel(label, hint string) {
 	</div>
 }
 
+templ DangerLabel(label, hint string) {
+	<div class="font-mono text-[11px] neon-error flicker uppercase tracking-widest mb-1 flex justify-between">
+		<span>{ label }</span>
+		if hint != "" {
+			<span class="text-muted">{ hint }</span>
+		}
+	</div>
+}
+
 // InputProps is the *static* config for @Input. Anything dynamic — current
 // value, disabled state, validation errors, x-model, hx-* hooks, @blur
 // handlers, :class, :aria-invalid, etc. — flows through Attrs and is owned
@@ -279,6 +288,7 @@ type InputProps struct {
 	Hint        string
 	Placeholder string
 	Required    bool
+	Danger      bool
 	Attrs       templ.Attributes
 }
 
@@ -301,7 +311,11 @@ type InputProps struct {
 //	</div>
 templ Input(p InputProps) {
 	<label class="block" x-data="{ err: '' }">
-		@FieldLabel(p.Label, p.Hint)
+		if !p.Danger {
+			@FieldLabel(p.Label, p.Hint)
+		} else {
+			@DangerLabel(p.Label, p.Hint)
+		}
 		<input
 			type={ p.Type.String() }
 			id={ p.Name }

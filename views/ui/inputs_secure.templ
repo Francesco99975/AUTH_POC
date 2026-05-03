@@ -161,6 +161,7 @@ if length == 0 {
 			<div class="flex gap-2 sm:gap-3 pointer-events-none select-none" aria-hidden="true">
 				<template x-for="i in len" :key="i">
 					<div
+						:autofocus="(i - 1) === Math.min(v.length, len - 1)"
 						class="flex-1 aspect-square max-w-14 grid place-items-center clip-tag border-2 transition-all font-mono text-2xl"
 						:class="
 							focused && (i - 1) === Math.min(v.length, len - 1)
@@ -182,6 +183,7 @@ if length == 0 {
 				inputmode="numeric"
 				pattern="[0-9]*"
 				maxlength={ lenStr }
+				autofocus="true"
 				autocomplete="one-time-code"
 				required?={ p.Required }
 				x-model="v"

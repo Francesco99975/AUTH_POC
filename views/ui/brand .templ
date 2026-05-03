@@ -32,10 +32,22 @@ templ ThemeToggle() {
 	</button>
 }
 
+type DisplayStyle string
+
+const (
+	DisplayPrimary DisplayStyle = "primary"
+	DisplayAccent  DisplayStyle = "accent"
+	DisplayError   DisplayStyle = "error"
+	DisplayWarning DisplayStyle = "warning"
+	DisplaySuccess DisplayStyle = "success"
+	DisplayInfo    DisplayStyle = "info"
+	DisplayMuted   DisplayStyle = "muted"
+)
+
 // MarqueeItem is one ticker entry. Kind picks the text color.
 type MarqueeItem struct {
 	Text string
-	Kind string // "" | "primary" | "accent" | "error" | "warning" | "success" | "info" | "muted"
+	Kind DisplayStyle // "" | "primary" | "accent" | "error" | "warning" | "success" | "info" | "muted"
 }
 
 func marqueeClass(kind string) string {
@@ -82,7 +94,7 @@ if len(list) == 0 {
 			for i := 0; i < 2; i++ {
 				<span class="flex">
 					for _, it := range list {
-						<span class={ "mx-6", marqueeClass(it.Kind) }>{ it.Text }</span>
+						<span class={ "mx-6", marqueeClass(string(it.Kind)) }>{ it.Text }</span>
 					}
 				</span>
 			}

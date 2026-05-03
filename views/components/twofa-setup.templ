@@ -77,7 +77,7 @@ templ TwoFAQRCodeCard(props TwoFASetupProps) {
 						<code class="flex-1 px-3 py-2.5 rounded-lg bg-std border border-primary/20 font-mono text-sm text-primary break-all select-all">
 							{ props.Secret }
 						</code>
-						@ui.BasicButton(ui.ButtonProps{
+						@ui.Button(ui.ButtonProps{
 							Variant: ui.ButtonGhostSuccess,
 							Size:    ui.ButtonMD,
 							FullW:   false,
@@ -106,7 +106,7 @@ templ TwoFAQRCodeCard(props TwoFASetupProps) {
 					hx-swap="outerHTML"
 				>
 					@CSRF(props.CSRF)
-					@ui.BasicButton(ui.ButtonProps{
+					@ui.Button(ui.ButtonProps{
 						Variant: ui.ButtonGhost,
 						Size:    ui.ButtonMD,
 						Type:    "submit",
@@ -116,7 +116,7 @@ templ TwoFAQRCodeCard(props TwoFASetupProps) {
 						<span>Cancel Setup</span>
 					}
 				</form>
-				@ui.BasicButton(ui.ButtonProps{
+				@ui.Button(ui.ButtonProps{
 					Variant: ui.ButtonPrimary,
 					Size:    ui.ButtonMD,
 					Type:    ui.TypeButton,
@@ -160,10 +160,14 @@ templ TwoFAQRCodeCard(props TwoFASetupProps) {
 					</div>
 				</div>
 				<!-- Code Input -->
-				@ui.OTPInput("Code", "Enter the 6-digit code shown in your authenticator app")
+				@ui.OTP(ui.OTPProps{
+					Name:     "otp",
+					Label:    "One Time Password",
+					Required: true,
+				})
 				<!-- Actions -->
 				<div class="flex flex-col-reverse sm:flex-row gap-3 sm:justify-between pt-4 border-t border-primary/10">
-					@ui.BasicButton(ui.ButtonProps{
+					@ui.Button(ui.ButtonProps{
 						Variant: ui.ButtonGhost,
 						Size:    ui.ButtonMD,
 						Type:    ui.TypeButton,
@@ -173,7 +177,7 @@ templ TwoFAQRCodeCard(props TwoFASetupProps) {
 					}) {
 						<span>Back to QR Code</span>
 					}
-					@ui.BasicButton(ui.ButtonProps{
+					@ui.Button(ui.ButtonProps{
 						Variant: ui.ButtonPrimary,
 						Size:    ui.ButtonMD,
 						Type:    ui.TypeSubmit,
@@ -264,7 +268,7 @@ templ TwoFARecoverySecretCard(recoverySecret string, csrf string) {
 					</code>
 				</div>
 				<div class="flex justify-center">
-					@ui.BasicButton(ui.ButtonProps{
+					@ui.Button(ui.ButtonProps{
 						Variant: ui.ButtonGhostSuccess,
 						Size:    ui.ButtonMD,
 						Type:    ui.TypeButton,
@@ -306,7 +310,7 @@ templ TwoFARecoverySecretCard(recoverySecret string, csrf string) {
 				{ ui.WithLoading("complete-indicator")... }
 			>
 				@CSRF(csrf)
-				@ui.BasicButton(ui.ButtonProps{
+				@ui.Button(ui.ButtonProps{
 					Variant: ui.ButtonPrimary,
 					Size:    ui.ButtonMD,
 					Type:    ui.TypeSubmit,
@@ -353,7 +357,7 @@ templ TwoFAEnabledCard(csrf string) {
 						<p class="text-sm text-primary/60 mt-0.5">2FA is currently enabled</p>
 					</div>
 				</div>
-				@ui.BasicButton(ui.ButtonProps{
+				@ui.Button(ui.ButtonProps{
 					Variant: ui.ButtonGhostDanger,
 					Size:    ui.ButtonMD,
 					Type:    ui.TypeButton,
@@ -446,9 +450,18 @@ templ TwoFAEnabledCard(csrf string) {
 						>
 							@CSRF(csrf)
 							<!-- Password Input -->
-							@ui.BasicPasswordInput("password", "Password", true)
+							@ui.SecurePasswordInput(ui.PasswordProps{
+								Name:     "password",
+								Label:    "Password",
+								Required: true,
+							})
 							<!-- TOTP Code Input -->
-							@ui.OTPInput("Authentication Code", "Enter the 6-digit code from your authenticator app")
+							@ui.CyberOTPInput(ui.OTPSingleProps{
+								Name:       "otp",
+								Label:      "One Time Password",
+								Required:   true,
+								AutoSubmit: false,
+							})
 							<!-- Confirmation Checkbox -->
 							<label class="flex items-start gap-3 p-4 rounded-lg border border-error/20 cursor-pointer hover:bg-error/5 transition-colors">
 								<input
@@ -463,7 +476,7 @@ templ TwoFAEnabledCard(csrf string) {
 							<div id="disable-2fa-response"></div>
 							<!-- Footer inside form -->
 							<div class="pt-4 border-t border-error/20 flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
-								@ui.BasicButton(ui.ButtonProps{
+								@ui.Button(ui.ButtonProps{
 									Variant: ui.ButtonGhost,
 									Size:    ui.ButtonMD,
 									Type:    ui.TypeButton,
@@ -474,7 +487,7 @@ templ TwoFAEnabledCard(csrf string) {
 								}) {
 									<span>Cancel</span>
 								}
-								@ui.BasicButton(ui.ButtonProps{
+								@ui.Button(ui.ButtonProps{
 									Variant: ui.ButtonPrimary,
 									Size:    ui.ButtonMD,
 									Type:    "submit",
@@ -527,7 +540,7 @@ templ TwoFADisabledCard(csrf string) {
 					{ ui.WithLoading("enable-2fa-indicator")... }
 				>
 					@CSRF(csrf)
-					@ui.BasicButton(ui.ButtonProps{
+					@ui.Button(ui.ButtonProps{
 						Variant: ui.ButtonPrimary,
 						Size:    ui.ButtonMD,
 						Type:    "submit",
