@@ -27,6 +27,20 @@ templ TabLayout(props TabLayoutProps) {
 	}
 }
 
+templ CyberTabLayout(props TabLayoutProps) {
+	@CoreHTML(props.Site) {
+		<div
+			class="min-h-screen bg-std transition-colors"
+			x-data={ "{ activeTab: '" + props.ActiveTab + "' }" }
+		>
+			<main class="pb-20 min-h-screen" id="main-content">
+				{ children... }
+			</main>
+			@components.CyberTabNav(props.Tabs, props.ActiveTab)
+		</div>
+	}
+}
+
 // Example usage helper function to generate default tabs
 
 func Tabs(role string) []components.TabConfig {

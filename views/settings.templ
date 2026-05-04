@@ -8,7 +8,7 @@ import (
 
 templ Settings(site models.Site, tabProps layouts.TabLayoutProps, profileProps components.ProfileProps) {
 	@layouts.AdminLayout(site) {
-		@layouts.TabLayout(tabProps) {
+		@layouts.CyberTabLayout(tabProps) {
 			@components.SettingsProfileTab(profileProps)
 		}
 	}

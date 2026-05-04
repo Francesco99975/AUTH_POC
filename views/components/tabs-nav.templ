@@ -76,3 +76,54 @@ templ TabNav(tabs []TabConfig, activeTab string) {
 		</div>
 	</nav>
 }
+
+// CyberTabNav is the dual-mode (mobile bottom + desktop horizontal) tab bar.
+// Same fixed-bottom layout, same Alpine-driven sliding indicator, just dressed
+// in cyberpunk panels:
+//   - bg-panel/90 + backdrop-blur-md (replaces bg-std/backdrop-blur-xl)
+//   - border-accent/30 separator (replaces border-primary/10)
+//   - sliding indicator is a 2px primary-to-accent gradient bar with a soft
+//     primary glow underneath
+templ CyberTabNav(tabs []TabConfig, activeTab string) {
+	<!-- Mobile Bottom Tab Navigation -->
+	<nav class="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-panel/90 border-t border-accent/30 backdrop-blur-md safe-bottom" aria-label="Primary">
+		<div class="flex h-16">
+			for _, tab := range tabs {
+				@CyberTabItem(TabItemProps{
+					ID:        tab.ID,
+					Label:     tab.Label,
+					Icon:      tab.Icon,
+					IsActive:  tab.ID == activeTab,
+					HasBadge:  tab.HasBadge,
+					HxGet:     tab.Route,
+					HxTarget:  "#main-content",
+					HxPushURL: tab.Route,
+				})
+			}
+		</div>
+		<div
+			class="absolute bottom-0 left-0 h-0.5 bg-linear-to-r from-primary to-accent transition-transform duration-300 ease-in-out shadow-[0_0_8px_var(--color-primary)]"
+			:style={ cyberGenerateTabIndicatorStyle(tabs) }
+			aria-hidden="true"
+		></div>
+	</nav>
+	<!-- Desktop Horizontal Tab Navigation -->
+	<nav class="hidden md:block fixed bottom-0 left-0 right-0 z-50 bg-panel/90 border-t border-accent/30 backdrop-blur-md" aria-label="Primary">
+		<div class="max-w-7xl mx-auto px-4">
+			<div class="flex items-center gap-2 h-16">
+				for _, tab := range tabs {
+					@CyberTabItemDesktop(TabItemProps{
+						ID:        tab.ID,
+						Label:     tab.Label,
+						Icon:      tab.Icon,
+						IsActive:  tab.ID == activeTab,
+						HasBadge:  tab.HasBadge,
+						HxGet:     tab.Route,
+						HxTarget:  "#main-content",
+						HxPushURL: tab.Route,
+					})
+				}
+			</div>
+		</div>
+	</nav>
+}
