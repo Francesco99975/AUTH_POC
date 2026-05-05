@@ -3,6 +3,13 @@
 @source "../../src/**/*.{js,ts}";
 @source "../../../views/**/*.templ";
 
+@font-face {
+  font-family: "TL";
+  src: url("/fonts/type-light-sans-font/TypeLightSans-KV84p.otf") format("opentype");
+  font-weight: 400;     /* Regular */
+  font-style: normal;
+  font-display: swap;   /* Recommended: prevents invisible text */
+}
 
 /* ============================================================= */
 /* LIGHT THEME — "Daytime Night City"                             */
@@ -24,7 +31,7 @@
   --color-warning: oklch(68% 0.22 65);
   --color-info:    oklch(55% 0.18 230);
 
-  --font-sans: "Rajdhani", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  --font-sans: "TL", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Consolas, monospace;
 
   --scan-tint: 0, 150, 200;
