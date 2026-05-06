@@ -1,0 +1,16 @@
+package layouts
+
+import "github.com/Francesco99975/authpoc/views/ui"
+
+templ Poller(indicatorID string, label string, route string) {
+	<form
+		class="relative"
+		hx-get={ route }
+		hx-trigger="every 60s"
+		hx-swap="outerHTML"
+		hx-indicator={ "#" + indicatorID }
+	>
+		{ children... }
+		@ui.FormLoading(indicatorID, label)
+	</form>
+}

@@ -33,7 +33,7 @@ func SecurityHeaders() echo.MiddlewareFunc {
 					boot.Environment.Host, boot.Environment.Host),
 				// Tailwind + Alpine inline styles
 				"style-src 'self' 'unsafe-inline'",
-				"img-src 'self' data: blob:",
+				"img-src 'self' data: blob: https://coin-images.coingecko.com",
 				"font-src 'self' data:",
 				"media-src 'self'",
 				"frame-src 'none'",

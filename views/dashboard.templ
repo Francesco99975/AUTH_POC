@@ -1,107 +1,322 @@
 package views
 
 import (
+	"fmt"
+
 	"github.com/Francesco99975/authpoc/internal/models"
-	"github.com/Francesco99975/authpoc/views/icons"
+	"math"
+
 	"github.com/Francesco99975/authpoc/views/layouts"
+	"github.com/Francesco99975/authpoc/views/ui"
+	"strings"
 )
 
-templ Dashboard(site models.Site, username string, email string) {
+type DashboardProps struct {
+	Username     string
+	Email        string
+	GithubStatus *models.GithubStatusResponse
+	Coins        []models.CryptoCoin
+	Cities       []models.CityWeather
+	Quakes       []models.GeoFeature
+}
+
+templ Dashboard(site models.Site, props DashboardProps) {
 	@layouts.AdminLayout(site) {
 		<div class="min-h-screen bg-std">
 			<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 				<!-- Welcome Section -->
 				<div class="mb-8">
 					<h1 class="text-3xl sm:text-4xl font-bold bg-linear-to-r from-primary to-accent bg-clip-text text-transparent mb-2">
-						Welcome back, { username }!
+						Welcome back, { props.Username }!
 					</h1>
 					<p class="text-gray-600 dark:text-gray-400">
-						{ email }
+						{ props.Email }
 					</p>
 				</div>
-				<!-- Stats Grid -->
-				<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
-					@StatCard("Total Projects", "12", "text-primary", icons.FolderIcon("w-5 h-5 text-accent"))
-					@StatCard("Active Tasks", "28", "text-accent", icons.CheckIcon("w-5 h-5 text-accent"))
-					@StatCard("Team Members", "6", "text-success", icons.UsersIcon("w-5 h-5 text-accent"))
-					@StatCard("Notifications", "4", "text-warning", icons.Bell("w-5 h-5 text-accent"))
-				</div>
-				<!-- Recent Activity -->
-				<div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-8">
-					<h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-						Recent Activity
-					</h2>
-					<div class="space-y-4">
-						@ActivityItem("Project Alpha updated", "2 hours ago", "primary")
-						@ActivityItem("New team member added", "5 hours ago", "success")
-						@ActivityItem("Task completed: Design review", "1 day ago", "accent")
-						@ActivityItem("Meeting scheduled for tomorrow", "2 days ago", "warning")
-					</div>
-				</div>
-				<!-- Quick Actions -->
-				<div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-					<h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-						Quick Actions
-					</h2>
-					<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-						<button class="flex items-center gap-3 p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:border-primary dark:hover:border-primary transition-colors">
-							<div class="w-10 h-10 bg-primary bg-opacity-10 rounded-lg flex items-center justify-center">
-								@icons.PlusIcon("w-5 h-5 text-primary")
-							</div>
-							<span class="font-medium text-gray-900 dark:text-white">New Project</span>
-						</button>
-						<button class="flex items-center gap-3 p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:border-accent dark:hover:border-accent transition-colors">
-							<div class="w-10 h-10 bg-accent bg-opacity-10 rounded-lg flex items-center justify-center">
-								@icons.UsersIcon("w-5 h-5 text-accent")
-							</div>
-							<span class="font-medium text-gray-900 dark:text-white">Invite Team</span>
-						</button>
-						<button class="flex items-center gap-3 p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:border-success dark:hover:border-success transition-colors">
-							<div class="w-10 h-10 bg-success bg-opacity-10 rounded-lg flex items-center justify-center">
-								@icons.SettingsIcon("w-5 h-5 text-success")
-							</div>
-							<span class="font-medium text-gray-900 dark:text-white">Settings</span>
-						</button>
-					</div>
+				<div class="container mx-auto px-4 pb-20 grid grid-cols-1 lg:grid-cols-2 gap-6">
+					@GithubStatus(props.GithubStatus)
+					@CryptoCoinsDisplay(props.Coins)
+					@CitiesWeatherDisplay(props.Cities)
+					@QuakesDisplay(props.Quakes)
 				</div>
 			</main>
 		</div>
 	}
 }
 
-templ StatCard(label string, value string, colorClass string, icon templ.Component) {
-	<div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-		<div class="flex items-center justify-between mb-2">
-			<span class="text-sm font-medium text-gray-600 dark:text-gray-400">{ label }</span>
-			<div class={ "w-8 h-8 rounded-lg flex items-center justify-center", colorClass, "bg-opacity-10" }>
-				@icon
+templ GithubStatus(githubStatus *models.GithubStatusResponse) {
+	@layouts.Poller("github-indicator", "Loading GitHub status...", "/external/github") {
+		<!-- ╔══════════════ SYSTEM HEALTH (GitHub Status) ══════════════╗ -->
+		@layouts.DashSection("GITHUB_STATUS", "// stream 01", "live") {
+			<!-- Data -->
+			if githubStatus != nil {
+				<div
+					class="space-y-4"
+				>
+					<!-- Overall status alert -->
+					if githubStatus.Status.Indicator != "none" {
+						<div
+							class={ "clip-panel border-l-4 p-3 font-mono text-xs", models.BorderKind(githubStatus.Status.Indicator) }
+							role="alert"
+						>
+							<div
+								class={ "uppercase tracking-widest", models.TextKind(githubStatus.Status.Indicator) }
+							>{ fmt.Sprintf("INCIDENT // %s", strings.ToUpper(githubStatus.Status.Indicator)) }</div>
+							<div class="text-fg/90">{ githubStatus.Status.Description }</div>
+						</div>
+					} else {
+						<div class="clip-panel border-l-4 border-success bg-success/10 p-3 font-mono text-xs" role="status">
+							<div class="uppercase tracking-widest text-success">ALL_SYSTEMS_NOMINAL</div>
+							<div class="text-fg/90">{ githubStatus.Status.Description }</div>
+						</div>
+					}
+					<!-- Component status dots -->
+					<ul class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+						for _, component := range githubStatus.Components {
+							@githubComponentDisplay(component)
+						}
+					</ul>
+				</div>
+			} else {
+				@ui.EmptyState(ui.EmptyStateProps{
+					Title:       "Github Unreachable",
+					Description: "// check your internet connection",
+					CTALabel:    "REFRESH",
+					CTAHref:     "/dashboard",
+				})
+			}
+		}
+	}
+}
+
+templ githubComponentDisplay(component models.GithubComponent) {
+	<li class="flex items-center justify-between gap-2 px-3 py-2 bg-panel/60 border-l-2 border-accent/40">
+		<span class="flex items-center gap-2 font-mono text-[11px]">
+			<span
+				class={ "pulse-dot shadow-2xs", models.DotKind(component.Status) }
+			></span>
+			<span class="truncate">{ component.Name }</span>
+		</span>
+		<span
+			class={ "clip-tag font-mono text-[9px] uppercase px-2 py-0.5", models.BadgeClass(component.Status) }
+		>{ component.Status }</span>
+	</li>
+}
+
+templ CryptoCoinsDisplay(coins []models.CryptoCoin) {
+	@layouts.Poller("coins-indicator", "Loading Crypto Prices...", "/external/coins") {
+		<!-- ╔══════════════ MARKETS (CoinGecko) ══════════════╗ -->
+		@layouts.DashSection("CRYPTO_MARKETS", "// stream 02", "USD") {
+			<!-- Data -->
+			if len(coins) > 0 {
+				<ul class="space-y-3">
+					for _, coin := range coins {
+						@coinData(coin)
+					}
+				</ul>
+			} else {
+				@ui.EmptyState(ui.EmptyStateProps{
+					Title:       "Coin Gecko Unreachable",
+					Description: "// check your internet connection",
+					CTALabel:    "REFRESH",
+					CTAHref:     "/dashboard",
+				})
+			}
+		}
+	}
+}
+
+templ coinData(coin models.CryptoCoin) {
+	<li class="bg-panel/60 clip-tag p-3">
+		<div class="flex items-center gap-3 mb-2">
+			<img src={ coin.Image } alt={ coin.Name } class="w-8 h-8 flex-none" loading="lazy"/>
+			<div class="flex-1 min-w-0">
+				<div class="flex items-center gap-2">
+					<span class="font-bold truncate">{ coin.Name }</span>
+					<span class="clip-tag font-mono text-[9px] uppercase px-2 py-0.5 border border-muted text-muted">{ coin.Symbol }</span>
+				</div>
+				<div class="font-mono text-xs text-muted">{ coin.CurrentPrice }</div>
+			</div>
+			<span
+				class={ "clip-tag font-mono text-[10px] uppercase px-2 py-0.5", priceChangeClass(coin.PriceChangePercentage24h) }
+			>{ priceChangeText(coin.PriceChangePercentage24h) }</span>
+		</div>
+		<!-- 24h change as bar (abs, 0..10% mapped to 0..100) -->
+		<div>
+			<div class="flex justify-between font-mono text-[10px] mb-1">
+				<span class="text-accent uppercase">24H_PRESSURE</span>
+				<span class="text-primary">{ math.Min(100, math.Round(math.Abs(coin.PriceChangePercentage24h)*10)) } %</span>
+			</div>
+			<div class="cp-bar clip-tag" class={ priceBarClass(coin.PriceChangePercentage24h) } role="progressbar">
+				<span style={ priceBarWidth(coin.PriceChangePercentage24h) }></span>
 			</div>
 		</div>
-		<p class={ "text-3xl font-bold", colorClass }>{ value }</p>
-	</div>
+	</li>
 }
 
-templ ActivityItem(title string, time string, colorType string) {
-	<div class="flex items-start gap-3 pb-4 border-b border-gray-200 dark:border-gray-700 last:border-0 last:pb-0">
-		<div class={ "w-2 h-2 rounded-full mt-2", getBgColorClass(colorType) }></div>
-		<div class="flex-1">
-			<p class="text-gray-900 dark:text-white font-medium">{ title }</p>
-			<p class="text-sm text-gray-500 dark:text-gray-400">{ time }</p>
-		</div>
-	</div>
-}
-
-func getBgColorClass(colorType string) string {
-	switch colorType {
-	case "primary":
-		return "bg-primary"
-	case "accent":
-		return "bg-accent"
-	case "success":
-		return "bg-success"
-	case "warning":
-		return "bg-warning"
-	default:
-		return "bg-primary"
+func priceChangeClass(v float64) string {
+	if v >= 0 {
+		return "bg-success text-std"
 	}
+	return "bg-error text-std"
+}
+
+func priceChangeText(v float64) string {
+	arrow := "▲ "
+	if v < 0 {
+		arrow = "▼ "
+	}
+	return fmt.Sprintf("%s%.2f%%", arrow, math.Abs(v))
+}
+
+func priceBarClass(v float64) string {
+	if v >= 0 {
+		return "is-success"
+	}
+	return "is-error"
+}
+
+func priceBarWidth(v float64) string {
+	width := math.Min(100, math.Abs(v)*10)
+	return fmt.Sprintf("width: %.2f%%", width)
+}
+
+templ CitiesWeatherDisplay(cities []models.CityWeather) {
+	@layouts.Poller("weather-indicator", "Loading Cities Weather...", "/external/weather") {
+		<!-- ╔══════════════ TELEMETRY (Open-Meteo) ══════════════╗ -->
+		@layouts.DashSection("ATMOSPHERIC_TELEMETRY", "// stream 03", "6 nodes") {
+			<!-- Data -->
+			if len(cities) > 0 {
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+					for _, city := range cities {
+						@cityWeather(city)
+					}
+				</div>
+			} else {
+				@ui.EmptyState(ui.EmptyStateProps{
+					Title:       "Open Weather Unreachable",
+					Description: "// check your internet connection",
+					CTALabel:    "REFRESH",
+					CTAHref:     "/dashboard",
+				})
+			}
+		}
+	}
+}
+
+templ cityWeather(city models.CityWeather) {
+	<div class="bg-panel/60 clip-tag p-3">
+		<div class="flex items-center justify-between mb-2">
+			<div>
+				<div class="font-mono text-[10px] text-accent uppercase tracking-widest">{ city.CityName }</div>
+				<div class="text-2xl font-bold neon-primary">{ city.Weather.Current.Temperature2M } °C</div>
+			</div>
+			<!-- Cloud-cover ring (0..100) -->
+			@ui.ProgressRing(ui.ProgressRingProps{
+				Value: city.Weather.Current.CloudCover,
+				Label: "CLOUD COVER",
+			})
+		</div>
+		<!-- Humidity bar -->
+		@ui.ProgressBar(ui.ProgressBarProps{
+			Label:         "HUMIDITY",
+			Value:         city.Weather.Current.RelativeHumidity2M,
+			Indeterminate: false,
+			ShowValue:     true,
+			Postfix:       "%",
+		})
+		<!-- Wind bar (0..30 m/s mapped) -->
+		@ui.ProgressBar(ui.ProgressBarProps{
+			Label:         "WIND",
+			Value:         int(math.Min(100, math.Round(city.Weather.Current.WindSpeed10M*10))),
+			Indeterminate: false,
+			ShowValue:     true,
+			Postfix:       "m/s",
+		})
+	</div>
+}
+
+templ QuakesDisplay(quakes []models.GeoFeature) {
+	@layouts.Poller("quakes-indicator", "Loading Quakes Reports...", "/external/quakes") {
+		<!-- ╔══════════════ SEISMIC (USGS earthquakes) ══════════════╗ -->
+		@layouts.DashSection("SEISMIC_FEED", "// stream 04", "PAST_HOUR") {
+			<!-- Data -->
+			if len(quakes) > 0 {
+				<ul class="space-y-2 max-h-[420px] overflow-y-auto">
+					for _, quake := range quakes {
+						@quakeDisplay(quake)
+					}
+				</ul>
+			} else {
+				@ui.EmptyState(ui.EmptyStateProps{
+					Title:       "Open Weather Unreachable",
+					Description: "// check your internet connection",
+					CTALabel:    "REFRESH",
+					CTAHref:     "/dashboard",
+				})
+			}
+		}
+	}
+}
+
+templ quakeDisplay(quake models.GeoFeature) {
+	<li class="bg-panel/60 clip-tag p-3 flex items-center gap-3">
+		<div class="flex-none w-14 text-center">
+			<div
+				class={ "font-bold text-2xl", magClass(*quake.Properties.Mag) }
+			>{ fmt.Sprintf("%.1f", *quake.Properties.Mag) }</div>
+			<div class="font-mono text-[9px] text-muted uppercase">MAG</div>
+		</div>
+		<div class="flex-1 min-w-0">
+			<div class="text-sm truncate">{ quake.Properties.Place }</div>
+			<div class="font-mono text-[10px] text-muted">{ models.TimeAgo(quake.Properties.Time) }</div>
+			<!-- Severity rating: 1..5 stars from magnitude -->
+			@ui.Rating(ui.RatingProps{
+				Name:     "severity",
+				Value:    models.MagToStars(*quake.Properties.Mag),
+				Max:      5,
+				Disabled: true,
+			})
+		</div>
+		<span
+			class={ "clip-tag font-mono text-[9px] uppercase px-2 py-0.5 " + severityBadgeClass(*quake.Properties.Mag) }
+		>{ severityText(*quake.Properties.Mag) }</span>
+	</li>
+}
+
+func magClass(m float64) string {
+	if m >= 5 {
+		return "text-error"
+	}
+	if m >= 3 {
+		return "text-warning"
+	}
+	return "text-primary"
+}
+
+func starClass(i int, m float64) string {
+	if i <= models.MagToStars(m) {
+		return "text-primary"
+	}
+	return "text-muted/40"
+}
+
+func severityText(m float64) string {
+	if m >= 5 {
+		return "critical"
+	}
+	if m >= 3 {
+		return "moderate"
+	}
+	return "minor"
+}
+
+func severityBadgeClass(m float64) string {
+	if m >= 5 {
+		return "bg-error text-std"
+	}
+	if m >= 3 {
+		return "bg-warning text-std"
+	}
+	return "border border-muted text-muted"
 }

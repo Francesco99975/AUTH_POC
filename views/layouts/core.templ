@@ -8,16 +8,16 @@ templ CoreHTML(site models.Site) {
 	<html lang="en">
 		@components.SEO(site)
 		<body
-			class="ntialiased min-h-screen transition-colors scanlines vignette bg-std text-fg font-sans"
+			class="antialiased min-h-screen transition-colors scanlines vignette bg-std text-fg font-sans"
 			x-data="{
-    navOpen: false,
-    toasts: [],
-    pushToast(kind, msg){
-      const id = Date.now() + Math.random();
-      this.toasts.push({id, kind, msg});
-      setTimeout(()=>{ this.toasts = this.toasts.filter(t=>t.id!==id); }, 4000);
-    }
-  }"
+				navOpen: false,
+				toasts: [],
+				pushToast(kind, msg) {
+					const id = Date.now() + Math.random();
+					this.toasts.push({id, kind, msg});
+					setTimeout(()=>{ this.toasts = this.toasts.filter(t=>t.id!==id); }, 4000);
+				}
+			}"
 		>
 			{ children... }
 		</body>

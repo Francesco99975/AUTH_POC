@@ -7,13 +7,15 @@ type ProgressBarProps struct {
 	Value         int // 0..100
 	Indeterminate bool
 	ShowValue     bool
+	Suffix        string
+	Postfix       string
 }
 
 templ ProgressBar(p ProgressBarProps) {
 	<div>
 		if p.Label != "" || p.ShowValue {
 			<div class="flex justify-between font-mono text-[11px] mb-1">
-				<span class="text-accent">{ p.Label }</span>
+				<span class="text-accent">{ p.Suffix }{ p.Label }{ p.Postfix }</span>
 				if p.Indeterminate {
 					<span class="text-muted">indeterminate</span>
 				} else if p.ShowValue {
@@ -192,9 +194,10 @@ templ StatusDot(kind, label string) {
 
 // RatingProps — 1..N star input with hover preview.
 type RatingProps struct {
-	Name  string
-	Value int
-	Max   int
+	Name     string
+	Value    int
+	Max      int
+	Disabled bool
 }
 
 templ Rating(p RatingProps) {
@@ -207,12 +210,15 @@ templ Rating(p RatingProps) {
 		for i := 1; i <= max; i++ {
 			<button
 				type="button"
-				@click={ "r = " + itoa(i) }
-				@mouseenter={ "hover = " + itoa(i) }
-				@mouseleave="hover = 0"
+				if !p.Disabled {
+					@click={ "r = " + itoa(i) }
+					@mouseenter={ "hover = " + itoa(i) }
+					@mouseleave="hover = 0"
+				}
 				:class={ "(hover || r) >= " + itoa(i) + " ? 'text-primary' : 'text-muted'" }
 				class="text-2xl leading-none transition"
 				aria-label={ itoa(i) + " star" }
+				:disabled={ p.Disabled }
 			>★</button>
 		}
 		<span class="ml-3 font-mono text-xs text-accent" x-text={ "r + '/" + itoa(max) + "'" }></span>

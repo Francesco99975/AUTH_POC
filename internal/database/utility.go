@@ -15,14 +15,14 @@ func HandleTransaction(ctx context.Context, tx pgx.Tx, err *error) {
 		if rollbackErr != nil {
 			log.Errorf("Failed to rollback transaction: %v", rollbackErr)
 		}
-		log.Errorf("Transaction rolled back: %v", p)
+		log.Errorf("Transaction rolled back on panic: %v", p)
 		panic(p) // Re-panic after rollback
 	} else if *err != nil {
 		rollbackErr := tx.Rollback(ctx)
 		if rollbackErr != nil {
 			log.Errorf("Failed to rollback transaction: %v", rollbackErr)
 		}
-		log.Errorf("Transaction rolled back: %v", *err)
+		log.Errorf("Transaction rolled back err not nil: %v", *err)
 	} else {
 		commitErr := tx.Commit(ctx)
 		if commitErr != nil {

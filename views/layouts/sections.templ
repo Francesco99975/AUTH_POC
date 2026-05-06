@@ -1,0 +1,14 @@
+package layouts
+
+templ DashSection(title string, sub string, tag string) {
+	<section class="neon-border clip-panel p-6">
+		<header class="flex items-center justify-between mb-4">
+			<div>
+				<div class="font-mono text-[10px] text-accent uppercase tracking-widest">{ sub }</div>
+				<h2 class="text-xl font-bold neon-accent">{ title }</h2>
+			</div>
+			<span class="clip-tag font-mono text-[10px] uppercase px-2 py-0.5 border border-info text-info">{ tag }</span>
+		</header>
+		{ children... }
+	</section>
+}
