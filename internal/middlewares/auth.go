@@ -20,7 +20,8 @@ func AuthMiddleware() echo.MiddlewareFunc {
 		return func(c echo.Context) error {
 			auser, authenticated := auth.GetSessionUser(c.Request())
 			if !authenticated {
-				return c.Redirect(http.StatusSeeOther, "/auth")
+				c.Response().Header().Set("HX-Redirect", "/auth")
+				return c.NoContent(http.StatusOK)
 			}
 
 			log.Debugf("Authenticated user: %s", auser.Username)

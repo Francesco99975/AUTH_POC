@@ -224,6 +224,7 @@ templ EmailVerification(email string, csrf string, verify_url string) {
 		seconds: 60,
 		interval: null,
 		startTimer() {
+			if (this.interval) clearInterval(this.interval);
 			this.sent = true;
 			this.seconds = 60;
 			this.interval = setInterval(() => {
@@ -390,6 +391,7 @@ templ CyberSignupForm(csrf string) {
 		@CSRF(csrf)
 		@ui.Input(ui.InputProps{
 			Name:     "email",
+			Type:     "email",
 			Label:    "Email Address",
 			Required: true,
 		})

@@ -7,15 +7,13 @@ type ProgressBarProps struct {
 	Value         int // 0..100
 	Indeterminate bool
 	ShowValue     bool
-	Suffix        string
-	Postfix       string
 }
 
 templ ProgressBar(p ProgressBarProps) {
 	<div>
 		if p.Label != "" || p.ShowValue {
 			<div class="flex justify-between font-mono text-[11px] mb-1">
-				<span class="text-accent">{ p.Suffix }{ p.Label }{ p.Postfix }</span>
+				<span class="text-accent">{ p.Label }</span>
 				if p.Indeterminate {
 					<span class="text-muted">indeterminate</span>
 				} else if p.ShowValue {

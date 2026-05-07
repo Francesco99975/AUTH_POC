@@ -13,6 +13,7 @@ import (
 	"github.com/Francesco99975/authpoc/internal/helpers"
 	"github.com/Francesco99975/authpoc/internal/models"
 	"github.com/Francesco99975/authpoc/internal/repository"
+	"github.com/Francesco99975/authpoc/internal/tools"
 	"github.com/Francesco99975/authpoc/views"
 	"github.com/Francesco99975/authpoc/views/components"
 	"github.com/Francesco99975/authpoc/views/layouts"
@@ -157,10 +158,8 @@ func UpdateUsername() echo.HandlerFunc {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not update username or email", Message: fmt.Errorf("could not update username or email: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
 
-		html := helpers.MustRenderHTML(components.SuccessMsg("User Updated!"))
-
-		return c.Blob(http.StatusOK, "text/html", html)
-
+		tools.SetToastTrigger(c.Response(), enums.SuccessToast, "Successfully updated username")
+		return c.NoContent(http.StatusAccepted)
 	}
 }
 
@@ -365,9 +364,8 @@ func UpdateUserPassword() echo.HandlerFunc {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "unexpected Error Occurred while trying to reset password", Message: fmt.Errorf("unable to update user password: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
 
-		html := helpers.MustRenderHTML(components.SuccessMsg("User Password Updated!"))
-
-		return c.Blob(http.StatusOK, "text/html", html)
+		tools.SetToastTrigger(c.Response(), enums.SuccessToast, "Successfully updated user password")
+		return c.NoContent(http.StatusAccepted)
 
 	}
 }

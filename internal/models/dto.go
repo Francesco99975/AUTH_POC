@@ -24,6 +24,11 @@ func (r SignupRequest) ValidateAndNormalize(passwordSecurityLevel int) error {
 	if r.Email == "" {
 		return errors.New("email is required")
 	}
+
+	if !strings.Contains(r.Email, "@") {
+		return errors.New("invalid email")
+	}
+
 	if r.Username == "" {
 		return errors.New("username is required")
 	}
@@ -40,9 +45,6 @@ func (r SignupRequest) ValidateAndNormalize(passwordSecurityLevel int) error {
 	}
 
 	if boot.Environment.GoEnv == enums.Environments.PRODUCTION {
-		if !strings.Contains(r.Email, "@") {
-			return errors.New("invalid email")
-		}
 
 		switch passwordSecurityLevel {
 		case 0:

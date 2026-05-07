@@ -39,8 +39,7 @@ templ ProfileInfoCard(props ProfileProps) {
 templ ChangeUsernameForm(username string, csrf string) {
 	<form
 		hx-patch="/settings/profile/username"
-		hx-target="#success-message"
-		hx-swap="outerHTML"
+		hx-swap="none"
 		{ ui.WithLoading("profile-indicator")... }
 		class="p-4 sm:p-6 space-y-5"
 	>
@@ -81,7 +80,6 @@ templ ChangeUsernameForm(username string, csrf string) {
 				<span>Change Username</span>
 			}
 		</div>
-		<div id="success-message"></div>
 	</form>
 }
 

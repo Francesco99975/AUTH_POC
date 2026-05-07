@@ -2,6 +2,7 @@ package layouts
 
 import "github.com/Francesco99975/authpoc/internal/models"
 import "github.com/Francesco99975/authpoc/views/components"
+import "github.com/Francesco99975/authpoc/views/ui"
 
 templ CoreHTML(site models.Site) {
 	<!DOCTYPE html>
@@ -15,14 +16,16 @@ templ CoreHTML(site models.Site) {
 				pushToast(kind, msg) {
 					const id = Date.now() + Math.random();
 					this.toasts.push({id, kind, msg});
-					setTimeout(()=>{ this.toasts = this.toasts.filter(t=>t.id!==id); }, 4000);
+					setTimeout(()=>{ this.toasts = this.toasts.filter(t=>t.id!==id); }, 5000);
 				}
 			}"
+			x-on:toast.window="pushToast($event.detail.kind, $event.detail.msg)"
 		>
 			{ children... }
 		</body>
 		for _, script := range site.PageScripts {
 			@components.Script(script, site.Nonce, "")
 		}
+		@ui.ToastStack()
 	</html>
 }

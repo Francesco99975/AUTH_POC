@@ -1,16 +1,21 @@
 package layouts
 
-import "github.com/Francesco99975/authpoc/views/ui"
+import (
+	"fmt"
+	"github.com/Francesco99975/authpoc/views/ui"
+	"time"
+)
 
-templ Poller(indicatorID string, label string, route string) {
-	<form
-		class="relative"
-		hx-get={ route }
-		hx-trigger="every 60s"
-		hx-swap="outerHTML"
-		hx-indicator={ "#" + indicatorID }
-	>
-		{ children... }
+templ Poller(indicatorID string, label string, route string, interval time.Duration) {
+	<div class="relative">
+		<form
+			hx-get={ route }
+			hx-trigger={ "intersect once, every " + fmt.Sprintf("%ds", int(interval.Seconds())) }
+			hx-swap="innerHTML"
+			hx-indicator={ "#" + indicatorID }
+		>
+			{ children... }
+		</form>
 		@ui.FormLoading(indicatorID, label)
-	</form>
+	</div>
 }

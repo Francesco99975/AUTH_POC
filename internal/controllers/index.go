@@ -83,39 +83,9 @@ func Dashboard() echo.HandlerFunc {
 			return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusInternalServerError, Message: err.Error(), UserMessage: "Resource is not accessible"}, nil)
 		}
 
-		githubStatus, err := api.GetGithubStatus()
-		if err != nil {
-			log.Warnf("Failed to get github status: %v", err)
-		}
-
-		cryptoCoins, err := api.GetCryptoCoins()
-		if err != nil {
-			log.Warnf("Failed to get crypto coins: %v", err)
-		}
-
-		var citiesWeather []models.CityWeather
-
-		for _, city := range models.DefaultCities {
-			weather, err := api.GetCityWeather(city)
-			if err != nil {
-				log.Warnf("Failed to get city weather: %v", err)
-			}
-			citiesWeather = append(citiesWeather, *weather)
-		}
-
-		quakes, err := api.GetEarthquakes()
-		if err != nil {
-			log.Warnf("Failed to get earthquakes: %v", err)
-		}
-
 		html := helpers.MustRenderHTML(views.Dashboard(data, views.DashboardProps{
 			Username: user.Username,
 			Email:    user.Email,
-
-			GithubStatus: githubStatus,
-			Coins:        cryptoCoins,
-			Cities:       citiesWeather,
-			Quakes:       quakes,
 		}))
 
 		return c.Blob(http.StatusOK, "text/html", html)

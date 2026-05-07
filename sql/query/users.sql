@@ -14,6 +14,22 @@ SELECT id, role, username, email, is_active,
 FROM users
 WHERE id = $1;
 
+-- name: ExistsUserWithEmail :one
+SELECT EXISTS(
+    SELECT 1
+    FROM users
+    WHERE email = $1
+);
+
+-- name: ExistsUserWithUsername :one
+SELECT EXISTS(
+    SELECT 1
+    FROM users
+    WHERE username = $1
+);
+
+
+
 -- name: GetUserByEmailOrUsername :one
 SELECT
     id,

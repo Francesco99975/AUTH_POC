@@ -2,6 +2,7 @@ package views
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/Francesco99975/authpoc/internal/models"
 	"math"
@@ -34,10 +35,18 @@ templ Dashboard(site models.Site, props DashboardProps) {
 					</p>
 				</div>
 				<div class="container mx-auto px-4 pb-20 grid grid-cols-1 lg:grid-cols-2 gap-6">
-					@GithubStatus(props.GithubStatus)
-					@CryptoCoinsDisplay(props.Coins)
-					@CitiesWeatherDisplay(props.Cities)
-					@QuakesDisplay(props.Quakes)
+					@layouts.Poller("github-indicator", "Loading GitHub status...", "/external/github", time.Second*60) {
+						@GithubStatus(props.GithubStatus)
+					}
+					@layouts.Poller("coins-indicator", "Loading Crypto Prices...", "/external/coins", time.Second*60) {
+						@CryptoCoinsDisplay(props.Coins)
+					}
+					@layouts.Poller("weather-indicator", "Loading Cities Weather...", "/external/weather", time.Second*60) {
+						@CitiesWeatherDisplay(props.Cities)
+					}
+					@layouts.Poller("quakes-indicator", "Loading Quakes Reports...", "/external/quakes", time.Second*60) {
+						@QuakesDisplay(props.Quakes)
+					}
 				</div>
 			</main>
 		</div>
@@ -45,46 +54,48 @@ templ Dashboard(site models.Site, props DashboardProps) {
 }
 
 templ GithubStatus(githubStatus *models.GithubStatusResponse) {
-	@layouts.Poller("github-indicator", "Loading GitHub status...", "/external/github") {
-		<!-- ╔══════════════ SYSTEM HEALTH (GitHub Status) ══════════════╗ -->
-		@layouts.DashSection("GITHUB_STATUS", "// stream 01", "live") {
-			<!-- Data -->
-			if githubStatus != nil {
-				<div
-					class="space-y-4"
-				>
-					<!-- Overall status alert -->
-					if githubStatus.Status.Indicator != "none" {
-						<div
-							class={ "clip-panel border-l-4 p-3 font-mono text-xs", models.BorderKind(githubStatus.Status.Indicator) }
-							role="alert"
-						>
-							<div
-								class={ "uppercase tracking-widest", models.TextKind(githubStatus.Status.Indicator) }
-							>{ fmt.Sprintf("INCIDENT // %s", strings.ToUpper(githubStatus.Status.Indicator)) }</div>
-							<div class="text-fg/90">{ githubStatus.Status.Description }</div>
-						</div>
-					} else {
-						<div class="clip-panel border-l-4 border-success bg-success/10 p-3 font-mono text-xs" role="status">
-							<div class="uppercase tracking-widest text-success">ALL_SYSTEMS_NOMINAL</div>
-							<div class="text-fg/90">{ githubStatus.Status.Description }</div>
-						</div>
+	<!-- ╔══════════════ SYSTEM HEALTH (GitHub Status) ══════════════╗ -->
+	@layouts.DashSection("GITHUB_STATUS", "// stream 01", "live") {
+		<!-- Data -->
+		if githubStatus != nil {
+			<div
+				class="space-y-4"
+			>
+				<!-- Overall status alert -->
+				if githubStatus.Status.Indicator != "none" {
+					switch githubStatus.Status.Indicator {
+						case "critical":
+							@ui.Alert(ui.AlertError, fmt.Sprintf("INCIDENT // %s", strings.ToUpper(githubStatus.Status.Indicator))) {
+								{ githubStatus.Status.Description }
+							}
+						case "major":
+							@ui.Alert(ui.AlertWarning, fmt.Sprintf("INCIDENT // %s", strings.ToUpper(githubStatus.Status.Indicator))) {
+								{ githubStatus.Status.Description }
+							}
+						default:
+							@ui.Alert(ui.AlertInfo, fmt.Sprintf("INCIDENT // %s", strings.ToUpper(githubStatus.Status.Indicator))) {
+								{ githubStatus.Status.Description }
+							}
 					}
-					<!-- Component status dots -->
-					<ul class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-						for _, component := range githubStatus.Components {
-							@githubComponentDisplay(component)
-						}
-					</ul>
-				</div>
-			} else {
-				@ui.EmptyState(ui.EmptyStateProps{
-					Title:       "Github Unreachable",
-					Description: "// check your internet connection",
-					CTALabel:    "REFRESH",
-					CTAHref:     "/dashboard",
-				})
-			}
+				} else {
+					@ui.Alert(ui.AlertSuccess, "ALL SYSTEMS NOMINAL") {
+						{ githubStatus.Status.Description }
+					}
+				}
+				<!-- Component status dots -->
+				<ul class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+					for _, component := range githubStatus.Components {
+						@githubComponentDisplay(component)
+					}
+				</ul>
+			</div>
+		} else {
+			@ui.EmptyState(ui.EmptyStateProps{
+				Title:       "Github Unreachable",
+				Description: "// check your internet connection",
+				CTALabel:    "REFRESH",
+				CTAHref:     "/dashboard",
+			})
 		}
 	}
 }
@@ -104,24 +115,22 @@ templ githubComponentDisplay(component models.GithubComponent) {
 }
 
 templ CryptoCoinsDisplay(coins []models.CryptoCoin) {
-	@layouts.Poller("coins-indicator", "Loading Crypto Prices...", "/external/coins") {
-		<!-- ╔══════════════ MARKETS (CoinGecko) ══════════════╗ -->
-		@layouts.DashSection("CRYPTO_MARKETS", "// stream 02", "USD") {
-			<!-- Data -->
-			if len(coins) > 0 {
-				<ul class="space-y-3">
-					for _, coin := range coins {
-						@coinData(coin)
-					}
-				</ul>
-			} else {
-				@ui.EmptyState(ui.EmptyStateProps{
-					Title:       "Coin Gecko Unreachable",
-					Description: "// check your internet connection",
-					CTALabel:    "REFRESH",
-					CTAHref:     "/dashboard",
-				})
-			}
+	<!-- ╔══════════════ MARKETS (CoinGecko) ══════════════╗ -->
+	@layouts.DashSection("CRYPTO_MARKETS", "// stream 02", "USD") {
+		<!-- Data -->
+		if len(coins) > 0 {
+			<ul class="space-y-3">
+				for _, coin := range coins {
+					@coinData(coin)
+				}
+			</ul>
+		} else {
+			@ui.EmptyState(ui.EmptyStateProps{
+				Title:       "Coin Gecko Unreachable",
+				Description: "// check your internet connection",
+				CTALabel:    "REFRESH",
+				CTAHref:     "/dashboard",
+			})
 		}
 	}
 }
@@ -142,15 +151,12 @@ templ coinData(coin models.CryptoCoin) {
 			>{ priceChangeText(coin.PriceChangePercentage24h) }</span>
 		</div>
 		<!-- 24h change as bar (abs, 0..10% mapped to 0..100) -->
-		<div>
-			<div class="flex justify-between font-mono text-[10px] mb-1">
-				<span class="text-accent uppercase">24H_PRESSURE</span>
-				<span class="text-primary">{ math.Min(100, math.Round(math.Abs(coin.PriceChangePercentage24h)*10)) } %</span>
-			</div>
-			<div class="cp-bar clip-tag" class={ priceBarClass(coin.PriceChangePercentage24h) } role="progressbar">
-				<span style={ priceBarWidth(coin.PriceChangePercentage24h) }></span>
-			</div>
-		</div>
+		@ui.ProgressBar(ui.ProgressBarProps{
+			Label:         "24H_CHANGE",
+			Value:         int(math.Min(100, math.Round(math.Abs(coin.PriceChangePercentage24h)*10))),
+			Indeterminate: false,
+			ShowValue:     true,
+		})
 	</li>
 }
 
@@ -182,24 +188,22 @@ func priceBarWidth(v float64) string {
 }
 
 templ CitiesWeatherDisplay(cities []models.CityWeather) {
-	@layouts.Poller("weather-indicator", "Loading Cities Weather...", "/external/weather") {
-		<!-- ╔══════════════ TELEMETRY (Open-Meteo) ══════════════╗ -->
-		@layouts.DashSection("ATMOSPHERIC_TELEMETRY", "// stream 03", "6 nodes") {
-			<!-- Data -->
-			if len(cities) > 0 {
-				<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-					for _, city := range cities {
-						@cityWeather(city)
-					}
-				</div>
-			} else {
-				@ui.EmptyState(ui.EmptyStateProps{
-					Title:       "Open Weather Unreachable",
-					Description: "// check your internet connection",
-					CTALabel:    "REFRESH",
-					CTAHref:     "/dashboard",
-				})
-			}
+	<!-- ╔══════════════ TELEMETRY (Open-Meteo) ══════════════╗ -->
+	@layouts.DashSection("ATMOSPHERIC_TELEMETRY", "// stream 03", "6 nodes") {
+		<!-- Data -->
+		if len(cities) > 0 {
+			<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+				for _, city := range cities {
+					@cityWeather(city)
+				}
+			</div>
+		} else {
+			@ui.EmptyState(ui.EmptyStateProps{
+				Title:       "Open Weather Unreachable",
+				Description: "// check your internet connection",
+				CTALabel:    "REFRESH",
+				CTAHref:     "/dashboard",
+			})
 		}
 	}
 }
@@ -223,7 +227,6 @@ templ cityWeather(city models.CityWeather) {
 			Value:         city.Weather.Current.RelativeHumidity2M,
 			Indeterminate: false,
 			ShowValue:     true,
-			Postfix:       "%",
 		})
 		<!-- Wind bar (0..30 m/s mapped) -->
 		@ui.ProgressBar(ui.ProgressBarProps{
@@ -231,30 +234,27 @@ templ cityWeather(city models.CityWeather) {
 			Value:         int(math.Min(100, math.Round(city.Weather.Current.WindSpeed10M*10))),
 			Indeterminate: false,
 			ShowValue:     true,
-			Postfix:       "m/s",
 		})
 	</div>
 }
 
 templ QuakesDisplay(quakes []models.GeoFeature) {
-	@layouts.Poller("quakes-indicator", "Loading Quakes Reports...", "/external/quakes") {
-		<!-- ╔══════════════ SEISMIC (USGS earthquakes) ══════════════╗ -->
-		@layouts.DashSection("SEISMIC_FEED", "// stream 04", "PAST_HOUR") {
-			<!-- Data -->
-			if len(quakes) > 0 {
-				<ul class="space-y-2 max-h-[420px] overflow-y-auto">
-					for _, quake := range quakes {
-						@quakeDisplay(quake)
-					}
-				</ul>
-			} else {
-				@ui.EmptyState(ui.EmptyStateProps{
-					Title:       "Open Weather Unreachable",
-					Description: "// check your internet connection",
-					CTALabel:    "REFRESH",
-					CTAHref:     "/dashboard",
-				})
-			}
+	<!-- ╔══════════════ SEISMIC (USGS earthquakes) ══════════════╗ -->
+	@layouts.DashSection("SEISMIC_FEED", "// stream 04", "PAST_HOUR") {
+		<!-- Data -->
+		if len(quakes) > 0 {
+			<ul class="space-y-2 max-h-[420px] overflow-y-auto">
+				for _, quake := range quakes {
+					@quakeDisplay(quake)
+				}
+			</ul>
+		} else {
+			@ui.EmptyState(ui.EmptyStateProps{
+				Title:       "Open Weather Unreachable",
+				Description: "// check your internet connection",
+				CTALabel:    "REFRESH",
+				CTAHref:     "/dashboard",
+			})
 		}
 	}
 }

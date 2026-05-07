@@ -10,6 +10,7 @@ import (
 	"github.com/Francesco99975/authpoc/internal/helpers"
 	"github.com/Francesco99975/authpoc/internal/models"
 	"github.com/Francesco99975/authpoc/internal/repository"
+	"github.com/Francesco99975/authpoc/internal/tools"
 	"github.com/Francesco99975/authpoc/views"
 	"github.com/Francesco99975/authpoc/views/components"
 	"github.com/google/uuid"
@@ -142,9 +143,8 @@ func ResendReset() echo.HandlerFunc {
 
 		helpers.ResendPasswordResetTemplate(user.Email, passwordReset.Token)
 
-		html := helpers.MustRenderHTML(components.SuccessMsg("email Resent with new token"))
-
-		return c.Blob(http.StatusOK, "text/html", html)
+		tools.SetToastTrigger(c.Response(), enums.InfoToast, "Resent Password Reset Email")
+		return c.NoContent(http.StatusAccepted)
 	}
 }
 
