@@ -23,33 +23,42 @@ type DashboardProps struct {
 
 templ Dashboard(site models.Site, props DashboardProps) {
 	@layouts.AdminLayout(site) {
-		<div class="min-h-screen bg-std">
-			<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-				<!-- Welcome Section -->
-				<div class="mb-8">
-					<h1 class="text-3xl sm:text-4xl font-bold bg-linear-to-r from-primary to-accent bg-clip-text text-transparent mb-2">
-						Welcome back, { props.Username }!
-					</h1>
-					<p class="text-gray-600 dark:text-gray-400">
-						{ props.Email }
+		<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-screen">
+			<!-- Welcome Section -->
+			<div class="mb-8">
+				<h1 class="text-3xl sm:text-4xl font-bold bg-linear-to-r from-primary to-accent bg-clip-text text-transparent mb-2">
+					Welcome back, { props.Username }!
+				</h1>
+				<p class="text-gray-600 dark:text-gray-400">
+					{ props.Email }
+				</p>
+			</div>
+			<section class="container mx-auto px-4 pt-8 pb-6">
+				<div class="flex items-end gap-4 flex-wrap">
+					<div>
+						<div class="font-mono text-[10px] text-accent uppercase tracking-widest">\\ telemetry node 06</div>
+						<h1 class="text-3xl sm:text-4xl font-bold neon-primary caret">API_COMPONENTS_DASHBOARD</h1>
+					</div>
+					<p class="font-mono text-xs text-muted max-w-md">
+						Real public APIs feed every component below — GitHub Status, CoinGecko, Open-Meteo, USGS Seismic.
 					</p>
 				</div>
-				<div class="container mx-auto px-4 pb-20 grid grid-cols-1 lg:grid-cols-2 gap-6">
-					@layouts.Poller("github-indicator", "Loading GitHub status...", "/external/github", time.Second*60) {
-						@GithubStatus(props.GithubStatus)
-					}
-					@layouts.Poller("coins-indicator", "Loading Crypto Prices...", "/external/coins", time.Second*60) {
-						@CryptoCoinsDisplay(props.Coins)
-					}
-					@layouts.Poller("weather-indicator", "Loading Cities Weather...", "/external/weather", time.Second*60) {
-						@CitiesWeatherDisplay(props.Cities)
-					}
-					@layouts.Poller("quakes-indicator", "Loading Quakes Reports...", "/external/quakes", time.Second*60) {
-						@QuakesDisplay(props.Quakes)
-					}
-				</div>
-			</main>
-		</div>
+			</section>
+			<div class="container mx-auto px-4 pb-20 grid grid-cols-1 lg:grid-cols-2 gap-6">
+				@layouts.Poller("github-indicator", "Loading GitHub status...", "/external/github", time.Second*60) {
+					@GithubStatus(props.GithubStatus)
+				}
+				@layouts.Poller("coins-indicator", "Loading Crypto Prices...", "/external/coins", time.Second*60) {
+					@CryptoCoinsDisplay(props.Coins)
+				}
+				@layouts.Poller("weather-indicator", "Loading Cities Weather...", "/external/weather", time.Second*60) {
+					@CitiesWeatherDisplay(props.Cities)
+				}
+				@layouts.Poller("quakes-indicator", "Loading Quakes Reports...", "/external/quakes", time.Second*60) {
+					@QuakesDisplay(props.Quakes)
+				}
+			</div>
+		</main>
 	}
 }
 

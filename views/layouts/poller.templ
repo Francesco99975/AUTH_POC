@@ -8,14 +8,14 @@ import (
 
 templ Poller(indicatorID string, label string, route string, interval time.Duration) {
 	<div class="relative">
-		<form
+		<div
 			hx-get={ route }
 			hx-trigger={ "intersect once, every " + fmt.Sprintf("%ds", int(interval.Seconds())) }
 			hx-swap="innerHTML"
 			hx-indicator={ "#" + indicatorID }
 		>
 			{ children... }
-		</form>
+		</div>
 		@ui.FormLoading(indicatorID, label)
 	</div>
 }

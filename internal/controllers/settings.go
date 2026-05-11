@@ -174,10 +174,19 @@ func UpdateEmail() echo.HandlerFunc {
 		ctx := c.Request().Context()
 		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "database error occurred", Message: fmt.Errorf("unable to get transaction: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "database error occurred", Message: fmt.Errorf("unable to get transaction: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
+
+		exists, err := repo.ExistsUserWithEmail(ctx, payload.Email)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "Could not change email", Message: fmt.Errorf("unable to check if email exists: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		if exists {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusConflict, UserMessage: "Another user already has this email", Message: fmt.Errorf("email already exists: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
 
 		user, authenticated := auth.GetSessionUser(c.Request())
 		if !authenticated {
@@ -209,6 +218,7 @@ func UpdateEmail() echo.HandlerFunc {
 
 		html := helpers.MustRenderHTML(components.EmailVerification(payload.Email, csrf, "/verification/update"))
 
+		tools.SetToastTrigger(c.Response(), enums.WarningToast, "Email needs to be verified")
 		return c.Blob(http.StatusOK, "text/html", html)
 
 	}
@@ -269,6 +279,7 @@ func UpdateManualEmailVerification() echo.HandlerFunc {
 
 		html := helpers.MustRenderHTML(components.ChangeUserEmailForm(user.Email, user.IsEmailVerified, csrf))
 
+		tools.SetToastTrigger(c.Response(), enums.SuccessToast, "Email updated successfully")
 		return c.Blob(http.StatusOK, "text/html", html)
 	}
 }
