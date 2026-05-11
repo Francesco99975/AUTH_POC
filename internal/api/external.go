@@ -8,6 +8,7 @@ import (
 
 	"github.com/Francesco99975/authpoc/internal/helpers"
 	"github.com/Francesco99975/authpoc/internal/models"
+	"github.com/labstack/gommon/log"
 )
 
 var httpClient = &http.Client{
@@ -19,7 +20,12 @@ func fetchJSON(url string, target any) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		err := resp.Body.Close()
+		if err != nil {
+			log.Error(err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("bad status: %s", resp.Status)
