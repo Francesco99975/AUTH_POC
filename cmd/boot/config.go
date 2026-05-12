@@ -15,6 +15,8 @@ type Config struct {
 	NTFY                  string
 	NTFYToken             string
 	URL                   string
+	PostgresUser          string
+	DevEmail              string
 	MetricSecret          string
 	Prometheus            string
 	ResendApiKey          string
@@ -40,6 +42,8 @@ func LoadEnvVariables() error {
 	Environment.NTFYToken = os.Getenv("NTFY_TOKEN")
 	Environment.MetricSecret = os.Getenv("METRIC_SECRET")
 	Environment.Prometheus = os.Getenv("PROMETHEUS")
+	Environment.PostgresUser = os.Getenv("POSTGRES_USER")
+	Environment.DevEmail = os.Getenv("DEV_EMAIL")
 	if Environment.GoEnv == enums.Environments.DEVELOPMENT {
 		Environment.URL = fmt.Sprintf("http://%s:%s", Environment.Host, Environment.Port)
 	} else {

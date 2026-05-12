@@ -52,6 +52,8 @@ services:
       - monitoring
     ports:
       - 3269:3269
+    volumes:
+      - ./data:/data
 
 networks:
   proxy:

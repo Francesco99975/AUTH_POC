@@ -31,6 +31,7 @@ type Querier interface {
 	DeleteUserBackupCodes(ctx context.Context, userID uuid.UUID) error
 	DisableUser2FA(ctx context.Context, id uuid.UUID) error
 	EnableUser2FA(ctx context.Context, arg EnableUser2FAParams) error
+	ExistDeveloperAccount(ctx context.Context) (bool, error)
 	ExistsUserWithEmail(ctx context.Context, email string) (bool, error)
 	ExistsUserWithUsername(ctx context.Context, username string) (bool, error)
 	GetBackupCodeByHash(ctx context.Context, codeHash string) (*GetBackupCodeByHashRow, error)

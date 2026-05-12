@@ -15,12 +15,13 @@ var pool *pgxpool.Pool
 
 func Setup(dsn string) {
 	var err error
-	pool, err = pgxpool.New(context.Background(), dsn)
+	ctx := context.Background()
+	pool, err = pgxpool.New(ctx, dsn)
 	if err != nil {
 		log.Fatalf("Unable to connect to database: %v", err)
 	}
 
-	err = pool.Ping(context.Background())
+	err = pool.Ping(ctx)
 	if err != nil {
 		log.Fatalf("Unable to ping database: %v", err)
 	}
@@ -29,6 +30,10 @@ func Setup(dsn string) {
 	if err != nil {
 		log.Fatalf("Unable to run migrations: %v", err)
 	}
+
+	seedDeveloperAccount(ctx)
+
+	log.Println("Connected to database")
 }
 
 func runMigrations(dsn string) error {

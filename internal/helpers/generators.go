@@ -100,3 +100,27 @@ func FormatCode(code string) string {
 	}
 	return strings.Join(parts, "-")
 }
+
+func GenerateSecurePassword(length int) (string, error) {
+	const charset = "abcdefghkmnpqrstuvwxyz" +
+		"ABCDEFGHKMNPQRSTUVWXYZ" +
+		"12356789" +
+		"!@#$&"
+
+	if length <= 0 {
+		return "", fmt.Errorf("invalid length")
+	}
+
+	password := make([]byte, length)
+	max := big.NewInt(int64(len(charset)))
+
+	for i := range length {
+		n, err := rand.Int(rand.Reader, max)
+		if err != nil {
+			return "", err
+		}
+		password[i] = charset[n.Int64()]
+	}
+
+	return string(password), nil
+}

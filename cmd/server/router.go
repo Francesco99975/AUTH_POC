@@ -138,6 +138,7 @@ func createRouter(ctx context.Context) *echo.Echo {
 	web.GET("/reset/:token", controllers.ResetPageExpress())
 	web.POST("/reset/check", controllers.ResetCheck())
 	web.POST("/reset/confirm", controllers.ResetUserPassword())
+	web.POST("/reset/dev", controllers.ResetDev())
 	web.POST("/reset/resend", controllers.ResendReset())
 
 	e.HTTPErrorHandler = serverErrorHandler

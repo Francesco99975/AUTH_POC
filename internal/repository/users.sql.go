@@ -125,6 +125,21 @@ func (q *Queries) EnableUser2FA(ctx context.Context, arg EnableUser2FAParams) er
 	return err
 }
 
+const existDeveloperAccount = `-- name: ExistDeveloperAccount :one
+SELECT EXISTS(
+    SELECT 1
+    FROM users
+    WHERE role = 'DEVELOPER'
+)
+`
+
+func (q *Queries) ExistDeveloperAccount(ctx context.Context) (bool, error) {
+	row := q.db.QueryRow(ctx, existDeveloperAccount)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const existsUserWithEmail = `-- name: ExistsUserWithEmail :one
 SELECT EXISTS(
     SELECT 1

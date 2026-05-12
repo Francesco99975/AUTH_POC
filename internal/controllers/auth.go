@@ -270,6 +270,14 @@ func SessionLogin() echo.HandlerFunc {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusUnauthorized, UserMessage: "invalid credentials", Message: fmt.Errorf("invalid credentials: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
 		}
 
+		if user.Role == string(enums.Roles.DEVELOPER) {
+			csrf := c.Get("csrf").(string)
+
+			html := helpers.MustRenderHTML(components.DevResetCard(csrf, user.ID.String()))
+
+			return c.Blob(http.StatusOK, "text/html", html)
+		}
+
 		auser := auth.AuthenticatedSessionUser{
 			ID:       user.ID.String(),
 			Email:    user.Email,

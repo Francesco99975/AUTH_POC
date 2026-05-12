@@ -28,7 +28,12 @@ SELECT EXISTS(
     WHERE username = $1
 );
 
-
+-- name: ExistDeveloperAccount :one
+SELECT EXISTS(
+    SELECT 1
+    FROM users
+    WHERE role = 'DEVELOPER'
+);
 
 -- name: GetUserByEmailOrUsername :one
 SELECT
