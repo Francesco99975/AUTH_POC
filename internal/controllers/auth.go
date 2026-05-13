@@ -69,7 +69,12 @@ func SessionSignup() echo.HandlerFunc {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusConflict, UserMessage: "An account with this username already exists", Message: fmt.Errorf("username exists: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
 		}
 
-		newUser, err := repo.CreateUser(ctx, repository.CreateUserParams{ID: uuid.New(), Role: "USER", Username: payload.Username, Email: payload.Email, PasswordHash: hashedPassword})
+		userID, err := uuid.NewV7()
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to create user ID", Message: fmt.Errorf("failed to create user ID: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		}
+
+		newUser, err := repo.CreateUser(ctx, repository.CreateUserParams{ID: userID, Role: enums.Roles.USER.String(), Username: payload.Username, Email: payload.Email, PasswordHash: hashedPassword})
 		if err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to create user", Message: fmt.Errorf("failed to create user: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
 		}
@@ -262,7 +267,7 @@ func SessionLogin() echo.HandlerFunc {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "user not found", Message: fmt.Errorf("user not found: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
 		}
 
-		if !user.IsEmailVerified {
+		if !user.IsEmailVerified && user.Role != string(enums.Roles.DEVELOPER) {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusUnauthorized, UserMessage: "email not verified", Message: fmt.Errorf("email not verified: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
 		}
 
@@ -270,7 +275,7 @@ func SessionLogin() echo.HandlerFunc {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusUnauthorized, UserMessage: "invalid credentials", Message: fmt.Errorf("invalid credentials: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
 		}
 
-		if user.Role == string(enums.Roles.DEVELOPER) {
+		if user.Role == string(enums.Roles.DEVELOPER) && !user.IsEmailVerified {
 			csrf := c.Get("csrf").(string)
 
 			html := helpers.MustRenderHTML(components.DevResetCard(csrf, user.ID.String()))

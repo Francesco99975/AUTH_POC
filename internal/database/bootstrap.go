@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"log"
@@ -67,15 +68,26 @@ func seedDeveloperAccount(ctx context.Context) {
 }
 
 const (
-	credentialDir  = "/data"
-	credentialFile = "/data/initial_credentials"
-	dirPerm        = 0750
-	filePerm       = 0600
+	dirPerm  = 0750
+	filePerm = 0600
 )
+
+func dataDir() string {
+	switch boot.Environment.GoEnv {
+	case enums.Environments.DEVELOPMENT:
+		return "./data"
+	default: // production, staging, etc.
+		return "/data"
+	}
+}
+
+func credentialFilePath() string {
+	return filepath.Join(dataDir(), "initial_credentials")
+}
 
 func writeInitialCredentials(username string, email string, password string) error {
 	// Ensure /data exists with correct permissions
-	if err := helpers.EnsureDir(credentialDir, dirPerm); err != nil {
+	if err := helpers.EnsureDir(dataDir(), dirPerm); err != nil {
 		return fmt.Errorf("failed to prepare credentials directory: %w", err)
 	}
 
@@ -101,12 +113,12 @@ func writeInitialCredentials(username string, email string, password string) err
 =====================================
 `, time.Now().UTC().Format(time.RFC1123), username, email, password)
 
-	if err := os.WriteFile(credentialFile, []byte(content), filePerm); err != nil {
+	if err := os.WriteFile(credentialFilePath(), []byte(content), filePerm); err != nil {
 		return fmt.Errorf("failed to write credentials file: %w", err)
 	}
 
 	// Correct permissions if the file already existed with wrong perms
-	if err := os.Chmod(credentialFile, filePerm); err != nil {
+	if err := os.Chmod(credentialFilePath(), filePerm); err != nil {
 		return fmt.Errorf("failed to set credentials file permissions: %w", err)
 	}
 
@@ -115,7 +127,7 @@ func writeInitialCredentials(username string, email string, password string) err
 
 func DeleteCredentialsFile() error {
 	if credentialsFileExists() {
-		if err := os.Remove(credentialFile); err != nil && !os.IsNotExist(err) {
+		if err := os.Remove(credentialFilePath()); err != nil && !os.IsNotExist(err) {
 			return fmt.Errorf("failed to delete credentials file: %w", err)
 		}
 	}
@@ -123,6 +135,6 @@ func DeleteCredentialsFile() error {
 }
 
 func credentialsFileExists() bool {
-	_, err := os.Stat(credentialFile)
+	_, err := os.Stat(credentialFilePath())
 	return !os.IsNotExist(err)
 }

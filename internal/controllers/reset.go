@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/gommon/log"
 )
 
 func ResetPage() echo.HandlerFunc {
@@ -277,6 +278,13 @@ func ResetDev() echo.HandlerFunc {
 		if err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "unexpected Error Occurred while trying to reset password", Message: fmt.Errorf("unable to update user password: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
+
+		go func() {
+			err := database.DeleteCredentialsFile()
+			if err != nil {
+				log.Errorf("Failed to delete credentials file: %v", err)
+			}
+		}()
 
 		c.Response().Header().Set("HX-Redirect", "/auth")
 		return c.NoContent(http.StatusOK)
