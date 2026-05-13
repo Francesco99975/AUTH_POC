@@ -568,15 +568,23 @@ func Users() echo.HandlerFunc {
 			return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusInternalServerError, Message: err.Error(), UserMessage: "Resource is not accessible"}, nil)
 		}
 
+		perPage := 5
+
 		rawUsers, err := repo.GetUsers(ctx, repository.GetUsersParams{
-			Limit:  10,
+			Limit:  int32(perPage),
 			Offset: 0,
 		})
 		if err != nil {
 			return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusInternalServerError, Message: err.Error(), UserMessage: "Resource is not accessible"}, nil)
 		}
 
-		users := helpers.MapSlice(rawUsers, func(user *repository.GetUsersRow) components.UserInfo {
+		filteredUsers := helpers.FilteredSlice(rawUsers, func(user *repository.GetUsersRow) bool {
+			return auser.ID != user.ID.String() &&
+				(auser.Role == enums.Roles.DEVELOPER.String() ||
+					user.Role != enums.Roles.DEVELOPER.String())
+		})
+
+		users := helpers.MapSlice(filteredUsers, func(user *repository.GetUsersRow) components.UserInfo {
 
 			status := "Active"
 			if !user.IsActive {
@@ -592,7 +600,6 @@ func Users() echo.HandlerFunc {
 				TwoFA:     user.TwofaEnabled,
 				LastLogin: user.LastLogin.Time.Format(time.RFC3339),
 				Gradient:  "primary",
-				// CanCreate: canManageUser(enums.Role(auser.Role), ActCreate, enums.Role(user.Role)),
 				CanEdit:   auth.CanManageUser(enums.Role(auser.Role), enums.ActEdit, enums.Role(user.Role)),
 				CanDelete: auth.CanManageUser(enums.Role(auser.Role), enums.ActDelete, enums.Role(user.Role)),
 			}
@@ -603,7 +610,7 @@ func Users() echo.HandlerFunc {
 			TotalUsers: int(totalUsers),
 			Viewer:     enums.Role(auser.Role),
 			Page:       1,
-			PerPage:    10,
+			PerPage:    perPage,
 			CSRF:       c.Get("csrf").(string),
 		}
 
@@ -643,19 +650,19 @@ func CreateUser() echo.HandlerFunc {
 		ctx := c.Request().Context()
 		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
 		if err != nil {
-			return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusInternalServerError, Message: err.Error(), UserMessage: "Resource is not accessible"}, nil)
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "Could not create User", Message: fmt.Errorf("unable to get transaction: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
 		newUserID, err := uuid.NewV7()
 		if err != nil {
-			return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusInternalServerError, Message: err.Error(), UserMessage: "Resource is not accessible"}, nil)
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "Could not create User", Message: fmt.Errorf("unable to generate UUID: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
 
 		hashedPassword, err := helpers.HashPassword(payload.Password)
 		if err != nil {
-			return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusInternalServerError, Message: err.Error(), UserMessage: "Resource is not accessible"}, nil)
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "Could not create User", Message: fmt.Errorf("unable to hash password: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
 
 		_, err = repo.CreateUser(ctx, repository.CreateUserParams{
@@ -666,7 +673,12 @@ func CreateUser() echo.HandlerFunc {
 			PasswordHash: hashedPassword,
 		})
 		if err != nil {
-			return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusInternalServerError, Message: err.Error(), UserMessage: "Resource is not accessible"}, nil)
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "Could not create User", Message: fmt.Errorf("unable to create user: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		err = repo.VerifyUserEmail(ctx, newUserID)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "Could not create User", Message: fmt.Errorf("unable to verify email: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
 
 		userInfo := components.UserInfo{

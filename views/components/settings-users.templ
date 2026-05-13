@@ -74,7 +74,7 @@ templ UserManagementCard(props UsersProps) {
 			@UserList(props.Users, props.CSRF)
 		</div>
 		<!-- Pagination -->
-		@UsersPagination(props.TotalUsers, props.Page, props.PerPage)
+		@UsersPagination(props.TotalUsers/props.PerPage, props.Page, props.PerPage)
 	</div>
 }
 
@@ -157,7 +157,7 @@ templ UserFilters() {
 			@ui.Search(ui.SearchProps{
 				Name:        "search",
 				GetURL:      "/search/users",
-				TargetID:    "users-list",
+				TargetID:    "search-results",
 				DebounceMS:  300,
 				Label:       "Search Users",
 				Placeholder: "Search users...",
@@ -280,12 +280,12 @@ templ UsersPagination(total int, page int, perPage int) {
 			@ui.Pagination(ui.PaginationProps{
 				Current: page,
 				Total:   total,
-				Window:  5,
+				Window:  perPage,
 				URL:     "/search/users",
 				Target:  "#users-list",
 				Param:   "page",
 				Swap:    "innerHTML",
-				Include: "[name='search', name='role_filter']",
+				Include: "[name='search']",
 				PushURL: false,
 			})
 		</div>
