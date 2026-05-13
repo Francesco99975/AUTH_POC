@@ -13,6 +13,7 @@ import (
 	"github.com/Francesco99975/authpoc/internal/repository"
 	"github.com/Francesco99975/authpoc/internal/tools"
 	"github.com/Francesco99975/authpoc/views/components"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"

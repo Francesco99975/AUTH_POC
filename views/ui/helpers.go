@@ -95,3 +95,64 @@ func firstRune(s string, fallback rune) rune {
 // repeat returns s concatenated n times. Used for input placeholders such as
 // the OTPSingle "000000" dots that scale with Length.
 func repeat(s string, n int) string { return strings.Repeat(s, n) }
+
+// paginationPages computes the numbered-button sequence for @Pagination given
+// the current page, total page count, and the requested sliding window size.
+//
+// The returned slice contains 1-based page numbers, with 0 representing an
+// ellipsis placeholder. First and last page are always included so users can
+// jump to the ends in a single click; gaps between them and the window are
+// collapsed into a single "…" entry.
+//
+// Examples (window=5):
+//
+//	current=1, total=3      -> [1 2 3]
+//	current=1, total=10     -> [1 2 3 4 5 0 10]
+//	current=6, total=10     -> [1 0 4 5 6 7 8 0 10]
+//	current=10, total=10    -> [1 0 6 7 8 9 10]
+func paginationPages(current, total, window int) []int {
+	if window <= 0 {
+		window = 5
+	}
+	if total <= 0 {
+		return nil
+	}
+	if total <= window+2 {
+		out := make([]int, total)
+		for i := range out {
+			out[i] = i + 1
+		}
+		return out
+	}
+
+	half := window / 2
+	start := current - half
+	end := current + half
+	if window%2 == 0 {
+		end--
+	}
+	if start < 2 {
+		end += 2 - start
+		start = 2
+	}
+	if end > total-1 {
+		start -= end - (total - 1)
+		end = total - 1
+	}
+	if start < 2 {
+		start = 2
+	}
+
+	out := []int{1}
+	if start > 2 {
+		out = append(out, 0)
+	}
+	for i := start; i <= end; i++ {
+		out = append(out, i)
+	}
+	if end < total-1 {
+		out = append(out, 0)
+	}
+	out = append(out, total)
+	return out
+}

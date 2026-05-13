@@ -105,56 +105,317 @@ type DropOption struct {
 	Label string
 }
 
+// DroplistProps — single-select dropdown.
+//
+// `required` is a struct field because it's a static schema decision (a
+// field either is or isn't required at the form definition). `disabled`
+// and `value` are runtime state and flow through Attrs.
 // DroplistProps — single-select custom dropdown.
+//
+// `required` is a struct field because it's a static schema decision (a
+// field either is or isn't required at the form definition). `disabled`
+// and `value` are runtime state and flow through Attrs onto the underlying
+// hidden form-bearing <input>.
 type DroplistProps struct {
-	Name     string
-	Label    string
-	Selected string
-	Opts     []DropOption
+	Name        string
+	Label       string
+	Selected    string
+	Required    bool
+	Placeholder string // shown when nothing is selected (defaults to "Select…")
+	Opts        []DropOption
+	Attrs       templ.Attributes
 }
 
-// Droplist is a single-select dropdown. The selected value is also kept in a
-// hidden input so the component integrates with normal form submission.
+// Droplist is a fully-custom single-select dropdown built on the W3C ARIA 1.2
+// "combobox + listbox" pattern — fully styleable, while remaining semantically
+// correct for screen readers:
+//
+//   • Trigger is a <button role="combobox"> with aria-haspopup="listbox",
+//     aria-expanded, and aria-controls pointing at the popup.
+//   • Popup is a real <ul role="listbox"> of <li role="option"> nodes — so
+//     AT announces it as "listbox, N options".
+//   • aria-activedescendant tracks the keyboard-focused option without
+//     moving DOM focus off the trigger.
+//   • Full keyboard support: ↑/↓ to move, Home/End to jump, Enter/Space
+//     to pick, Esc to close, single-letter type-ahead jumps to next match.
+//   • A hidden form-bearing <input name=...> carries the selected value so
+//     the component integrates with normal form submission and accepts
+//     dynamic `disabled`/`value` attributes via Attrs.
 templ Droplist(p DroplistProps) {
+	{{placeholder := p.Placeholder
+if placeholder == "" {
+	placeholder = "Select…"
+}
+	}}
+	{{listID := p.Name + "-listbox"
+btnID := p.Name + "-trigger"
+	}}
 	<div
-		x-data={ "{ open:false, sel: '" + p.Selected + "', " +
-				"labelOf(v){ const o = this.$root._opts.find(x => x.v === v); return o ? o.l : ''; } }" }
-		x-init={ "$root._opts = " + dropOptsToJS(p.Opts) }
-		class="relative"
+		x-data={ "{ open:false, sel: '" + p.Selected + "', active: -1, " +
+				"opts: " + dropOptsToJS(p.Opts) + ", " +
+				"labelOf(v){ const o = this.opts.find(x => x.v === v); return o ? o.l : ''; }, " +
+				"toggle(){ this.open = !this.open; if(this.open){ this.active = Math.max(0, this.opts.findIndex(o => o.v === this.sel)); this.$nextTick(()=>this.scrollActive()); } }, " +
+				"pick(i){ if(i<0||i>=this.opts.length) return; this.sel = this.opts[i].v; this.open = false; this.$refs.trigger.focus(); }, " +
+				"move(d){ if(!this.open){ this.open = true; this.active = Math.max(0, this.active); } " +
+				"else { this.active = (this.active + d + this.opts.length) % this.opts.length; } this.$nextTick(()=>this.scrollActive()); }, " +
+				"jump(i){ this.open = true; this.active = i; this.$nextTick(()=>this.scrollActive()); }, " +
+				"typeahead(k){ if(!/^[a-z0-9]$/i.test(k)) return; const start = (this.active + 1) % this.opts.length; " +
+				"for(let n=0; n<this.opts.length; n++){ const i = (start + n) % this.opts.length; " +
+				"if(this.opts[i].l.toLowerCase().startsWith(k.toLowerCase())){ this.jump(i); return; } } }, " +
+				"scrollActive(){ const el = this.$refs['opt-'+this.active]; if(el && el.scrollIntoView) el.scrollIntoView({block:'nearest'}); } }" }
+		@keydown.escape.window="if(open){ open = false; $refs.trigger.focus(); }"
+		@click.away="open = false"
+		class="relative h-fit self-start"
 	>
 		if p.Label != "" {
-			@FieldLabel(p.Label, "")
+			<label for={ btnID } class="block font-mono text-[10px] text-accent uppercase tracking-widest mb-1">{ p.Label }</label>
 		}
 		<button
+			id={ btnID }
+			x-ref="trigger"
 			type="button"
-			@click="open = !open"
-			@click.away="open = false"
-			@keydown.escape="open = false"
+			role="combobox"
+			aria-haspopup="listbox"
+			aria-controls={ listID }
 			:aria-expanded="open.toString()"
+			:aria-activedescendant={ "open && active >= 0 ? '" + listID + "-opt-' + active : null" }
+			@click="toggle()"
+			@keydown.arrow-down.prevent="move(1)"
+			@keydown.arrow-up.prevent="move(-1)"
+			@keydown.home.prevent="jump(0)"
+			@keydown.end.prevent="jump(opts.length - 1)"
+			@keydown.enter.prevent="open ? pick(active) : toggle()"
+			@keydown.space.prevent="open ? pick(active) : toggle()"
+			@keydown="if(open && $event.key.length === 1) typeahead($event.key)"
 			class="cp-field clip-tag flex items-center justify-between w-full text-left"
 		>
-			<span x-text="labelOf(sel) || 'Select…'"></span>
-			<span class="text-accent">▾</span>
+			<span x-text="labelOf(sel) || '{ placeholder }'" :class="!sel && 'text-muted'"></span>
+			<span class="text-accent transition-transform" :class="open && 'rotate-180'">▾</span>
 		</button>
-		<input type="hidden" name={ p.Name } :value="sel"/>
-		<div
+		<!-- Hidden form-bearing input — carries the selected value AND any
+		     dynamic disabled/value attributes the caller forwards via Attrs. -->
+		<input
+			type="hidden"
+			name={ p.Name }
+			:value="sel"
+			required?={ p.Required }
+			{ p.Attrs... }
+		/>
+		<ul
+			id={ listID }
+			role="listbox"
+			tabindex="-1"
+			aria-labelledby={ btnID }
 			x-show="open"
 			x-cloak
 			x-transition.opacity.duration.150ms
-			class="absolute z-10 top-full left-0 right-0 mt-1 bg-panel border border-accent clip-panel max-h-52 overflow-auto"
-			role="listbox"
+			class="absolute z-10 top-full left-0 right-0 mt-1 bg-panel border border-accent clip-panel max-h-52 overflow-auto py-1"
 		>
-			for _, o := range p.Opts {
-				<button
-					type="button"
-					@click={ "sel = '" + o.Value + "'; open = false" }
-					:class={ "sel === '" + o.Value + "' ? 'bg-primary text-primary-fg' : 'hover:bg-accent/10'" }
-					class="w-full text-left px-3 py-2 font-mono text-xs uppercase tracking-widest"
+			for i, o := range p.Opts {
+				{{idx := i
+optID := listID + "-opt-" + itoa(i)
+				}}
+				<li
+					id={ optID }
+					x-ref={ "opt-" + itoa(idx) }
+					role="option"
+					:aria-selected={ "sel === '" + o.Value + "'" }
+					@click={ "pick(" + itoa(idx) + ")" }
+					@mouseenter={ "active = " + itoa(idx) }
+					:class={
+						"sel === '" + o.Value + "' " +
+							"? 'bg-primary text-primary-fg' " +
+							": (active === " + itoa(idx) + " ? 'bg-accent/15 text-accent' : 'hover:bg-accent/10')",
+					}
+					class="cursor-pointer px-3 py-2 font-mono text-xs uppercase tracking-widest"
 				>
 					{ o.Label }
-				</button>
+				</li>
 			}
+		</ul>
+	</div>
+}
+
+// FilterSelectProps — a HTMX-driven single-select filter for "filter a list"
+// use cases (search bars, role pickers, status filters, etc.).
+//
+// What it does differently from Droplist:
+//   - Fires an HTMX request on every selection change (hx-get to URL).
+//   - Optional Include CSS selector to bundle sibling filter inputs (e.g.
+//     a search box) so combined filters work out of the box.
+//   - Shows an "active" highlight + a one-click Clear chip when a non-default
+//     value is selected, so users always see which filters are applied.
+//   - Built-in inline spinner that lights up while a request is in flight
+//     (HTMX adds `.htmx-request` to the element making the request).
+//
+// `disabled` and dynamic attrs flow through Attrs onto the hidden input that
+// fires the actual HTMX request — keeping the static/dynamic split consistent
+// with the rest of the selection components.
+type FilterSelectProps struct {
+	Name        string
+	Label       string       // optional label above the trigger
+	Selected    string       // initially-selected option value (empty = default/all)
+	Placeholder string       // shown when nothing selected (defaults to "All")
+	Icon        string       // optional leading glyph (e.g. "◇", "▣", "⌖")
+	Opts        []DropOption // selectable options (do NOT include a "(all)" entry — Placeholder covers it)
+	// HTMX wiring
+	URL     string // hx-get target (required)
+	Target  string // hx-target CSS selector (required, e.g. "#users-list")
+	Swap    string // hx-swap (defaults to "innerHTML")
+	Include string // hx-include selector to bundle sibling inputs (e.g. "[name='search']")
+	Trigger string // hx-trigger override (defaults to "change")
+	Attrs   templ.Attributes
+}
+
+// FilterSelect renders a cyberpunk-styled filter dropdown that re-queries an
+// endpoint via HTMX whenever the user changes the selection.
+//
+// Implementation notes:
+//   • The styled trigger + popup mirror Droplist's ARIA combobox pattern, so
+//     keyboard support and screen-reader semantics are identical.
+//   • The actual HTMX-firing element is a hidden <input>; when the Alpine
+//     `sel` state changes we dispatch a native `change` event on it, which
+//     HTMX listens for. This means HTMX handles all the request mechanics
+//     (debounce, swap, history, indicators) — Alpine only manages UI state.
+//   • A `Clear` chip appears next to the trigger when a non-default value is
+//     selected. Clicking it resets `sel = ''` and re-fires the request.
+templ FilterSelect(p FilterSelectProps) {
+	{{ placeholder := p.Placeholder
+if placeholder == "" {
+	placeholder = "All"
+} }}
+	{{ swap := p.Swap
+if swap == "" {
+	swap = "innerHTML"
+} }}
+	{{ trigger := p.Trigger
+if trigger == "" {
+	trigger = "change"
+} }}
+	{{ listID := p.Name + "-listbox"
+btnID := p.Name + "-trigger"
+inputID := p.Name + "-input" }}
+	<div
+		x-data={ "{ open:false, sel: '" + p.Selected + "', active: -1, " +
+				"opts: " + dropOptsToJS(p.Opts) + ", " +
+				"labelOf(v){ const o = this.opts.find(x => x.v === v); return o ? o.l : ''; }, " +
+				"toggle(){ this.open = !this.open; if(this.open){ this.active = Math.max(0, this.opts.findIndex(o => o.v === this.sel)); this.$nextTick(()=>this.scrollActive()); } }, " +
+				"pick(i){ if(i<0||i>=this.opts.length) return; this.setVal(this.opts[i].v); this.open = false; this.$refs.trigger.focus(); }, " +
+				"clear(){ this.setVal(''); this.$refs.trigger.focus(); }, " +
+				"setVal(v){ if(this.sel === v) return; this.sel = v; this.$nextTick(() => this.$refs.input.dispatchEvent(new Event('change', {bubbles:true}))); }, " +
+				"move(d){ if(!this.open){ this.open = true; this.active = Math.max(0, this.active); } " +
+				"else { this.active = (this.active + d + this.opts.length) % this.opts.length; } this.$nextTick(()=>this.scrollActive()); }, " +
+				"jump(i){ this.open = true; this.active = i; this.$nextTick(()=>this.scrollActive()); }, " +
+				"typeahead(k){ if(!/^[a-z0-9]$/i.test(k)) return; const start = (this.active + 1) % this.opts.length; " +
+				"for(let n=0; n<this.opts.length; n++){ const i = (start + n) % this.opts.length; " +
+				"if(this.opts[i].l.toLowerCase().startsWith(k.toLowerCase())){ this.jump(i); return; } } }, " +
+				"scrollActive(){ const el = this.$refs['opt-'+this.active]; if(el && el.scrollIntoView) el.scrollIntoView({block:'nearest'}); } }" }
+		@keydown.escape.window="if(open){ open = false; $refs.trigger.focus(); }"
+		@click.away="open = false"
+		class="relative h-fit self-start inline-flex items-stretch gap-2 flex-wrap"
+	>
+		<div class="relative h-fit self-start">
+			if p.Label != "" {
+				<label for={ btnID } class="block font-mono text-[10px] text-accent uppercase tracking-widest mb-1">{ p.Label }</label>
+			}
+			<button
+				id={ btnID }
+				x-ref="trigger"
+				type="button"
+				role="combobox"
+				aria-haspopup="listbox"
+				aria-controls={ listID }
+				:aria-expanded="open.toString()"
+				:aria-activedescendant={ "open && active >= 0 ? '" + listID + "-opt-' + active : null" }
+				@click="toggle()"
+				@keydown.arrow-down.prevent="move(1)"
+				@keydown.arrow-up.prevent="move(-1)"
+				@keydown.home.prevent="jump(0)"
+				@keydown.end.prevent="jump(opts.length - 1)"
+				@keydown.enter.prevent="open ? pick(active) : toggle()"
+				@keydown.space.prevent="open ? pick(active) : toggle()"
+				@keydown="if(open && $event.key.length === 1) typeahead($event.key)"
+				:class="sel ? 'border-primary text-primary ring-1 ring-primary/30' : ''"
+				class="cp-field clip-tag flex items-center gap-2 w-full text-left transition-colors"
+			>
+				if p.Icon != "" {
+					<span class="text-accent font-mono text-sm flex-none" aria-hidden="true">{ p.Icon }</span>
+				}
+				<span class="flex-1 truncate" x-text={ "labelOf(sel) || '" + placeholder + "'" } :class="!sel && 'text-muted'"></span>
+				<!-- Inline spinner — visible only while the hidden input is making an HTMX request -->
+				<span class="htmx-indicator cp-spinner flex-none" style="width:12px;height:12px;border-width:1.5px"></span>
+				<span class="text-accent transition-transform flex-none" :class="open && 'rotate-180'">▾</span>
+			</button>
 		</div>
+		<!-- Hidden form-bearing input — this is the element HTMX actually wires onto.
+		     We dispatch a synthetic `change` event from Alpine on every selection,
+		     and HTMX handles the request + target swap from there. -->
+		<input
+			id={ inputID }
+			x-ref="input"
+			type="hidden"
+			name={ p.Name }
+			:value="sel"
+			hx-get={ p.URL }
+			hx-trigger={ trigger }
+			hx-target={ p.Target }
+			hx-swap={ swap }
+			if p.Include != "" {
+				hx-include={ p.Include }
+			}
+			hx-indicator={ "#" + btnID + " .htmx-indicator" }
+			{ p.Attrs... }
+		/>
+		<!-- One-click clear chip — only rendered when a non-default value is active -->
+		<button
+			type="button"
+			x-show="sel"
+			x-cloak
+			x-transition.opacity.duration.100ms
+			@click="clear()"
+			class="cp-field clip-tag inline-flex items-center gap-1 px-2 font-mono text-[10px] uppercase tracking-widest border-error/60 text-error hover:bg-error/10"
+			aria-label="Clear filter"
+		>
+			<span aria-hidden="true">×</span>
+			<span>Clear</span>
+		</button>
+		<ul
+			id={ listID }
+			role="listbox"
+			tabindex="-1"
+			aria-labelledby={ btnID }
+			x-show="open"
+			x-cloak
+			x-transition.opacity.duration.150ms
+			class="absolute z-10 top-full left-0 mt-1 min-w-full bg-panel border border-accent clip-panel max-h-52 overflow-auto py-1"
+		>
+			<!-- Placeholder/clear row — picking it resets the filter -->
+			<li
+				role="option"
+				:aria-selected="sel === ''"
+				@click="pick(-1); setVal('')"
+				:class="!sel ? 'bg-primary text-primary-fg' : 'hover:bg-accent/10 text-muted'"
+				class="cursor-pointer px-3 py-2 font-mono text-xs uppercase tracking-widest italic"
+			>{ placeholder }</li>
+			for i, o := range p.Opts {
+				{{ idx := i
+optID := listID + "-opt-" + itoa(i) }}
+				<li
+					id={ optID }
+					x-ref={ "opt-" + itoa(idx) }
+					role="option"
+					:aria-selected={ "sel === '" + o.Value + "'" }
+					@click={ "pick(" + itoa(idx) + ")" }
+					@mouseenter={ "active = " + itoa(idx) }
+					:class={
+						"sel === '" + o.Value + "' " +
+							"? 'bg-primary text-primary-fg' " +
+							": (active === " + itoa(idx) + " ? 'bg-accent/15 text-accent' : 'hover:bg-accent/10')",
+					}
+					class="cursor-pointer px-3 py-2 font-mono text-xs uppercase tracking-widest"
+				>{ o.Label }</li>
+			}
+		</ul>
 	</div>
 }
 
@@ -178,7 +439,7 @@ templ Combobox(p ComboboxProps) {
 		if p.Label != "" {
 			@FieldLabel(p.Label, "")
 		}
-		<div class="relative">
+		<div class="relative h-fit self-start">
 			<div
 				class="cp-field clip-tag flex flex-wrap gap-1 items-center min-h-[44px]"
 				@click="open = true; $refs.q.focus()"
@@ -267,10 +528,11 @@ type RangeProps struct {
 
 // Range is a slider with a coloured diamond thumb and a live-updating value chip.
 templ Range(p RangeProps) {
-	{{ step := p.Step
+	{{step := p.Step
 if step == 0 {
 	step = 1
-} }}
+}
+	}}
 	<div x-data={ "{ v: " + itoa(p.Value) + " }" }>
 		if p.Label != "" {
 			<div class="font-mono text-[11px] text-accent uppercase tracking-widest mb-1 flex justify-between">

@@ -548,38 +548,147 @@ func PermanentlyDeleteUser() echo.HandlerFunc {
 	}
 }
 
-// func Users() echo.HandlerFunc {
-// 	return func(c echo.Context) error {
-// 		ctx := c.Request().Context()
-// 		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
-// 		if err != nil {
-// 			return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusInternalServerError, Message: err.Error(), UserMessage: "Resource is not accessible"}, nil)
-// 		}
-// 		defer database.HandleTransaction(ctx, tx, &err)
-// 		repo := repository.New(tx)
+func Users() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		ctx := c.Request().Context()
+		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusInternalServerError, Message: err.Error(), UserMessage: "Resource is not accessible"}, nil)
+		}
+		defer database.HandleTransaction(ctx, tx, &err)
+		repo := repository.New(tx)
 
-// 		userID, _, authenticated := auth.GetSessionUser(c.Request())
-// 		if !authenticated {
-// 			return c.Redirect(http.StatusSeeOther, "/auth")
-// 		}
+		auser, authenticated := auth.GetSessionUser(c.Request())
+		if !authenticated {
+			return c.Redirect(http.StatusSeeOther, "/auth")
+		}
 
-// 		userUUID, err := uuid.Parse(userID)
-// 		if err != nil {
-// 			return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusInternalServerError, Message: err.Error(), UserMessage: "Resource is not accessible"}, nil)
-// 		}
+		totalUsers, err := repo.GetUsersCount(ctx)
+		if err != nil {
+			return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusInternalServerError, Message: err.Error(), UserMessage: "Resource is not accessible"}, nil)
+		}
 
-// 		user, err := repo.GetUserByID(ctx, userUUID)
-// 		if err != nil {
-// 			return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusInternalServerError, Message: err.Error(), UserMessage: "Resource is not accessible"}, nil)
-// 		}
+		rawUsers, err := repo.GetUsers(ctx, repository.GetUsersParams{
+			Limit:  10,
+			Offset: 0,
+		})
+		if err != nil {
+			return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusInternalServerError, Message: err.Error(), UserMessage: "Resource is not accessible"}, nil)
+		}
 
-// 		props := components.UsersProps{
+		users := helpers.MapSlice(rawUsers, func(user *repository.GetUsersRow) components.UserInfo {
 
-// 			CSRF:         c.Get("csrf").(string),
-// 		}
+			status := "Active"
+			if !user.IsActive {
+				status = "Inactive"
+			}
+			return components.UserInfo{
+				ID:        user.ID.String(),
+				Username:  user.Username,
+				Email:     user.Email,
+				Initials:  strings.Split(user.Username, "")[0],
+				Role:      user.Role,
+				Status:    status,
+				TwoFA:     user.TwofaEnabled,
+				LastLogin: user.LastLogin.Time.Format(time.RFC3339),
+				Gradient:  "primary",
+				// CanCreate: canManageUser(enums.Role(auser.Role), ActCreate, enums.Role(user.Role)),
+				CanEdit:   auth.CanManageUser(enums.Role(auser.Role), enums.ActEdit, enums.Role(user.Role)),
+				CanDelete: auth.CanManageUser(enums.Role(auser.Role), enums.ActDelete, enums.Role(user.Role)),
+			}
+		})
 
-// 		html := helpers.MustRenderHTML(components.SettingsUsersTab(props))
+		props := components.UsersProps{
+			Users:      users,
+			TotalUsers: int(totalUsers),
+			Viewer:     enums.Role(auser.Role),
+			Page:       1,
+			PerPage:    10,
+			CSRF:       c.Get("csrf").(string),
+		}
 
-// 		return c.Blob(http.StatusOK, "text/html", html)
-// 	}
-// }
+		html := helpers.MustRenderHTML(components.SettingsUsersTab(props))
+
+		return c.Blob(http.StatusOK, "text/html", html)
+	}
+}
+
+func CreateUser() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		var payload models.CreateNewUser
+
+		if err := c.Bind(&payload); err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusBadRequest, UserMessage: "invalid data sent", Message: fmt.Errorf("invalid form data: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		err := payload.Validate(0)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusBadRequest, UserMessage: "invalid data sent", Message: fmt.Errorf("invalid form data: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		auser, authenticated := auth.GetSessionUser(c.Request())
+		if !authenticated {
+			return c.Redirect(http.StatusSeeOther, "/auth")
+		}
+
+		if auser.Role == enums.Roles.USER.String() {
+			return c.Redirect(http.StatusSeeOther, "/auth")
+		}
+
+		if auser.Role == enums.Roles.ADMIN.String() && payload.Role == enums.Roles.DEVELOPER.String() {
+			tools.SetToastTrigger(c.Response(), enums.WarningToast, "You are not allowed to create a DEVELOPER user")
+			return c.NoContent(http.StatusBadRequest)
+		}
+
+		ctx := c.Request().Context()
+		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusInternalServerError, Message: err.Error(), UserMessage: "Resource is not accessible"}, nil)
+		}
+		defer database.HandleTransaction(ctx, tx, &err)
+		repo := repository.New(tx)
+
+		newUserID, err := uuid.NewV7()
+		if err != nil {
+			return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusInternalServerError, Message: err.Error(), UserMessage: "Resource is not accessible"}, nil)
+		}
+
+		hashedPassword, err := helpers.HashPassword(payload.Password)
+		if err != nil {
+			return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusInternalServerError, Message: err.Error(), UserMessage: "Resource is not accessible"}, nil)
+		}
+
+		_, err = repo.CreateUser(ctx, repository.CreateUserParams{
+			ID:           newUserID,
+			Username:     payload.Username,
+			Email:        payload.Email,
+			Role:         payload.Role,
+			PasswordHash: hashedPassword,
+		})
+		if err != nil {
+			return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusInternalServerError, Message: err.Error(), UserMessage: "Resource is not accessible"}, nil)
+		}
+
+		userInfo := components.UserInfo{
+			ID:        newUserID.String(),
+			Username:  payload.Username,
+			Email:     payload.Email,
+			Initials:  strings.Split(payload.Username, "")[0],
+			Role:      payload.Role,
+			Status:    "Active",
+			TwoFA:     false,
+			Gradient:  "primary",
+			CanEdit:   auth.CanManageUser(enums.Role(auser.Role), enums.ActEdit, enums.Role(payload.Role)),
+			CanDelete: auth.CanManageUser(enums.Role(auser.Role), enums.ActDelete, enums.Role(payload.Role)),
+		}
+
+		csrf := c.Get("csrf").(string)
+
+		html := helpers.MustRenderHTML(components.SettingsUserItem(userInfo, csrf))
+
+		tools.SetToastTrigger(c.Response(), enums.SuccessToast, "User created successfully")
+
+		return c.Blob(http.StatusOK, "text/html", html)
+
+	}
+}

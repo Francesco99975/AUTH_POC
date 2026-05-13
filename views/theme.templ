@@ -92,7 +92,13 @@ templ Theme(site models.Site) {
 					}
 				}
 				<div class="mt-4">
-					@ui.Pagination(3, 12)
+					@ui.Pagination(ui.PaginationProps{
+						Current: 3,
+						Total:   12,
+					
+						Window:  5,
+						PushURL: false,
+					})
 				</div>
 			}
 			@section("03", "Actions", "buttons, groups, fab, spinner, skeleton") {
@@ -306,7 +312,7 @@ templ Theme(site models.Site) {
 								{Value: "wc", Label: "Watson"},
 								{Value: "hw", Label: "Heywood"},
 								{Value: "pc", Label: "Pacifica"},
-								{Value: "nc", Label: "North City"},
+								// {Value: "nc", Label: "North City"},
 							},
 						})
 						@ui.Range(ui.RangeProps{Name: "vol", Label: "VOLUME", Min: 0, Max: 100, Value: 66, Unit: "%"})

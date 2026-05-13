@@ -238,3 +238,63 @@ func (r DisableTwoFARequest) Validate() error {
 	}
 	return nil
 }
+
+type CreateNewUser struct {
+	Username string `form:"username"`
+	Email    string `form:"email"`
+	Password string `form:"password"`
+	Role     string `form:"role"`
+}
+
+func (r *CreateNewUser) Validate(passwordSecurityLevel int) error {
+	if r.Username == "" {
+		return errors.New("username is required")
+	}
+	if r.Email == "" {
+		return errors.New("email is required")
+	}
+	if r.Password == "" {
+		return errors.New("password is required")
+	}
+	if r.Role == "" {
+		return errors.New("role is required")
+	}
+
+	if !strings.Contains(r.Email, "@") {
+		return errors.New("invalid email")
+	}
+
+	if boot.Environment.GoEnv == enums.Environments.PRODUCTION {
+		switch passwordSecurityLevel {
+		case 0:
+			if len(r.Password) < 8 {
+				return errors.New("password must be at least 8 characters")
+			}
+		case 1:
+			if len(r.Password) < 8 {
+				return errors.New("password must be at least 12 characters")
+			}
+
+			if !strings.ContainsAny(r.Password, "0123456789") {
+				return errors.New("password must contain at least one number")
+			}
+		case 2:
+			if len(r.Password) < 12 {
+				return errors.New("password must be at least 16 characters")
+			}
+
+			if !strings.ContainsAny(r.Password, "0123456789") {
+				return errors.New("password must contain at least one number")
+			}
+
+			if !strings.ContainsAny(r.Password, "!@#$%") {
+				return errors.New("password must contain at least one special character: !@#$%")
+			}
+		}
+
+		if !enums.IsRoleValid(r.Role) {
+			return errors.New("invalid role")
+		}
+	}
+	return nil
+}

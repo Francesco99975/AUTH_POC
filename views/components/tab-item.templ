@@ -88,7 +88,6 @@ templ CyberTabItem(props TabItemProps) {
 		type="button"
 		hx-get={ props.HxGet }
 		hx-target={ props.HxTarget }
-		hx-push-url={ props.HxPushURL }
 		@click={ "activeTab = '" + props.ID + "'" }
 		:class={ "activeTab === '" + props.ID + "' ? 'text-primary bg-primary/10 clip-tag' : 'text-accent/60 hover:text-accent'" }
 		class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors relative font-mono text-[10px] uppercase tracking-widest"
@@ -120,7 +119,6 @@ templ CyberTabItemDesktop(props TabItemProps) {
 		type="button"
 		hx-get={ props.HxGet }
 		hx-target={ props.HxTarget }
-		hx-push-url={ props.HxPushURL }
 		@click={ "activeTab = '" + props.ID + "'" }
 		:class={ "activeTab === '" + props.ID + "' ? 'bg-primary text-primary-fg font-bold' : 'text-accent hover:bg-accent/10'" }
 		class="flex items-center gap-2 px-4 py-2 clip-tag transition-colors relative font-mono text-xs uppercase tracking-widest"
