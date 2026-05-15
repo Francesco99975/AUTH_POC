@@ -49,6 +49,7 @@ type Querier interface {
 	GetUserByEmailOrUsername(ctx context.Context, email string) (*GetUserByEmailOrUsernameRow, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (*GetUserByIDRow, error)
 	GetUserByUsername(ctx context.Context, username string) (*GetUserByUsernameRow, error)
+	GetUserCountBySearch(ctx context.Context, arg GetUserCountBySearchParams) (int64, error)
 	GetUsers(ctx context.Context, arg GetUsersParams) ([]*GetUsersRow, error)
 	GetUsersByRole(ctx context.Context, arg GetUsersByRoleParams) ([]*GetUsersByRoleRow, error)
 	GetUsersByRoleCount(ctx context.Context, role string) (int64, error)
@@ -60,6 +61,7 @@ type Querier interface {
 	ReactivateUser(ctx context.Context, id uuid.UUID) error
 	RevokeAllUserRefreshTokens(ctx context.Context, userID uuid.UUID) error
 	RevokeRefreshToken(ctx context.Context, id uuid.UUID) error
+	SearchUsers(ctx context.Context, arg SearchUsersParams) ([]*SearchUsersRow, error)
 	UpdateRole(ctx context.Context, arg UpdateRoleParams) (*Role, error)
 	UpdateUserEmail(ctx context.Context, arg UpdateUserEmailParams) (*UpdateUserEmailRow, error)
 	UpdateUserLastLogin(ctx context.Context, id uuid.UUID) error

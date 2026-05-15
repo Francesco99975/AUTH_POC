@@ -163,6 +163,45 @@ OFFSET $2;
 SELECT COUNT(*)
 FROM users;
 
+-- name: GetUserCountBySearch :one
+WITH search_input AS (
+    SELECT
+        $1::text AS raw
+)
+SELECT COUNT(*)
+FROM users, search_input
+WHERE
+    (
+        $1 = ''
+        OR username % raw
+        OR email % raw
+    )
+    AND ($2 = '' OR role = $2);
+
+-- name: SearchUsers :many
+WITH search_input AS (
+    SELECT
+        $1::text AS raw
+)
+SELECT
+    id, role, username, email, is_active, is_email_verified,
+    twofa_enabled, last_login, created_at, updated_at,
+    GREATEST(
+        similarity(username, raw),
+        similarity(email, raw)
+    ) AS rank
+FROM users, search_input
+WHERE
+    (
+        $1 = ''
+        OR username % raw
+        OR email % raw
+    )
+    AND ($2 = '' OR role = $2)
+ORDER BY rank DESC
+LIMIT $3
+OFFSET ($4 - 1) * $3;
+
 
 -- name: GetUsersByRole :many
 SELECT id, role, username, email, is_active, is_email_verified, twofa_enabled, last_login, created_at, updated_at

@@ -68,13 +68,13 @@ templ UserManagementCard(props UsersProps) {
 		<!-- Create User Form -->
 		@CreateUserForm(props.CSRF, props.Viewer)
 		<!-- Filters -->
-		@UserFilters()
+		@UserFilters(props.Viewer)
 		<!-- Users List -->
 		<div class="divide-y divide-primary/10" id="users-list">
 			@UserList(props.Users, props.CSRF)
 		</div>
 		<!-- Pagination -->
-		@UsersPagination(props.TotalUsers/props.PerPage, props.Page, props.PerPage)
+		@UsersPagination(props.TotalUsers, props.Page, props.PerPage, false)
 	</div>
 }
 
@@ -151,30 +151,27 @@ templ CreateUserForm(csrf string, viewer enums.Role) {
 	</div>
 }
 
-templ UserFilters() {
+templ UserFilters(viewer enums.Role) {
 	<div class="px-4 sm:px-6 py-4 border-b border-primary/10 flex flex-col sm:flex-row gap-3">
 		<div class="flex-1">
 			@ui.Search(ui.SearchProps{
-				Name:        "search",
-				GetURL:      "/search/users",
-				TargetID:    "search-results",
-				DebounceMS:  300,
-				Label:       "Search Users",
-				Placeholder: "Search users...",
-				Include:     "[name='role_filter']",
+				Name:           "search",
+				GetURL:         "/search/users",
+				TargetID:       "users-list",
+				DebounceMS:     300,
+				Label:          "Search Users",
+				Placeholder:    "Search users...",
+				ExternalTarget: true,
+				Include:        "[name='role_filter']",
 			})
 		</div>
 		@ui.FilterSelect(ui.FilterSelectProps{
-			Name:  "role_filter",
-			Label: "Filter Role",
-			Opts: []ui.DropOption{
-				{Value: enums.Roles.USER.String(), Label: enums.Roles.USER.String()},
-				{Value: enums.Roles.ADMIN.String(), Label: enums.Roles.ADMIN.String()},
-				{Value: enums.Roles.DEVELOPER.String(), Label: enums.Roles.DEVELOPER.String()},
-			},
+			Name:    "role_filter",
+			Label:   "Filter Role",
+			Opts:    allowedCreateRoles(viewer),
 			URL:     "/search/users",
 			Trigger: "change",
-			Target:  "#users-list",
+			Target:  "users-list",
 			Swap:    "innerHTML",
 			Include: "[name='search']",
 		})
@@ -271,22 +268,28 @@ templ StatusBadge(status string) {
 	}
 }
 
-templ UsersPagination(total int, page int, perPage int) {
-	<div class="px-4 sm:px-6 py-4 border-t border-primary/10 flex flex-col sm:flex-row items-center justify-between gap-3">
+templ UsersPagination(total int, page int, perPage int, oob bool) {
+	<div
+		id="users-pagination"
+		if oob {
+			hx-swap-oob="true"
+		}
+		class="px-4 sm:px-6 py-4 border-t border-primary/10 flex flex-col sm:flex-row items-center justify-between gap-3"
+	>
 		<p class="text-sm text-primary/60">
 			Showing <span class="font-medium text-primary">{ strconv.Itoa((page-1)*perPage + 1) }-{ strconv.Itoa(min(page*perPage, total)) }</span> of <span class="font-medium text-primary">{ strconv.Itoa(total) }</span>
 		</p>
 		<div class="flex items-center gap-1">
 			@ui.Pagination(ui.PaginationProps{
-				Current: page,
-				Total:   total,
-				Window:  perPage,
-				URL:     "/search/users",
-				Target:  "#users-list",
-				Param:   "page",
-				Swap:    "innerHTML",
-				Include: "[name='search']",
-				PushURL: false,
+				Current:    page,
+				TotalRows:  total,
+				TotalPages: (total + perPage - 1) / perPage,
+				Window:     perPage,
+				URL:        "/search/users",
+				Target:     "users-list",
+				Swap:       "innerHTML",
+				Include:    "[name='search'], [name='role_filter']",
+				PushURL:    false,
 			})
 		</div>
 	</div>

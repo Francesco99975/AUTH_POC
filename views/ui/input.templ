@@ -392,14 +392,15 @@ templ Textarea(p TextareaProps) {
 //
 // Dynamic value / disabled / aria state belong on Attrs.
 type SearchProps struct {
-	Name        string
-	Label       string
-	Placeholder string
-	TargetID    string
-	GetURL      string
-	DebounceMS  int
-	Include     string
-	Attrs       templ.Attributes
+	Name           string
+	Label          string
+	Placeholder    string
+	TargetID       string
+	GetURL         string
+	DebounceMS     int
+	ExternalTarget bool
+	Include        string
+	Attrs          templ.Attributes
 }
 
 // Search is a debounced live-search input. Renders the results target container
@@ -441,7 +442,7 @@ templ Search(p SearchProps) {
 				/>
 			}
 		</div>
-		if p.TargetID != "" {
+		if p.TargetID != "" && !p.ExternalTarget {
 			<div id={ p.TargetID } class="mt-2 font-mono text-[11px] text-muted"></div>
 		}
 		{ children... }

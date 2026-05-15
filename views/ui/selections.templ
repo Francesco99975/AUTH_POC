@@ -280,21 +280,25 @@ type FilterSelectProps struct {
 //   • A `Clear` chip appears next to the trigger when a non-default value is
 //     selected. Clicking it resets `sel = ''` and re-fires the request.
 templ FilterSelect(p FilterSelectProps) {
-	{{ placeholder := p.Placeholder
+	{{placeholder := p.Placeholder
 if placeholder == "" {
 	placeholder = "All"
-} }}
-	{{ swap := p.Swap
+}
+	}}
+	{{swap := p.Swap
 if swap == "" {
 	swap = "innerHTML"
-} }}
-	{{ trigger := p.Trigger
+}
+	}}
+	{{trigger := p.Trigger
 if trigger == "" {
 	trigger = "change"
-} }}
-	{{ listID := p.Name + "-listbox"
+}
+	}}
+	{{listID := p.Name + "-listbox"
 btnID := p.Name + "-trigger"
-inputID := p.Name + "-input" }}
+inputID := p.Name + "-input"
+	}}
 	<div
 		x-data={ "{ open:false, sel: '" + p.Selected + "', active: -1, " +
 				"opts: " + dropOptsToJS(p.Opts) + ", " +
@@ -358,7 +362,7 @@ inputID := p.Name + "-input" }}
 			:value="sel"
 			hx-get={ p.URL }
 			hx-trigger={ trigger }
-			hx-target={ p.Target }
+			hx-target={ "#" + p.Target }
 			hx-swap={ swap }
 			if p.Include != "" {
 				hx-include={ p.Include }
@@ -398,8 +402,9 @@ inputID := p.Name + "-input" }}
 				class="cursor-pointer px-3 py-2 font-mono text-xs uppercase tracking-widest italic"
 			>{ placeholder }</li>
 			for i, o := range p.Opts {
-				{{ idx := i
-optID := listID + "-opt-" + itoa(i) }}
+				{{idx := i
+optID := listID + "-opt-" + itoa(i)
+				}}
 				<li
 					id={ optID }
 					x-ref={ "opt-" + itoa(idx) }

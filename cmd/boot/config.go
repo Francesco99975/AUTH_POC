@@ -24,6 +24,7 @@ type Config struct {
 	SessionEncryptionKey  string
 	JWTSecret             string
 	JWTTokenEncryptionKey string
+	PaginationWindow      int
 }
 
 var Environment = &Config{}
@@ -55,6 +56,7 @@ func LoadEnvVariables() error {
 	Environment.SessionEncryptionKey = os.Getenv("SESSION_ENCRYPTION_KEY")
 	Environment.JWTSecret = os.Getenv("JWT_SECRET")
 	Environment.JWTTokenEncryptionKey = os.Getenv("JWT_TOKEN_ENCRYPTION_KEY")
+	Environment.PaginationWindow = 10
 
 	return nil
 }

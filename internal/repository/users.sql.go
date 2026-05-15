@@ -369,6 +369,34 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (*GetU
 	return &i, err
 }
 
+const getUserCountBySearch = `-- name: GetUserCountBySearch :one
+WITH search_input AS (
+    SELECT
+        $1::text AS raw
+)
+SELECT COUNT(*)
+FROM users, search_input
+WHERE
+    (
+        $1 = ''
+        OR username % raw
+        OR email % raw
+    )
+    AND ($2 = '' OR role = $2)
+`
+
+type GetUserCountBySearchParams struct {
+	Column1 interface{} `json:"column_1"`
+	Column2 interface{} `json:"column_2"`
+}
+
+func (q *Queries) GetUserCountBySearch(ctx context.Context, arg GetUserCountBySearchParams) (int64, error) {
+	row := q.db.QueryRow(ctx, getUserCountBySearch, arg.Column1, arg.Column2)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const getUsers = `-- name: GetUsers :many
 SELECT id, role, username, email, is_active, is_email_verified, twofa_enabled, last_login, created_at, updated_at
 FROM users
@@ -519,6 +547,89 @@ WHERE id = $1
 func (q *Queries) ReactivateUser(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, reactivateUser, id)
 	return err
+}
+
+const searchUsers = `-- name: SearchUsers :many
+WITH search_input AS (
+    SELECT
+        $1::text AS raw
+)
+SELECT
+    id, role, username, email, is_active, is_email_verified,
+    twofa_enabled, last_login, created_at, updated_at,
+    GREATEST(
+        similarity(username, raw),
+        similarity(email, raw)
+    ) AS rank
+FROM users, search_input
+WHERE
+    (
+        $1 = ''
+        OR username % raw
+        OR email % raw
+    )
+    AND ($2 = '' OR role = $2)
+ORDER BY rank DESC
+LIMIT $3
+OFFSET ($4 - 1) * $3
+`
+
+type SearchUsersParams struct {
+	Column1 interface{} `json:"column_1"`
+	Column2 interface{} `json:"column_2"`
+	Limit   int32       `json:"limit"`
+	Column4 interface{} `json:"column_4"`
+}
+
+type SearchUsersRow struct {
+	ID              uuid.UUID          `json:"id"`
+	Role            string             `json:"role"`
+	Username        string             `json:"username"`
+	Email           string             `json:"email"`
+	IsActive        bool               `json:"is_active"`
+	IsEmailVerified bool               `json:"is_email_verified"`
+	TwofaEnabled    bool               `json:"twofa_enabled"`
+	LastLogin       pgtype.Timestamptz `json:"last_login"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	Rank            interface{}        `json:"rank"`
+}
+
+func (q *Queries) SearchUsers(ctx context.Context, arg SearchUsersParams) ([]*SearchUsersRow, error) {
+	rows, err := q.db.Query(ctx, searchUsers,
+		arg.Column1,
+		arg.Column2,
+		arg.Limit,
+		arg.Column4,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*SearchUsersRow
+	for rows.Next() {
+		var i SearchUsersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Role,
+			&i.Username,
+			&i.Email,
+			&i.IsActive,
+			&i.IsEmailVerified,
+			&i.TwofaEnabled,
+			&i.LastLogin,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Rank,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const updateUserEmail = `-- name: UpdateUserEmail :one

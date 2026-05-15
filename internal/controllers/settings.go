@@ -3,10 +3,12 @@ package controllers
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"strings"
 	"time"
 
+	"github.com/Francesco99975/authpoc/cmd/boot"
 	"github.com/Francesco99975/authpoc/internal/auth"
 	"github.com/Francesco99975/authpoc/internal/database"
 	"github.com/Francesco99975/authpoc/internal/enums"
@@ -568,10 +570,8 @@ func Users() echo.HandlerFunc {
 			return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusInternalServerError, Message: err.Error(), UserMessage: "Resource is not accessible"}, nil)
 		}
 
-		perPage := 5
-
 		rawUsers, err := repo.GetUsers(ctx, repository.GetUsersParams{
-			Limit:  int32(perPage),
+			Limit:  int32(boot.Environment.PaginationWindow),
 			Offset: 0,
 		})
 		if err != nil {
@@ -583,6 +583,8 @@ func Users() echo.HandlerFunc {
 				(auser.Role == enums.Roles.DEVELOPER.String() ||
 					user.Role != enums.Roles.DEVELOPER.String())
 		})
+
+		totalUsers = totalUsers - int64(len(rawUsers)-len(filteredUsers))
 
 		users := helpers.MapSlice(filteredUsers, func(user *repository.GetUsersRow) components.UserInfo {
 
@@ -610,7 +612,7 @@ func Users() echo.HandlerFunc {
 			TotalUsers: int(totalUsers),
 			Viewer:     enums.Role(auser.Role),
 			Page:       1,
-			PerPage:    perPage,
+			PerPage:    boot.Environment.PaginationWindow,
 			CSRF:       c.Get("csrf").(string),
 		}
 
@@ -702,5 +704,87 @@ func CreateUser() echo.HandlerFunc {
 
 		return c.Blob(http.StatusOK, "text/html", html)
 
+	}
+}
+
+func SearchUsers() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		search := c.QueryParam("search")
+		role := c.QueryParam("role_filter")
+		pageStr := c.QueryParam("page")
+		var page int
+
+		page, err := strconv.Atoi(pageStr)
+		if err != nil {
+			page = 1
+		}
+
+		auser, authenticated := auth.GetSessionUser(c.Request())
+		if !authenticated {
+			return c.Redirect(http.StatusSeeOther, "/auth")
+		}
+
+		ctx := c.Request().Context()
+		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "search error", Message: fmt.Errorf("unable to get transaction: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+		defer database.HandleTransaction(ctx, tx, &err)
+		repo := repository.New(tx)
+
+		rawUsers, err := repo.SearchUsers(ctx, repository.SearchUsersParams{
+			Column1: search,
+			Column2: role,
+			Limit:   int32(boot.Environment.PaginationWindow),
+			Column4: page,
+		})
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "search error", Message: fmt.Errorf("unable to get users: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		filteredUsers := helpers.FilteredSlice(rawUsers, func(user *repository.SearchUsersRow) bool {
+			return auser.ID != user.ID.String() &&
+				(auser.Role == enums.Roles.DEVELOPER.String() ||
+					user.Role != enums.Roles.DEVELOPER.String())
+		})
+
+		totalUsers, err := repo.GetUserCountBySearch(ctx, repository.GetUserCountBySearchParams{
+			Column1: search,
+			Column2: role,
+		})
+
+		totalUsers = totalUsers - int64(len(rawUsers)-len(filteredUsers))
+
+		users := helpers.MapSlice(filteredUsers, func(user *repository.SearchUsersRow) components.UserInfo {
+
+			status := "Active"
+			if !user.IsActive {
+				status = "Inactive"
+			}
+			return components.UserInfo{
+				ID:        user.ID.String(),
+				Username:  user.Username,
+				Email:     user.Email,
+				Initials:  strings.Split(user.Username, "")[0],
+				Role:      user.Role,
+				Status:    status,
+				TwoFA:     user.TwofaEnabled,
+				LastLogin: user.LastLogin.Time.Format(time.RFC3339),
+				Gradient:  "primary",
+				CanEdit:   auth.CanManageUser(enums.Role(auser.Role), enums.ActEdit, enums.Role(user.Role)),
+				CanDelete: auth.CanManageUser(enums.Role(auser.Role), enums.ActDelete, enums.Role(user.Role)),
+			}
+		})
+
+		if err != nil {
+			return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusInternalServerError, Message: err.Error(), UserMessage: "Resource is not accessible"}, nil)
+		}
+
+		csrf := c.Get("csrf").(string)
+
+		html := helpers.MustRenderHTML(components.UserList(users, csrf))
+		html = append(html, helpers.MustRenderHTML(components.UsersPagination(int(totalUsers), page, boot.Environment.PaginationWindow, true))...)
+
+		return c.Blob(http.StatusOK, "text/html", html)
 	}
 }

@@ -249,23 +249,24 @@ templ Breadcrumbs(crumbs ...Crumb) {
 //
 // Dynamic attrs (disabled, hx-headers, etc.) flow through Attrs.
 type PaginationProps struct {
-	Current int
-	Total   int
-	URL     string
-	Target  string
-	Param   string
-	Swap    string
-	Include string
-	PushURL bool
-	Window  int
-	Attrs   templ.Attributes
+	Current    int
+	TotalRows  int
+	TotalPages int
+	URL        string
+	Target     string
+	Param      string
+	Swap       string
+	Include    string
+	PushURL    bool
+	Window     int
+	Attrs      templ.Attributes
 }
 
 // Pagination is a compact, HTMX-driven server pager with sliding window
 // and ellipses. Hide entirely when there is only a single page.
 templ Pagination(p PaginationProps) {
-	if p.Total > 1 {
-		{{ pages := paginationPages(p.Current, p.Total, p.Window) }}
+	if p.TotalPages > 1 {
+		{{ pages := paginationPages(p.Current, p.TotalPages, p.Window) }}
 		<nav
 			class="flex items-center gap-1 font-mono text-xs"
 			aria-label="Pagination"
@@ -284,7 +285,7 @@ templ Pagination(p PaginationProps) {
 					@paginationBtn(p, n, false, itoa(n), "Go to page "+itoa(n), "w-8 h-7 flex items-center justify-center")
 				}
 			}
-			@paginationBtn(p, p.Current+1, p.Current >= p.Total, ">", "Next page", "px-2 py-1")
+			@paginationBtn(p, p.Current+1, p.Current >= p.TotalRows, ">", "Next page", "px-2 py-1")
 		</nav>
 	}
 }
@@ -314,7 +315,7 @@ if swap == "" {
 			class={ "clip-tag border border-border text-accent hover:bg-accent/10 transition-colors", sizing }
 			aria-label={ aria }
 			hx-get={ p.URL }
-			hx-target={ p.Target }
+			hx-target={ "#" + p.Target }
 			hx-swap={ swap }
 			hx-vals={ `{"` + param + `": ` + itoa(target) + `}` }
 			if p.Include != "" {

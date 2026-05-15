@@ -93,11 +93,11 @@ templ Theme(site models.Site) {
 				}
 				<div class="mt-4">
 					@ui.Pagination(ui.PaginationProps{
-						Current: 3,
-						Total:   12,
-					
-						Window:  5,
-						PushURL: false,
+						Current:    3,
+						TotalRows:  100,
+						TotalPages: 12,
+						Window:     5,
+						PushURL:    false,
 					})
 				</div>
 			}
