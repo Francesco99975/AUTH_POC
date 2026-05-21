@@ -632,6 +632,66 @@ func (q *Queries) SearchUsers(ctx context.Context, arg SearchUsersParams) ([]*Se
 	return items, nil
 }
 
+const updateUser = `-- name: UpdateUser :one
+UPDATE users
+SET
+    username      = $2,
+    email         = $3,
+    role          = $4,
+    is_active        = $5,
+    password_hash = $6,
+    updated_at    = NOW()
+WHERE id = $1
+RETURNING id, username, email, role, is_active, is_email_verified, twofa_enabled, created_at, updated_at, last_login
+`
+
+type UpdateUserParams struct {
+	ID           uuid.UUID `json:"id"`
+	Username     string    `json:"username"`
+	Email        string    `json:"email"`
+	Role         string    `json:"role"`
+	IsActive     bool      `json:"is_active"`
+	PasswordHash string    `json:"password_hash"`
+}
+
+type UpdateUserRow struct {
+	ID              uuid.UUID          `json:"id"`
+	Username        string             `json:"username"`
+	Email           string             `json:"email"`
+	Role            string             `json:"role"`
+	IsActive        bool               `json:"is_active"`
+	IsEmailVerified bool               `json:"is_email_verified"`
+	TwofaEnabled    bool               `json:"twofa_enabled"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	LastLogin       pgtype.Timestamptz `json:"last_login"`
+}
+
+func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (*UpdateUserRow, error) {
+	row := q.db.QueryRow(ctx, updateUser,
+		arg.ID,
+		arg.Username,
+		arg.Email,
+		arg.Role,
+		arg.IsActive,
+		arg.PasswordHash,
+	)
+	var i UpdateUserRow
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.Role,
+		&i.IsActive,
+		&i.IsEmailVerified,
+		&i.TwofaEnabled,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.LastLogin,
+	)
+	return &i, err
+}
+
 const updateUserEmail = `-- name: UpdateUserEmail :one
 UPDATE users
 SET

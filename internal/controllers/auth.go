@@ -233,9 +233,8 @@ func ManualEmailVerification() echo.HandlerFunc {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, Message: fmt.Sprintf("failed to mark email verification used: %v", err), UserMessage: "failed to verify email"}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
 		}
 
-		html := helpers.MustRenderHTML(components.InfoDisplay("Success", "Email Verified! Try to Signin"))
-
-		return c.Blob(http.StatusOK, "text/html", html)
+		c.Response().Header().Set("HX-Redirect", "/auth")
+		return c.NoContent(http.StatusOK)
 	}
 }
 
@@ -269,7 +268,24 @@ func SessionLogin() echo.HandlerFunc {
 		}
 
 		if !user.IsEmailVerified && user.Role != string(enums.Roles.DEVELOPER) {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusUnauthorized, UserMessage: "email not verified", Message: fmt.Errorf("email not verified: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			token, err := helpers.GenerateBase62Token(8)
+			if err != nil {
+				return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to generate token", Message: fmt.Errorf("failed to generate token: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			}
+			log.Debugf("Generated token: %v", token)
+
+			ev, err := repo.CreateEmailVerification(ctx, repository.CreateEmailVerificationParams{ID: uuid.New(), UserID: user.ID, Token: token, Email: user.Email, ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(time.Duration(30 * time.Minute)), Valid: true}})
+			if err != nil {
+				return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to Create email verification", Message: fmt.Errorf("failed to Create email verification: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			}
+
+			helpers.ResendEmailVerificationTemplate(user.Email, ev.Token)
+
+			csrf := c.Get("csrf").(string)
+
+			html := helpers.MustRenderHTML(components.EmailVerification(user.Email, csrf, "/verification/manual"))
+
+			return c.Blob(http.StatusCreated, "text/html", html)
 		}
 
 		if !helpers.CheckPasswordHash(payload.Password, user.PasswordHash) {

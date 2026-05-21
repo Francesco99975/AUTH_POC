@@ -7,15 +7,29 @@ package ui
 type ModalProps struct {
 	// Title appears in the glitch heading.
 	Title string
+	// Subtitle is the small monospace caption above the title (defaults to "// dialog").
+	Subtitle string
 	// OpenExpr is any Alpine expression that evaluates to a boolean, e.g. "modal".
 	// The Modal itself does NOT create this state — the parent must own it.
 	OpenExpr string
-	// MaxW controls width. Defaults to "max-w-md". Use "max-w-lg", "max-w-2xl", …
+	// MaxW controls width on >=sm screens. Defaults to "sm:max-w-md".
+	// Use "sm:max-w-lg", "sm:max-w-2xl", etc. On mobile the dialog is always full-width.
 	MaxW string
 }
 
-// Modal renders a centred dialog with scanline backdrop + focus trap.
-// The caller must provide `open` state via OpenExpr.
+// Modal renders a responsive dialog with scanline backdrop + focus trap.
+//
+// Layout strategy (mobile-first):
+//   • <sm: bottom-sheet — full-width, pinned to the bottom, slides up. This is
+//     the standard mobile pattern: thumbs reach the bottom, scrim fills the
+//     screen, no awkward side margins.
+//   • >=sm: centered card with a max-width controlled by MaxW.
+//   • The body (children) is the only scrollable region; header + optional
+//     footer stay sticky so actions are always reachable on tall content.
+//   • Hard caps height at 90vh / dvh-aware on mobile so the OS keyboard
+//     never pushes content out of view.
+//
+// The caller owns `open` state via OpenExpr.
 //
 //	<div x-data="{ modal:false }">
 //	  @Button(ButtonProps{Attrs: templ.Attributes{"@click": "modal = true"}}) { Open }
@@ -24,35 +38,80 @@ type ModalProps struct {
 //	  }
 //	</div>
 templ Modal(p ModalProps) {
-	<div
-		x-show={ p.OpenExpr }
-		x-cloak
-		class="fixed inset-0 z-50 grid place-items-center p-4"
-		@keydown.escape.window={ p.OpenExpr + " = false" }
-		role="dialog"
-		aria-modal="true"
-	>
-		<div class="absolute inset-0 bg-std/70 backdrop-blur-sm" @click={ p.OpenExpr + " = false" }></div>
+	{{subtitle := p.Subtitle
+if subtitle == "" {
+	subtitle = "// dialog"
+}
+	}}
+	{{maxW := p.MaxW
+if maxW == "" {
+	maxW = "sm:max-w-md"
+}
+	}}
+	{{/* x-teleport="body" lifts the entire modal out of the call site and
+   mounts it as a direct child of <body>. This is critical: position:fixed
+   is broken by ANY ancestor with `transform`, `filter`, `perspective`,
+   `contain`, or `will-change` (very common on table rows, animated
+   cards, and grid items). When that happens, "fixed" gets scoped to that
+   ancestor instead of the viewport — which is what produced the "modal
+   cut in half" symptom on mobile when triggered from inside a row.
+   Teleporting guarantees the dialog is always positioned relative to
+   the viewport, regardless of where it was authored. */
+	}}
+	<template x-teleport="body">
 		<div
 			x-show={ p.OpenExpr }
-			x-transition:enter="transition ease-out duration-200"
-			x-transition:enter-start="opacity-0 scale-95"
-			x-transition:enter-end="opacity-100 scale-100"
-			x-trap.inert.noscroll={ p.OpenExpr }
-			class={ "relative w-full neon-border clip-panel p-6", nonEmpty(p.MaxW, "max-w-md") }
+			x-cloak
+			x-init="window.htmx && window.htmx.process($el)"
+			class="fixed inset-0 z-50 flex flex-col justify-end items-stretch p-0 sm:items-center sm:justify-center sm:p-4"
+			@keydown.escape.window={ p.OpenExpr + " = false" }
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby={ p.OpenExpr + "-title" }
 		>
-			<div class="flex items-start justify-between mb-3">
-				<div>
-					<div class="font-mono text-[10px] text-accent/70 uppercase">
-						// dialog</div>
-						<h3 class="glitch neon-primary text-xl font-bold tracking-widest" data-text={ p.Title }>{ p.Title }</h3>
+			<div class="absolute inset-0 bg-std/70 backdrop-blur-sm" @click={ p.OpenExpr + " = false" } aria-hidden="true"></div>
+			<div
+				x-show={ p.OpenExpr }
+				x-transition:enter="transition ease-out duration-200"
+				x-transition:enter-start="opacity-0 translate-y-full sm:translate-y-0 sm:scale-95"
+				x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+				x-transition:leave="transition ease-in duration-150"
+				x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+				x-transition:leave-end="opacity-0 translate-y-full sm:translate-y-0 sm:scale-95"
+				x-trap.inert.noscroll={ p.OpenExpr }
+				class={
+					"relative w-full flex flex-col max-h-dvh sm:max-h-[85vh] " +
+						"neon-border clip-panel overflow-hidden " +
+						"pb-[env(safe-area-inset-bottom)] sm:pb-0 " +
+						"sm:w-full " + maxW,
+				}
+			>
+				<!-- Sticky header — always visible while the body scrolls -->
+				<header class="flex items-start justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4 border-b border-border bg-panel">
+					<div class="min-w-0 flex-1">
+						<div class="font-mono text-[10px] text-accent/70 uppercase tracking-widest truncate">{ subtitle }</div>
+						<h3
+							id={ p.OpenExpr + "-title" }
+							class="glitch neon-primary text-base sm:text-xl font-bold tracking-widest truncate mt-3"
+							data-text={ p.Title }
+						>{ p.Title }</h3>
 					</div>
-					<button type="button" @click={ p.OpenExpr + " = false" } class="text-accent" aria-label="Close">✕</button>
+					<button
+						type="button"
+						@click={ p.OpenExpr + " = false" }
+						class="flex-none w-8 h-8 flex items-center justify-center text-accent hover:bg-accent/10 transition-colors rounded"
+						aria-label="Close dialog"
+					>
+						<span aria-hidden="true">✕</span>
+					</button>
+				</header>
+				<!-- Scrollable body — the ONLY thing that scrolls when content overflows -->
+				<div class="flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5">
+					{ children... }
 				</div>
-				{ children... }
 			</div>
 		</div>
-	</div>
+	</template>
 }
 
 // DrawerSide is "left" or "right".

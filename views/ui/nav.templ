@@ -264,28 +264,50 @@ type PaginationProps struct {
 
 // Pagination is a compact, HTMX-driven server pager with sliding window
 // and ellipses. Hide entirely when there is only a single page.
+//
+// Responsive strategy:
+//   • <sm: compact bar — prev / "page X of Y" pill / next. Always fits on a
+//     phone, no horizontal overflow regardless of Total.
+//   • >=sm: full numbered window with ellipses (the desktop UX).
+//
+// Both layouts read the same server-rendered state, so there is no JS-side
+// branching and no risk of the two going out of sync.
 templ Pagination(p PaginationProps) {
 	if p.TotalPages > 1 {
 		{{ pages := paginationPages(p.Current, p.TotalPages, p.Window) }}
 		<nav
-			class="flex items-center gap-1 font-mono text-xs"
+			class="font-mono text-xs"
 			aria-label="Pagination"
 			role="navigation"
 		>
-			@paginationBtn(p, p.Current-1, p.Current <= 1, "<", "Previous page", "px-2 py-1")
-			for _, n := range pages {
-				if n == 0 {
-					<span class="px-1 text-muted select-none" aria-hidden="true">…</span>
-				} else if n == p.Current {
-					<span
-						aria-current="page"
-						class="w-8 h-7 clip-tag bg-primary text-primary-fg flex items-center justify-center"
-					>{ itoa(n) }</span>
-				} else {
-					@paginationBtn(p, n, false, itoa(n), "Go to page "+itoa(n), "w-8 h-7 flex items-center justify-center")
+			<!-- Mobile: compact prev / indicator / next. Avoids horizontal overflow
+			     for any value of Total because there are exactly 3 elements. -->
+			<div class="flex sm:hidden items-center justify-between gap-2 w-full">
+				@paginationBtn(p, p.Current-1, p.Current <= 1, "‹ PREV", "Previous page", "px-3 py-1.5 flex-none")
+				<span
+					class="flex-1 text-center text-muted truncate"
+					aria-live="polite"
+				>page <span class="text-accent">{ itoa(p.Current) }</span> of { itoa(p.TotalPages) }</span>
+				@paginationBtn(p, p.Current+1, p.Current >= p.TotalPages, "NEXT >", "Next page", "px-3 py-1.5 flex-none")
+			</div>
+			<!-- Desktop: full numbered window. flex-wrap is a safety net for very
+			     narrow tablet widths or unusually large Window values. -->
+			<div class="hidden sm:flex items-center gap-1 flex-wrap">
+				@paginationBtn(p, p.Current-1, p.Current <= 1, "<", "Previous page", "px-2 py-1")
+				for _, n := range pages {
+					if n == 0 {
+						<span class="px-1 text-muted select-none" aria-hidden="true">…</span>
+					} else if n == p.Current {
+						<span
+							aria-current="page"
+							class="w-8 h-7 clip-tag bg-primary text-primary-fg flex items-center justify-center"
+						>{ itoa(n) }</span>
+					} else {
+						@paginationBtn(p, n, false, itoa(n), "Go to page "+itoa(n), "w-8 h-7 flex items-center justify-center")
+					}
 				}
-			}
-			@paginationBtn(p, p.Current+1, p.Current >= p.TotalRows, ">", "Next page", "px-2 py-1")
+				@paginationBtn(p, p.Current+1, p.Current >= p.TotalPages, ">", "Next page", "px-2 py-1")
+			</div>
 		</nav>
 	}
 }

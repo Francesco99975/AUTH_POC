@@ -596,6 +596,7 @@ func Users() echo.HandlerFunc {
 				ID:        user.ID.String(),
 				Username:  user.Username,
 				Email:     user.Email,
+				Verified:  user.IsEmailVerified,
 				Initials:  strings.Split(user.Username, "")[0],
 				Role:      user.Role,
 				Status:    status,
@@ -667,7 +668,7 @@ func CreateUser() echo.HandlerFunc {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "Could not create User", Message: fmt.Errorf("unable to hash password: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
 
-		_, err = repo.CreateUser(ctx, repository.CreateUserParams{
+		createdUser, err := repo.CreateUser(ctx, repository.CreateUserParams{
 			ID:           newUserID,
 			Username:     payload.Username,
 			Email:        payload.Email,
@@ -678,19 +679,20 @@ func CreateUser() echo.HandlerFunc {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "Could not create User", Message: fmt.Errorf("unable to create user: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
 
-		err = repo.VerifyUserEmail(ctx, newUserID)
-		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "Could not create User", Message: fmt.Errorf("unable to verify email: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		var userStatus string = "Inactive"
+		if createdUser.IsActive {
+			userStatus = "Active"
 		}
 
 		userInfo := components.UserInfo{
-			ID:        newUserID.String(),
-			Username:  payload.Username,
-			Email:     payload.Email,
-			Initials:  strings.Split(payload.Username, "")[0],
-			Role:      payload.Role,
-			Status:    "Active",
-			TwoFA:     false,
+			ID:        createdUser.ID.String(),
+			Username:  createdUser.Username,
+			Email:     createdUser.Email,
+			Verified:  createdUser.IsEmailVerified,
+			Initials:  strings.Split(createdUser.Username, "")[0],
+			Role:      createdUser.Role,
+			Status:    userStatus,
+			TwoFA:     createdUser.TwofaEnabled,
 			Gradient:  "primary",
 			CanEdit:   auth.CanManageUser(enums.Role(auser.Role), enums.ActEdit, enums.Role(payload.Role)),
 			CanDelete: auth.CanManageUser(enums.Role(auser.Role), enums.ActDelete, enums.Role(payload.Role)),
@@ -701,6 +703,97 @@ func CreateUser() echo.HandlerFunc {
 		html := helpers.MustRenderHTML(components.SettingsUserItem(userInfo, csrf))
 
 		tools.SetToastTrigger(c.Response(), enums.SuccessToast, "User created successfully")
+
+		return c.Blob(http.StatusOK, "text/html", html)
+
+	}
+}
+
+func UpdateUser() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		id := c.Param("id")
+
+		userUUID, err := uuid.Parse(id)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusBadRequest, UserMessage: "invalid data sent", Message: fmt.Errorf("invalid form data: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		var payload models.UpdateUserRequest
+
+		if err := c.Bind(&payload); err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusBadRequest, UserMessage: "invalid data sent", Message: fmt.Errorf("invalid form data: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		err = payload.Validate(0)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusBadRequest, UserMessage: "invalid data sent", Message: fmt.Errorf("invalid form data: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		auser, authenticated := auth.GetSessionUser(c.Request())
+		if !authenticated {
+			return c.Redirect(http.StatusSeeOther, "/auth")
+		}
+
+		if auser.Role == enums.Roles.USER.String() {
+			return c.Redirect(http.StatusSeeOther, "/auth")
+		}
+
+		if auser.Role == enums.Roles.ADMIN.String() && payload.Role == enums.Roles.DEVELOPER.String() {
+			tools.SetToastTrigger(c.Response(), enums.WarningToast, "You are not allowed to update a DEVELOPER user")
+			return c.NoContent(http.StatusBadRequest)
+		}
+
+		isActive := payload.Active == "on"
+
+		hashedPassword, err := helpers.HashPassword(payload.Password)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "Could not create User", Message: fmt.Errorf("unable to hash password: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		ctx := c.Request().Context()
+		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "Could not update User", Message: fmt.Errorf("unable to get transaction: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+		defer database.HandleTransaction(ctx, tx, &err)
+		repo := repository.New(tx)
+
+		updatedUser, err := repo.UpdateUser(ctx, repository.UpdateUserParams{
+			ID:           userUUID,
+			Username:     payload.Username,
+			Role:         payload.Role,
+			Email:        payload.Email,
+			IsActive:     isActive,
+			PasswordHash: hashedPassword,
+		})
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "Could not create User", Message: fmt.Errorf("unable to create user: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		var userStatus string = "Inactive"
+		if updatedUser.IsActive {
+			userStatus = "Active"
+		}
+
+		userInfo := components.UserInfo{
+			ID:        updatedUser.ID.String(),
+			Username:  updatedUser.Username,
+			Email:     updatedUser.Email,
+			Verified:  updatedUser.IsEmailVerified,
+			Initials:  strings.Split(updatedUser.Username, "")[0],
+			Role:      updatedUser.Role,
+			Status:    userStatus,
+			TwoFA:     updatedUser.TwofaEnabled,
+			Gradient:  "primary",
+			CanEdit:   auth.CanManageUser(enums.Role(auser.Role), enums.ActEdit, enums.Role(payload.Role)),
+			CanDelete: auth.CanManageUser(enums.Role(auser.Role), enums.ActDelete, enums.Role(payload.Role)),
+		}
+
+		csrf := c.Get("csrf").(string)
+
+		html := helpers.MustRenderHTML(components.SettingsUserItem(userInfo, csrf))
+
+		tools.SetToastTrigger(c.Response(), enums.SuccessToast, "User updated successfully")
 
 		return c.Blob(http.StatusOK, "text/html", html)
 
@@ -765,6 +858,7 @@ func SearchUsers() echo.HandlerFunc {
 				ID:        user.ID.String(),
 				Username:  user.Username,
 				Email:     user.Email,
+				Verified:  user.IsEmailVerified,
 				Initials:  strings.Split(user.Username, "")[0],
 				Role:      user.Role,
 				Status:    status,
@@ -777,7 +871,7 @@ func SearchUsers() echo.HandlerFunc {
 		})
 
 		if err != nil {
-			return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusInternalServerError, Message: err.Error(), UserMessage: "Resource is not accessible"}, nil)
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "No users found", Message: fmt.Errorf("unable to get users: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
 
 		csrf := c.Get("csrf").(string)
@@ -786,5 +880,52 @@ func SearchUsers() echo.HandlerFunc {
 		html = append(html, helpers.MustRenderHTML(components.UsersPagination(int(totalUsers), page, boot.Environment.PaginationWindow, true))...)
 
 		return c.Blob(http.StatusOK, "text/html", html)
+	}
+}
+
+func DeleteUser() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		password := c.FormValue("password")
+
+		auser, authenticated := auth.GetSessionUser(c.Request())
+		if !authenticated {
+			return c.Redirect(http.StatusSeeOther, "/auth")
+		}
+
+		ctx := c.Request().Context()
+		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "Could not delete user", Message: fmt.Errorf("unable to get transaction to delete user: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+		defer database.HandleTransaction(ctx, tx, &err)
+		repo := repository.New(tx)
+
+		auserUUID, err := uuid.Parse(auser.ID)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse ID", Message: fmt.Errorf("could not parse ID: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		hash, err := repo.GetPasswordHash(ctx, auserUUID)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "admin not found", Message: fmt.Errorf("unable to find auser password: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		if !helpers.CheckPasswordHash(password, hash) {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusUnauthorized, UserMessage: "invalid password", Message: fmt.Errorf("invalid auser password: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		id := c.Param("id")
+		userID, err := uuid.Parse(id)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "Could not delete user", Message: fmt.Errorf("could not parse ID to delete user: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		err = repo.DeleteUser(ctx, userID)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "Could not delete user", Message: fmt.Errorf("could not delete user: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		tools.SetToastTrigger(c.Response(), enums.SuccessToast, "Successfully deleted user")
+		return c.NoContent(http.StatusCreated)
 	}
 }

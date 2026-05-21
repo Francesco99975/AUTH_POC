@@ -63,6 +63,7 @@ type Querier interface {
 	RevokeRefreshToken(ctx context.Context, id uuid.UUID) error
 	SearchUsers(ctx context.Context, arg SearchUsersParams) ([]*SearchUsersRow, error)
 	UpdateRole(ctx context.Context, arg UpdateRoleParams) (*Role, error)
+	UpdateUser(ctx context.Context, arg UpdateUserParams) (*UpdateUserRow, error)
 	UpdateUserEmail(ctx context.Context, arg UpdateUserEmailParams) (*UpdateUserEmailRow, error)
 	UpdateUserLastLogin(ctx context.Context, id uuid.UUID) error
 	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error

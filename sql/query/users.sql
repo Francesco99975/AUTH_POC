@@ -7,6 +7,18 @@ INSERT INTO users (
 RETURNING id, role, username, email, is_active, is_email_verified,
          twofa_enabled, last_login, created_at, updated_at;
 
+-- name: UpdateUser :one
+UPDATE users
+SET
+    username      = $2,
+    email         = $3,
+    role          = $4,
+    is_active        = $5,
+    password_hash = $6,
+    updated_at    = NOW()
+WHERE id = $1
+RETURNING id, username, email, role, is_active, is_email_verified, twofa_enabled, created_at, updated_at, last_login;
+
 -- name: GetUserByID :one
 SELECT id, role, username, email, is_active,
        is_email_verified, twofa_enabled, last_login,
@@ -215,5 +227,8 @@ OFFSET $3;
 SELECT COUNT(*)
 FROM users
 WHERE role = $1;
+
+
+
 
 
