@@ -623,6 +623,63 @@ func Users() echo.HandlerFunc {
 	}
 }
 
+func GetUser() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		id := c.Param("id")
+		userID, err := uuid.Parse(id)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "Invalid ID", Message: fmt.Errorf("invalid ID: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		auser, authenticated := auth.GetSessionUser(c.Request())
+		if !authenticated {
+			return c.Redirect(http.StatusSeeOther, "/auth")
+		}
+
+		ctx := c.Request().Context()
+		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "Could not get user", Message: fmt.Errorf("unable to get transaction to get user: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+		defer database.HandleTransaction(ctx, tx, &err)
+		repo := repository.New(tx)
+
+		user, err := repo.GetUserByID(ctx, userID)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "User not found", Message: fmt.Errorf("unable to get user: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		status := "Active"
+		if !user.IsActive {
+			status = "Inactive"
+		}
+		userInfo := components.UserInfo{
+			ID:        user.ID.String(),
+			Username:  user.Username,
+			Email:     user.Email,
+			Verified:  user.IsEmailVerified,
+			Initials:  strings.Split(user.Username, "")[0],
+			Role:      user.Role,
+			Status:    status,
+			TwoFA:     user.TwofaEnabled,
+			LastLogin: user.LastLogin.Time.Format(time.RFC3339),
+			Gradient:  "primary",
+			CanEdit:   auth.CanManageUser(enums.Role(auser.Role), enums.ActEdit, enums.Role(user.Role)),
+			CanDelete: auth.CanManageUser(enums.Role(auser.Role), enums.ActDelete, enums.Role(user.Role)),
+		}
+
+		data := models.GetDefaultSite(fmt.Sprintf("User: %s", user.Username), c.Request())
+
+		data.Nonce = c.Get("nonce").(string)
+		data.CSRF = c.Get("csrf").(string)
+
+		html := helpers.MustRenderHTML(views.UserDetails(data, userInfo))
+
+		return c.Blob(http.StatusOK, "text/html", html)
+
+	}
+}
+
 func CreateUser() echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var payload models.CreateNewUser

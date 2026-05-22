@@ -160,10 +160,11 @@ templ TwoFAQRCodeCard(props TwoFASetupProps) {
 					</div>
 				</div>
 				<!-- Code Input -->
-				@ui.OTP(ui.OTPProps{
+				@ui.CyberOTPInput(ui.OTPSingleProps{
 					Name:     "otp",
 					Label:    "One Time Password",
 					Required: true,
+					Length:   6,
 				})
 				<!-- Actions -->
 				<div class="flex flex-col-reverse sm:flex-row gap-3 sm:justify-between pt-4 border-t border-primary/10">
