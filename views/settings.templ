@@ -6,10 +6,34 @@ import (
 	"github.com/Francesco99975/authpoc/views/layouts"
 )
 
-templ Settings(site models.Site, tabProps layouts.TabLayoutProps, profileProps components.ProfileProps) {
+templ SettingsProfile(site models.Site, tabProps layouts.TabLayoutProps, profileProps components.ProfileProps) {
 	@layouts.AdminLayout(site) {
 		@layouts.CyberTabLayout(tabProps) {
 			@components.SettingsProfileTab(profileProps)
+		}
+	}
+}
+
+templ SettingsSecurity(site models.Site, tabProps layouts.TabLayoutProps, securityProps components.SecurityProps) {
+	@layouts.AdminLayout(site) {
+		@layouts.CyberTabLayout(tabProps) {
+			@components.SettingsSecurityTab(securityProps)
+		}
+	}
+}
+
+templ SettingsAccount(site models.Site, tabProps layouts.TabLayoutProps, accountProps components.AccountProps) {
+	@layouts.AdminLayout(site) {
+		@layouts.CyberTabLayout(tabProps) {
+			@components.SettingsAccountTab(accountProps)
+		}
+	}
+}
+
+templ SettingsUsers(site models.Site, tabProps layouts.TabLayoutProps, usersProps components.UsersProps) {
+	@layouts.AdminLayout(site) {
+		@layouts.CyberTabLayout(tabProps) {
+			@components.SettingsUsersTab(usersProps)
 		}
 	}
 }

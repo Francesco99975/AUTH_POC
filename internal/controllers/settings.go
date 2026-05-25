@@ -27,8 +27,12 @@ import (
 	"github.com/pquerna/otp/totp"
 )
 
-func Settings() echo.HandlerFunc {
+func Settings(tab string) echo.HandlerFunc {
 	return func(c echo.Context) error {
+
+		if tab == "" {
+			return c.Redirect(http.StatusSeeOther, "/settings/profile")
+		}
 
 		data := models.GetDefaultSite("Settings", c.Request())
 
@@ -61,24 +65,108 @@ func Settings() echo.HandlerFunc {
 		tabProps := layouts.TabLayoutProps{
 			Site:      data,
 			Tabs:      layouts.Tabs(user.Role),
-			ActiveTab: "profile",
+			ActiveTab: tab,
 		}
 
-		profileProps := components.ProfileProps{
-			Username:      user.Username,
-			Email:         user.Email,
-			EmailVerified: user.IsEmailVerified,
-			Initials:      strings.Split(user.Username, "")[0],
-			UserID:        user.ID.String(),
-			Role:          user.Role,
-			Created:       user.CreatedAt.Time.Format("January 2, 2006"),
-			LastLogin:     user.LastLogin.Time.Format("January 2, 2006"),
-			CSRF:          c.Get("csrf").(string),
+		switch tab {
+		case "profile":
+			profileProps := components.ProfileProps{
+				Username:      user.Username,
+				Email:         user.Email,
+				EmailVerified: user.IsEmailVerified,
+				Initials:      strings.Split(user.Username, "")[0],
+				UserID:        user.ID.String(),
+				Role:          user.Role,
+				Created:       user.CreatedAt.Time.Format("January 2, 2006"),
+				LastLogin:     user.LastLogin.Time.Format("January 2, 2006"),
+				CSRF:          c.Get("csrf").(string),
+			}
+
+			html := helpers.MustRenderHTML(views.SettingsProfile(data, tabProps, profileProps))
+
+			return c.Blob(http.StatusOK, "text/html", html)
+		case "security":
+			securityProps := components.SecurityProps{
+				TwoFAEnabled: user.TwofaEnabled,
+				CSRF:         c.Get("csrf").(string),
+			}
+
+			html := helpers.MustRenderHTML(views.SettingsSecurity(data, tabProps, securityProps))
+
+			return c.Blob(http.StatusOK, "text/html", html)
+		case "account":
+			accountProps := components.AccountProps{
+				IsActive:     user.IsActive,
+				TwoFAEnabled: user.TwofaEnabled,
+				UserEmail:    user.Email,
+				CSRF:         c.Get("csrf").(string),
+			}
+
+			html := helpers.MustRenderHTML(views.SettingsAccount(data, tabProps, accountProps))
+
+			return c.Blob(http.StatusOK, "text/html", html)
+		case "users":
+			totalUsers, err := repo.GetUsersCount(ctx)
+			if err != nil {
+				return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusInternalServerError, Message: err.Error(), UserMessage: "Resource is not accessible"}, nil)
+			}
+
+			rawUsers, err := repo.SearchUsers(ctx, repository.SearchUsersParams{
+				Column1: "",
+				Column2: "",
+				Limit:   int32(boot.Environment.PaginationWindow),
+				Column4: 1,
+			})
+			if err != nil {
+				return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusInternalServerError, Message: err.Error(), UserMessage: "Resource is not accessible"}, nil)
+			}
+
+			filteredUsers := helpers.FilteredSlice(rawUsers, func(user *repository.SearchUsersRow) bool {
+				return auser.ID != user.ID.String() &&
+					(auser.Role == enums.Roles.DEVELOPER.String() ||
+						user.Role != enums.Roles.DEVELOPER.String())
+			})
+
+			totalUsers = totalUsers - int64(len(rawUsers)-len(filteredUsers))
+
+			users := helpers.MapSlice(filteredUsers, func(user *repository.SearchUsersRow) components.UserInfo {
+
+				status := "Active"
+				if !user.IsActive {
+					status = "Inactive"
+				}
+				return components.UserInfo{
+					ID:        user.ID.String(),
+					Username:  user.Username,
+					Email:     user.Email,
+					Verified:  user.IsEmailVerified,
+					Initials:  strings.Split(user.Username, "")[0],
+					Role:      user.Role,
+					Status:    status,
+					TwoFA:     user.TwofaEnabled,
+					LastLogin: user.LastLogin.Time.Format(time.RFC3339),
+					Gradient:  "primary",
+					CanEdit:   auth.CanManageUser(enums.Role(auser.Role), enums.ActEdit, enums.Role(user.Role)),
+					CanDelete: auth.CanManageUser(enums.Role(auser.Role), enums.ActDelete, enums.Role(user.Role)),
+				}
+			})
+
+			usersProps := components.UsersProps{
+				Users:      users,
+				TotalUsers: int(totalUsers),
+				Viewer:     enums.Role(auser.Role),
+				Page:       1,
+				PerPage:    boot.Environment.PaginationWindow,
+				CSRF:       c.Get("csrf").(string),
+			}
+
+			html := helpers.MustRenderHTML(views.SettingsUsers(data, tabProps, usersProps))
+
+			return c.Blob(http.StatusOK, "text/html", html)
+
+		default:
+			return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusInternalServerError, Message: err.Error(), UserMessage: "Resource is not accessible"}, nil)
 		}
-
-		html := helpers.MustRenderHTML(views.Settings(data, tabProps, profileProps))
-
-		return c.Blob(http.StatusOK, "text/html", html)
 
 	}
 }
@@ -854,6 +942,63 @@ func UpdateUser() echo.HandlerFunc {
 
 		return c.Blob(http.StatusOK, "text/html", html)
 
+	}
+}
+
+func ReactivateUserAsAdmin() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		userID := c.Param("id")
+
+		auser, authenticated := auth.GetSessionUser(c.Request())
+		if !authenticated {
+			return c.Redirect(http.StatusSeeOther, "/auth")
+		}
+
+		ctx := c.Request().Context()
+		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "Could not update User", Message: fmt.Errorf("unable to get transaction: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+		defer database.HandleTransaction(ctx, tx, &err)
+		repo := repository.New(tx)
+
+		userUUID, err := uuid.Parse(userID)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse ID", Message: fmt.Errorf("could not parse ID: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		err = repo.ReactivateUser(ctx, userUUID)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not reactivate user", Message: fmt.Errorf("could not reactivate user: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		user, err := repo.GetUserByID(ctx, userUUID)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not reactivate user", Message: fmt.Errorf("could not reactivate user: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		tools.SetToastTrigger(c.Response(), enums.SuccessToast, "User reactivated successfully")
+
+		userInfo := components.UserInfo{
+			ID:        user.ID.String(),
+			Username:  user.Username,
+			Email:     user.Email,
+			Verified:  user.IsEmailVerified,
+			Initials:  strings.Split(user.Username, "")[0],
+			Role:      user.Role,
+			Status:    "Active",
+			TwoFA:     user.TwofaEnabled,
+			Gradient:  "primary",
+			CanEdit:   auth.CanManageUser(enums.Role(auser.Role), enums.ActEdit, enums.Role(user.Role)),
+			CanDelete: auth.CanManageUser(enums.Role(auser.Role), enums.ActDelete, enums.Role(user.Role)),
+			LastLogin: user.LastLogin.Time.Format(time.RFC822Z),
+		}
+
+		csrf := c.Get("csrf").(string)
+
+		html := helpers.MustRenderHTML(components.SettingsUserItem(userInfo, csrf))
+
+		return c.Blob(http.StatusOK, "text/html", html)
 	}
 }
 

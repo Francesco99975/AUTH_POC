@@ -6,21 +6,17 @@ import (
 )
 
 type TabItemProps struct {
-	ID        string
-	Label     string
-	Icon      templ.Component
-	IsActive  bool
-	HasBadge  bool
-	HxGet     string
-	HxTarget  string
-	HxPushURL string
+	ID       string
+	Label    string
+	Icon     templ.Component
+	IsActive bool
+	HasBadge bool
+	Href     string
 }
 
 templ TabItem(props TabItemProps) {
-	<button
-		type="button"
-		hx-get={ props.HxGet }
-		hx-target={ props.HxTarget }
+	<a
+		href={ templ.SafeURL(props.Href) }
 		@click={ "activeTab = '" + props.ID + "'" }
 		:class={ "activeTab === '" + props.ID + "' ? 'text-primary' : 'text-primary/40'" }
 		class="flex-1 flex flex-col items-center justify-center gap-1 hover:text-primary transition-colors relative"
@@ -32,14 +28,12 @@ templ TabItem(props TabItemProps) {
 			<div class="absolute top-1 right-1/4 w-2 h-2 bg-error rounded-full"></div>
 		}
 		<span class="text-xs font-medium">{ props.Label }</span>
-	</button>
+	</a>
 }
 
 templ TabItemDesktop(props TabItemProps) {
-	<button
-		type="button"
-		hx-get={ props.HxGet }
-		hx-target={ props.HxTarget }
+	<a
+		href={ templ.SafeURL(props.Href) }
 		@click={ "activeTab = '" + props.ID + "'" }
 		:class={ "activeTab === '" + props.ID + "' ? 'bg-primary/10 text-primary border-primary/20' : 'text-primary/60 border-transparent hover:bg-primary/5'" }
 		class="flex items-center gap-3 px-6 py-2.5 rounded-lg border transition-colors relative"
@@ -51,7 +45,7 @@ templ TabItemDesktop(props TabItemProps) {
 		if props.HasBadge {
 			<div class="w-2 h-2 bg-error rounded-full"></div>
 		}
-	</button>
+	</a>
 }
 
 // cyberGenerateTabIndicatorStyle is the cyberpunk-prefixed version of the
@@ -84,10 +78,8 @@ func cyberGenerateTabIndicatorStyle(tabs []TabConfig) string {
 // Functionality is unchanged: same hx-get / hx-target / hx-push-url, same
 // Alpine activeTab assignment, same :class active branch.
 templ CyberTabItem(props TabItemProps) {
-	<button
-		type="button"
-		hx-get={ props.HxGet }
-		hx-target={ props.HxTarget }
+	<a
+		href={ templ.SafeURL(props.Href) }
 		@click={ "activeTab = '" + props.ID + "'" }
 		:class={ "activeTab === '" + props.ID + "' ? 'text-primary bg-primary/10 clip-tag' : 'text-accent/60 hover:text-accent'" }
 		class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors relative font-mono text-[10px] uppercase tracking-widest"
@@ -103,7 +95,7 @@ templ CyberTabItem(props TabItemProps) {
 			<div class="absolute top-1 right-1/4 w-2 h-2 bg-error rounded-full shadow-[0_0_6px_var(--color-error)]" aria-label="New"></div>
 		}
 		<span>{ props.Label }</span>
-	</button>
+	</a>
 }
 
 // CyberTabItemDesktop is the desktop horizontal-bar tab. Cyberpunk treatment:
@@ -115,10 +107,8 @@ templ CyberTabItem(props TabItemProps) {
 //
 // Functionality unchanged.
 templ CyberTabItemDesktop(props TabItemProps) {
-	<button
-		type="button"
-		hx-get={ props.HxGet }
-		hx-target={ props.HxTarget }
+	<a
+		href={ templ.SafeURL(props.Href) }
 		@click={ "activeTab = '" + props.ID + "'" }
 		:class={ "activeTab === '" + props.ID + "' ? 'bg-primary text-primary-fg font-bold' : 'text-accent hover:bg-accent/10'" }
 		class="flex items-center gap-2 px-4 py-2 clip-tag transition-colors relative font-mono text-xs uppercase tracking-widest"
@@ -131,5 +121,5 @@ templ CyberTabItemDesktop(props TabItemProps) {
 		if props.HasBadge {
 			<div class="w-2 h-2 bg-error rounded-full shadow-[0_0_6px_var(--color-error)]" aria-label="New"></div>
 		}
-	</button>
+	</a>
 }
