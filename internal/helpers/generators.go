@@ -12,6 +12,51 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+func GenerateProofUUIDV7(isCollision func(error) bool, attempt func(uuid.UUID) error) (uuid.UUID, error) {
+	const maxAttempts = 3
+
+	for range maxAttempts {
+		id, err := uuid.NewV7()
+		if err != nil {
+			return uuid.Nil, fmt.Errorf("generating uuid: %w", err)
+		}
+
+		err = attempt(id)
+		if err == nil {
+			return id, nil
+		}
+
+		if isCollision(err) {
+			continue
+		}
+
+		return uuid.Nil, err
+	}
+
+	return uuid.Nil, fmt.Errorf("failed to generate unique uuid after %d attempts", maxAttempts)
+}
+
+func GenerateProofUUIDV4(isCollision func(error) bool, attempt func(uuid.UUID) error) (uuid.UUID, error) {
+	const maxAttempts = 3
+
+	for range maxAttempts {
+		id := uuid.New()
+
+		err := attempt(id)
+		if err == nil {
+			return id, nil
+		}
+
+		if isCollision(err) {
+			continue
+		}
+
+		return uuid.Nil, err
+	}
+
+	return uuid.Nil, fmt.Errorf("failed to generate unique uuid after %d attempts", maxAttempts)
+}
+
 func GenerateUniqueID() uint {
 	u := uuid.New()
 	hash := sha256.Sum256(u[:])

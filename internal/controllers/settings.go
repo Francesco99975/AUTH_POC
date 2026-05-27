@@ -803,25 +803,26 @@ func CreateUser() echo.HandlerFunc {
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
-		newUserID, err := uuid.NewV7()
-		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "Could not create User", Message: fmt.Errorf("unable to generate UUID: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
-		}
-
 		hashedPassword, err := helpers.HashPassword(payload.Password)
 		if err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "Could not create User", Message: fmt.Errorf("unable to hash password: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
 
-		createdUser, err := repo.CreateUser(ctx, repository.CreateUserParams{
-			ID:           newUserID,
-			Username:     payload.Username,
-			Email:        payload.Email,
-			Role:         payload.Role,
-			PasswordHash: hashedPassword,
+		var createdUser *repository.CreateUserRow
+
+		_, err = helpers.GenerateProofUUIDV7(database.IsPKCollision("users_pkey"), func(id uuid.UUID) error {
+			var insert_err error
+			createdUser, insert_err = repo.CreateUser(ctx, repository.CreateUserParams{
+				ID:           id,
+				Username:     payload.Username,
+				Email:        payload.Email,
+				Role:         payload.Role,
+				PasswordHash: hashedPassword,
+			})
+			return insert_err
 		})
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "Could not create User", Message: fmt.Errorf("unable to create user: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "Could not create User", Message: fmt.Errorf("unable to generate UUID: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
 
 		var userStatus string = "Inactive"

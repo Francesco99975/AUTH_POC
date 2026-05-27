@@ -2,9 +2,11 @@ package database
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/labstack/gommon/log"
 )
 
@@ -30,5 +32,19 @@ func HandleTransaction(ctx context.Context, tx pgx.Tx, err *error) {
 			*err = fmt.Errorf("commit failed: %w", commitErr)
 		}
 		log.Debug("Transaction committed")
+	}
+}
+
+func IsUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
+}
+
+func IsPKCollision(constraintName string) func(error) bool {
+	return func(err error) bool {
+		var pgErr *pgconn.PgError
+		return errors.As(err, &pgErr) &&
+			pgErr.Code == "23505" &&
+			pgErr.ConstraintName == constraintName
 	}
 }
