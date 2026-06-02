@@ -4,6 +4,195 @@ import "github.com/Francesco99975/authpoc/views/icons"
 
 import "github.com/Francesco99975/authpoc/views/ui"
 
+type TwoFAResetProps struct {
+	QRCodeDataURL string // Base64 encoded QR code image from otp library
+	Secret        string // The TOTP secret for manual entry
+	CSRF          string
+	Token         string
+	BackupCodeID  string
+}
+
+templ TwoFAQRCodeResetCard(props TwoFAResetProps) {
+	<div
+		id="twofa-setup-container"
+		x-data="{ showManualEntry: false, copied: false, step: 'qr' }"
+		class="rounded-xl border border-primary/10 bg-std shadow-sm overflow-hidden"
+	>
+		<!-- Header -->
+		<div class="border-b border-primary/10 px-4 sm:px-6 py-4 bg-primary/5">
+			<div class="flex items-center gap-3">
+				<div class="shrink-0 h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+					@icons.Shield("w-5 h-5 text-primary")
+				</div>
+				<div>
+					<h3 class="text-base sm:text-lg font-semibold text-primary">Set Up Two-Factor Authentication</h3>
+					<p class="text-sm text-primary/60" x-text="step === 'qr' ? 'Step 1 of 3: Scan QR Code' : 'Step 2 of 3: Enter Verification Code'"></p>
+				</div>
+			</div>
+		</div>
+		<!-- QR Code Step -->
+		<div
+			x-show="step === 'qr'"
+			x-transition:enter="transition ease-out duration-200"
+			x-transition:enter-start="opacity-0 translate-x-4"
+			x-transition:enter-end="opacity-100 translate-x-0"
+			x-transition:leave="transition ease-in duration-150"
+			x-transition:leave-start="opacity-100 translate-x-0"
+			x-transition:leave-end="opacity-0 -translate-x-4"
+		>
+			<!-- Body -->
+			<div class="p-4 sm:p-6 space-y-6">
+				<!-- Instructions -->
+				<div class="text-sm text-primary/70 space-y-2">
+					<p>Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.):</p>
+				</div>
+				<!-- QR Code Display -->
+				<div class="flex justify-center">
+					<div class="p-4 bg-white rounded-xl shadow-sm border border-primary/10">
+						<img src={ props.QRCodeDataURL } alt="2FA QR Code" class="w-48 h-48 sm:w-56 sm:h-56"/>
+					</div>
+				</div>
+				<!-- Manual Entry Toggle -->
+				<div class="text-center">
+					<button
+						type="button"
+						@click="showManualEntry = !showManualEntry"
+						class="text-sm text-primary hover:text-primary/80 underline underline-offset-2 transition-colors"
+					>
+						<span x-text="showManualEntry ? 'Hide manual entry code' : 'Enter code manually'"></span>
+					</button>
+				</div>
+				<!-- Manual Secret Entry -->
+				<div
+					x-show="showManualEntry"
+					x-cloak
+					x-transition:enter="transition ease-out duration-200"
+					x-transition:enter-start="opacity-0 -translate-y-2"
+					x-transition:enter-end="opacity-100 translate-y-0"
+					class="p-4 rounded-lg bg-primary/5 border border-primary/10"
+				>
+					<label class="block text-sm font-medium text-primary mb-2">Secret Key</label>
+					<div class="flex items-center gap-2">
+						<code class="flex-1 px-3 py-2.5 rounded-lg bg-std border border-primary/20 font-mono text-sm text-primary break-all select-all">
+							{ props.Secret }
+						</code>
+						@ui.Button(ui.ButtonProps{
+							Variant: ui.ButtonGhostSuccess,
+							Size:    ui.ButtonMD,
+							FullW:   false,
+							Attrs: templ.Attributes{
+								"@click": "navigator.clipboard.writeText('" + props.Secret + "'); copied = true; setTimeout(() => copied = false, 2000)",
+								":class": "copied && 'bg-success/10 border-success/30 text-success'",
+							},
+						}) {
+							<span x-show="!copied">
+								@icons.Copy("w-5 h-5")
+							</span>
+							<span x-show="copied" x-cloak>
+								@icons.CheckIcon("w-5 h-5")
+							</span>
+						}
+					</div>
+					<p class="mt-2 text-xs text-primary/60">Enter this key manually in your authenticator app</p>
+				</div>
+			</div>
+			<!-- Footer -->
+			<div class="px-4 sm:px-6 py-4 border-t border-primary/10 flex flex-col sm:flex-row gap-3 sm:justify-between">
+				<form
+					hx-delete="/auth/2fa/cancel"
+					hx-target="#twofa-setup-container"
+					{ ui.WithLoading("cancel-indicator")... }
+					hx-swap="outerHTML"
+				>
+					@CSRF(props.CSRF)
+					@ui.Button(ui.ButtonProps{
+						Variant: ui.ButtonGhost,
+						Size:    ui.ButtonMD,
+						Type:    "submit",
+					
+						Loading: ui.LoadingConfig{IndicatorID: "cancel-indicator"},
+					}) {
+						<span>Cancel Setup</span>
+					}
+				</form>
+				@ui.Button(ui.ButtonProps{
+					Variant: ui.ButtonPrimary,
+					Size:    ui.ButtonMD,
+					Type:    ui.TypeButton,
+					Attrs: templ.Attributes{
+						"@click": "step = 'verify'",
+					},
+				}) {
+					<span>I've Added the Account</span>
+				}
+			</div>
+		</div>
+		<!-- Verification Step -->
+		<div
+			x-show="step === 'verify'"
+			x-cloak
+			x-transition:enter="transition ease-out duration-200"
+			x-transition:enter-start="opacity-0 translate-x-4"
+			x-transition:enter-end="opacity-100 translate-x-0"
+			x-transition:leave="transition ease-in duration-150"
+			x-transition:leave-start="opacity-100 translate-x-0"
+			x-transition:leave-end="opacity-0 -translate-x-4"
+		>
+			<!-- Body -->
+			<form
+				hx-post="/auth/2fa/verify"
+				hx-target="#twofa-setup-container"
+				hx-swap="outerHTML"
+				{ ui.WithLoading("verify-code-indicator")... }
+				class="p-4 sm:p-6 space-y-6"
+			>
+				@CSRF(props.CSRF)
+				@ui.HiddenInput("token", props.Token)
+				@ui.HiddenInput("code", props.BackupCodeID)
+				<!-- Instructions -->
+				<div class="p-4 rounded-lg bg-info/5 border border-info/20">
+					<div class="flex gap-3">
+						<div class="shrink-0">
+							@icons.AlertCircle("w-5 h-5 text-info")
+						</div>
+						<div class="text-sm text-primary/70">
+							<p>Open your authenticator app and enter the 6-digit code shown for this account.</p>
+						</div>
+					</div>
+				</div>
+				<!-- Code Input -->
+				@ui.CyberOTPInput(ui.OTPSingleProps{
+					Name:     "otp",
+					Label:    "One Time Password",
+					Required: true,
+					Length:   6,
+				})
+				<!-- Actions -->
+				<div class="flex flex-col-reverse sm:flex-row gap-3 sm:justify-between pt-4 border-t border-primary/10">
+					@ui.Button(ui.ButtonProps{
+						Variant: ui.ButtonGhost,
+						Size:    ui.ButtonMD,
+						Type:    ui.TypeButton,
+						Attrs: templ.Attributes{
+							"@click": "step = 'qr'",
+						},
+					}) {
+						<span>Back to QR Code</span>
+					}
+					@ui.Button(ui.ButtonProps{
+						Variant: ui.ButtonPrimary,
+						Size:    ui.ButtonMD,
+						Type:    ui.TypeSubmit,
+						Loading: ui.LoadingConfig{IndicatorID: "verify-code-indicator"},
+					}) {
+						<span>Verify & Continue</span>
+					}
+				</div>
+			</form>
+		</div>
+	</div>
+}
+
 // TwoFASetupProps contains all data needed for 2FA setup flow
 type TwoFASetupProps struct {
 	QRCodeDataURL string // Base64 encoded QR code image from otp library
@@ -217,6 +406,72 @@ templ TwoFACheck(token string, csrf string) {
 			Label:      "One Time Password",
 			Length:     6,
 			Required:   true,
+			AutoSubmit: true,
+		})
+		<a hx-boost="true" class="text-sm text-primary/70 hover:underline" href={ templ.SafeURL("/auth/2fa/reset?token=" + token) }>I lost access to my authenticator app</a>
+		@ui.FormLoading("verify-code-indicator", "Verifying...")
+	</form>
+}
+
+templ TwoFAResetWithCode(token string, csrf string) {
+	<form
+		hx-post="/auth/2fa/reset"
+		{ ui.WithLoading("verify-code-indicator")... }
+		class="p-4 sm:p-6 space-y-6"
+	>
+		@CSRF(csrf)
+		@ui.HiddenInput("token", token)
+		<!-- Instructions -->
+		<div class="p-4 rounded-lg bg-info/5 border border-info/20">
+			<div class="flex gap-3">
+				<div class="shrink-0">
+					@icons.AlertCircle("w-5 h-5 text-warning")
+				</div>
+				<div class="text-sm text-primary/70">
+					<p>Since you lost access to your authenticator app, you'll need to use a recovery code to log in.</p>
+				</div>
+			</div>
+		</div>
+		<!-- Code Input -->
+		@ui.CyberCodeInput(ui.CodeInputProps{
+			Name:       "reset_code",
+			Label:      "Reset Code",
+			Required:   true,
+			Hint:       "Enter one of your OTP reset codes",
+			MaxLength:  10,
+			AutoSubmit: true,
+		})
+		<a hx-boost="true" class="text-sm text-primary/70 hover:underline" href={ templ.SafeURL("/auth/2fa/restore?token=" + token) }>I lost access to my OTP recovery codes</a>
+		@ui.FormLoading("verify-code-indicator", "Verifying...")
+	</form>
+}
+
+templ TwoFARestoreWithEmail(token string, csrf string) {
+	<form
+		hx-post="/auth/2fa/restore"
+		{ ui.WithLoading("verify-code-indicator")... }
+		class="p-4 sm:p-6 space-y-6"
+	>
+		@CSRF(csrf)
+		@ui.HiddenInput("token", token)
+		<!-- Instructions -->
+		<div class="p-4 rounded-lg bg-info/5 border border-info/20">
+			<div class="flex gap-3">
+				<div class="shrink-0">
+					@icons.AlertCircle("w-5 h-5 text-warning")
+				</div>
+				<div class="text-sm text-primary/70">
+					<p>Since you lost access to your authenticator app and recovery codes, you'll need to use a recovery code that will be sent to your email.</p>
+				</div>
+			</div>
+		</div>
+		<!-- Code Input -->
+		@ui.CyberCodeInput(ui.CodeInputProps{
+			Name:       "reset_code",
+			Label:      "Reset Code",
+			Required:   true,
+			Hint:       "Enter the code that was sent to your email",
+			MaxLength:  10,
 			AutoSubmit: true,
 		})
 		@ui.FormLoading("verify-code-indicator", "Verifying...")

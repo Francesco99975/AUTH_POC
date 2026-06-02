@@ -164,15 +164,22 @@ func VerifyTwoFA() echo.HandlerFunc {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not enable 2fa", Message: fmt.Errorf("could not enable 2fa: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
 
-		recovery_backup_codes, err := helpers.GenerateBackupCodes(10)
-		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not generate backup codes", Message: fmt.Errorf("could not generate backup codes: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
-		}
+		var recovery_backup_codes *helpers.BackupCodes
 
-		err = repo.CreateBackupCodes(ctx, repository.CreateBackupCodesParams{
-			Column1: recovery_backup_codes.IDs,
-			Column2: slices.Repeat([]uuid.UUID{userUUID}, len(recovery_backup_codes.IDs)),
-			Column3: recovery_backup_codes.Hashed,
+		_, err = helpers.GenerateProofBulkUUIDV4(10, database.IsPKCollision("twofa_backup_codes_pkey"), func(ids []uuid.UUID) error {
+			var gen_err error
+			recovery_backup_codes, gen_err = helpers.GenerateBackupCodes(ids)
+			if gen_err != nil {
+				return gen_err
+			}
+
+			err = repo.CreateBackupCodes(ctx, repository.CreateBackupCodesParams{
+				Column1: recovery_backup_codes.IDs,
+				Column2: slices.Repeat([]uuid.UUID{userUUID}, len(recovery_backup_codes.IDs)),
+				Column3: recovery_backup_codes.Hashed,
+			})
+
+			return err
 		})
 		if err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not store backup codes", Message: fmt.Errorf("could not store backup codes: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)

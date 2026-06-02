@@ -11,6 +11,19 @@ import (
 	"github.com/google/uuid"
 )
 
+const countUnusedBackupCodesForUser = `-- name: CountUnusedBackupCodesForUser :one
+SELECT count(*)
+FROM twofa_backup_codes
+WHERE user_id = $1 AND used = FALSE
+`
+
+func (q *Queries) CountUnusedBackupCodesForUser(ctx context.Context, userID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countUnusedBackupCodesForUser, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createBackupCodes = `-- name: CreateBackupCodes :exec
 INSERT INTO twofa_backup_codes (
     id, user_id, code_hash

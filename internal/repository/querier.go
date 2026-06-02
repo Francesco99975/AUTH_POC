@@ -16,6 +16,7 @@ type Querier interface {
 	CleanupExpiredRefreshTokens(ctx context.Context) error
 	CleanupInactiveUsers(ctx context.Context) error
 	CountRoles(ctx context.Context) (int64, error)
+	CountUnusedBackupCodesForUser(ctx context.Context, userID uuid.UUID) (int64, error)
 	CreateBackupCodes(ctx context.Context, arg CreateBackupCodesParams) error
 	CreateEmailVerification(ctx context.Context, arg CreateEmailVerificationParams) (*CreateEmailVerificationRow, error)
 	CreatePasswordReset(ctx context.Context, arg CreatePasswordResetParams) (*CreatePasswordResetRow, error)

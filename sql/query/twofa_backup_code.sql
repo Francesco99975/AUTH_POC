@@ -5,6 +5,11 @@ INSERT INTO twofa_backup_codes (
     unnest($1::uuid[]), unnest($2::uuid[]), unnest($3::text[])
 );
 
+-- name: CountUnusedBackupCodesForUser :one
+SELECT count(*)
+FROM twofa_backup_codes
+WHERE user_id = $1 AND used = FALSE;
+
 -- name: GetUnusedBackupCodesForUser :many
 SELECT id, code_hash
 FROM twofa_backup_codes

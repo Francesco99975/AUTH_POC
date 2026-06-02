@@ -57,6 +57,35 @@ func GenerateProofUUIDV4(isCollision func(error) bool, attempt func(uuid.UUID) e
 	return uuid.Nil, fmt.Errorf("failed to generate unique uuid after %d attempts", maxAttempts)
 }
 
+func GenerateProofBulkUUIDV4(bulk int, isCollision func(error) bool, attempt func([]uuid.UUID) error) ([]uuid.UUID, error) {
+	const maxAttempts = 3
+
+	if bulk < 1 || bulk > 100 {
+		return nil, fmt.Errorf("bulk must be 1-100, got %d", bulk)
+	}
+
+	uuids := make([]uuid.UUID, bulk)
+	for i := range bulk {
+		uuids[i] = uuid.New()
+	}
+
+	for range maxAttempts {
+
+		err := attempt(uuids)
+		if err == nil {
+			return uuids, nil
+		}
+
+		if isCollision(err) {
+			continue
+		}
+
+		return nil, err
+	}
+
+	return nil, fmt.Errorf("failed to generate unique uuid after %d attempts", maxAttempts)
+}
+
 func GenerateUniqueID() uint {
 	u := uuid.New()
 	hash := sha256.Sum256(u[:])
@@ -87,16 +116,16 @@ type BackupCodes struct {
 }
 
 // GenerateBackupCodes creates 8–10 secure backup codes
-func GenerateBackupCodes(count int) (*BackupCodes, error) {
-	if count < 5 || count > 12 {
-		return nil, fmt.Errorf("recommended count is 8-10, got %d", count)
+func GenerateBackupCodes(codesIds []uuid.UUID) (*BackupCodes, error) {
+	if len(codesIds) < 5 || len(codesIds) > 12 {
+		return nil, fmt.Errorf("recommended count is 8-10, got %d", len(codesIds))
 	}
 
-	ids := make([]uuid.UUID, count)
-	codes_plain := make([]string, count)
-	codes_hashes := make([]string, count)
+	ids := make([]uuid.UUID, len(codesIds))
+	codes_plain := make([]string, len(codesIds))
+	codes_hashes := make([]string, len(codesIds))
 
-	for i := range count {
+	for i := range len(codesIds) {
 		// 10 chars = ~59.8 bits entropy (very strong for one-time use)
 		plain, err := generateSecureCode(10)
 		if err != nil {
@@ -109,7 +138,7 @@ func GenerateBackupCodes(count int) (*BackupCodes, error) {
 			return nil, err
 		}
 
-		ids[i] = uuid.New()
+		ids[i] = codesIds[i]
 		codes_plain[i] = plain
 		codes_hashes[i] = string(hashed)
 

@@ -520,7 +520,12 @@ templ CyberEmailVerification(email string, csrf string, verify_url string) {
 			class="flex flex-col gap-4"
 		>
 			@CSRF(csrf)
-			@ui.GenericCodeInput("token", "Verification Code", "Check your email for the verification token")
+			@ui.CyberCodeInput(ui.CodeInputProps{
+				Name:     "token",
+				Label:    "Verification Code",
+				Required: true,
+				Hint:     "Check your email for the verification token",
+			})
 			@ui.Button(ui.ButtonProps{
 				Variant: ui.ButtonPrimary,
 				FullW:   true,

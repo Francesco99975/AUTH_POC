@@ -77,11 +77,17 @@ func ResetCheck() echo.HandlerFunc {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "an unexpected error occurred while trying to resert password", Message: fmt.Errorf("error during token generation for password reset: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
 
-		passwordReset, err := repo.CreatePasswordReset(ctx, repository.CreatePasswordResetParams{
-			ID:        uuid.New(),
-			UserID:    user.ID,
-			Token:     token,
-			ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(time.Minute * 30), Valid: true},
+		var passwordReset *repository.CreatePasswordResetRow
+
+		_, err = helpers.GenerateProofUUIDV4(database.IsPKCollision("password_resets_pkey"), func(id uuid.UUID) error {
+			var insert_err error
+			passwordReset, insert_err = repo.CreatePasswordReset(ctx, repository.CreatePasswordResetParams{
+				ID:        id,
+				UserID:    user.ID,
+				Token:     token,
+				ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(time.Minute * 30), Valid: true},
+			})
+			return insert_err
 		})
 		if err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "An Unexpected error occurred while trying to resert password", Message: fmt.Errorf("password reset entry was not created: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
@@ -132,11 +138,17 @@ func ResendReset() echo.HandlerFunc {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "An Unexpected error occurred while trying to resert password", Message: fmt.Errorf("error During Token generation for password reset: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
 
-		passwordReset, err := repo.CreatePasswordReset(ctx, repository.CreatePasswordResetParams{
-			ID:        uuid.New(),
-			UserID:    user.ID,
-			Token:     token,
-			ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(time.Minute * 30), Valid: true},
+		var passwordReset *repository.CreatePasswordResetRow
+
+		_, err = helpers.GenerateProofUUIDV4(database.IsPKCollision("password_resets_pkey"), func(id uuid.UUID) error {
+			var insert_err error
+			passwordReset, insert_err = repo.CreatePasswordReset(ctx, repository.CreatePasswordResetParams{
+				ID:        id,
+				UserID:    user.ID,
+				Token:     token,
+				ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(time.Minute * 30), Valid: true},
+			})
+			return insert_err
 		})
 		if err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "An Unexpected error occurred while trying to resert password", Message: fmt.Errorf("password reset entry was not created: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
