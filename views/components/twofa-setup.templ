@@ -471,7 +471,7 @@ templ TwoFARestoreWithEmail(token string, csrf string) {
 			Label:      "Reset Code",
 			Required:   true,
 			Hint:       "Enter the code that was sent to your email",
-			MaxLength:  10,
+			MaxLength:  8,
 			AutoSubmit: true,
 		})
 		@ui.FormLoading("verify-code-indicator", "Verifying...")

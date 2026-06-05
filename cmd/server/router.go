@@ -110,6 +110,7 @@ func createRouter() *echo.Echo {
 	web.POST("auth/2fa/verify", controllers.TwoFAVerifyReset())
 	web.DELETE("auth/2fa/cancel", controllers.TwoFACancelReset())
 	web.GET("/auth/2fa/restore", controllers.TwoFARestoreForm())
+	web.POST("/auth/2fa/restore", controllers.TwoFARestore())
 	web.GET("/dashboard", controllers.Dashboard(), middlewares.AuthMiddleware())
 	web.GET("/external/github", controllers.RefreshGithubData(), middlewares.AuthMiddleware())
 	web.GET("/external/coins", controllers.RefreshCryptoData(), middlewares.AuthMiddleware())

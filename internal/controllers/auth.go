@@ -419,20 +419,8 @@ func TwoFAResetForm() echo.HandlerFunc {
 		data.CSRF = c.Get("csrf").(string)
 
 		token := c.QueryParam("token")
+
 		html := helpers.MustRenderHTML(views.TwoFAReset(data, token))
-		return c.Blob(http.StatusOK, "text/html", html)
-	}
-}
-
-func TwoFARestoreForm() echo.HandlerFunc {
-	return func(c echo.Context) error {
-		data := models.GetDefaultSite("Restore Account", c.Request())
-
-		data.Nonce = c.Get("nonce").(string)
-		data.CSRF = c.Get("csrf").(string)
-
-		token := c.QueryParam("token")
-		html := helpers.MustRenderHTML(views.TwoFARestore(data, token))
 		return c.Blob(http.StatusOK, "text/html", html)
 	}
 }
@@ -601,6 +589,109 @@ func TwoFAVerifyReset() echo.HandlerFunc {
 
 		c.Response().Header().Set("HX-Redirect", "/auth")
 		return c.NoContent(http.StatusOK)
+	}
+}
+
+func TwoFARestoreForm() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		data := models.GetDefaultSite("Restore Account", c.Request())
+
+		data.Nonce = c.Get("nonce").(string)
+		data.CSRF = c.Get("csrf").(string)
+
+		token := c.QueryParam("token")
+
+		auser, err := auth.ValidateAndDecryptToken(token)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse temp jwt token", Message: fmt.Errorf("could not parse temp jwt token: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		}
+
+		auserUUID, err := uuid.Parse(auser.ID)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse ID", Message: fmt.Errorf("could not parse ID: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		}
+
+		code, err := helpers.GenerateBase62Token(8)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to generate token", Message: fmt.Errorf("failed to generate token: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		}
+		log.Debugf("Generated code: %v", code)
+
+		ctx := c.Request().Context()
+		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "database error occurred", Message: fmt.Errorf("unable to get transaction: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		}
+		defer database.HandleTransaction(ctx, tx, &err)
+		repo := repository.New(tx)
+
+		var ev *repository.CreateEmailVerificationRow
+
+		_, err = helpers.GenerateProofUUIDV4(database.IsPKCollision("email_verifications_pkey"), func(id uuid.UUID) error {
+			var insert_err error
+			ev, insert_err = repo.CreateEmailVerification(ctx, repository.CreateEmailVerificationParams{ID: uuid.New(), UserID: auserUUID, Token: code, Email: auser.Email, ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(time.Duration(30 * time.Minute)), Valid: true}})
+			return insert_err
+		})
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to Create email verification", Message: fmt.Errorf("failed to Create email verification: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		}
+
+		helpers.ResendEmailVerificationTemplate(auser.Email, ev.Token)
+		html := helpers.MustRenderHTML(views.TwoFARestore(data, token))
+		return c.Blob(http.StatusOK, "text/html", html)
+	}
+}
+
+func TwoFARestore() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		resetCode := c.FormValue("reset_code")
+		if resetCode == "" {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusBadRequest, UserMessage: "reset code is required", Message: "reset code is required"}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		}
+
+		ctx := c.Request().Context()
+
+		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to open database on signup", Message: fmt.Errorf("failed to open database on signup: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		}
+		defer database.HandleTransaction(ctx, tx, &err)
+		repo := repository.New(tx)
+
+		verification, err := repo.GetEmailVerificationByToken(ctx, resetCode)
+
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to get email verification", Message: fmt.Errorf("failed to get email verification: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		}
+
+		if verification.ExpiresAt.Time.Before(time.Now()) {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusBadRequest, UserMessage: "token expired", Message: fmt.Errorf("token expired: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		}
+
+		err = repo.VerifyUserEmail(ctx, verification.UserID)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to verify email", Message: fmt.Errorf("failed to verify email: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		}
+
+		err = repo.MarkEmailVerificationUsed(ctx, verification.Token)
+
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, Message: fmt.Sprintf("failed to mark email verification used: %v", err), UserMessage: "failed to verify email"}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		}
+
+		err = repo.DeleteUserBackupCodes(ctx, verification.UserID)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, Message: fmt.Sprintf("failed to delete user backup codes: %v", err), UserMessage: "failed to verify email"}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		}
+
+		err = repo.DisableUser2FA(ctx, verification.UserID)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, Message: fmt.Sprintf("failed to disable user 2FA: %v", err), UserMessage: "failed to verify email"}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		}
+
+		c.Response().Header().Set("HX-Redirect", "/auth")
+		return c.NoContent(http.StatusOK)
+
 	}
 }
 
