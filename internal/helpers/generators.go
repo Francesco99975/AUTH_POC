@@ -4,12 +4,13 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"strings"
 
 	"github.com/google/uuid"
-	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/crypto/blake2b"
 )
 
 func GenerateProofUUIDV7(isCollision func(error) bool, attempt func(uuid.UUID) error) (uuid.UUID, error) {
@@ -115,6 +116,15 @@ type BackupCodes struct {
 	Hashed []string
 }
 
+func hashBackupCode(code string) (string, error) {
+	h, err := blake2b.New512(nil)
+	if err != nil {
+		return "", err
+	}
+	h.Write([]byte(code))
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
 // GenerateBackupCodes creates 8–10 secure backup codes
 func GenerateBackupCodes(codesIds []uuid.UUID) (*BackupCodes, error) {
 	if len(codesIds) < 5 || len(codesIds) > 12 {
@@ -133,7 +143,7 @@ func GenerateBackupCodes(codesIds []uuid.UUID) (*BackupCodes, error) {
 		}
 
 		// Hash it for storage (bcrypt default cost=10 is fine; 12–14 for more security)
-		hashed, err := bcrypt.GenerateFromPassword([]byte(plain), bcrypt.DefaultCost)
+		hashed, err := hashBackupCode(plain)
 		if err != nil {
 			return nil, err
 		}

@@ -3,6 +3,7 @@ package controllers
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"image/png"
 
@@ -18,7 +19,6 @@ import (
 	"github.com/Francesco99975/authpoc/internal/tools"
 	"github.com/Francesco99975/authpoc/views"
 	"github.com/Francesco99975/authpoc/views/components"
-	"golang.org/x/crypto/bcrypt"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -26,6 +26,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
 	"github.com/pquerna/otp/totp"
+	"golang.org/x/crypto/blake2b"
 )
 
 func SessionSignup() echo.HandlerFunc {
@@ -472,11 +473,23 @@ func TwoFAReset() echo.HandlerFunc {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusConflict, UserMessage: "No more backup codes available", Message: fmt.Errorf("no more backup codes available: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
 		}
 
-		codeHash, err := bcrypt.GenerateFromPassword([]byte(code), bcrypt.DefaultCost)
+		h, err := blake2b.New512(nil)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{
+				Error: helpers.GenericError{
+					Code:        http.StatusConflict,
+					UserMessage: "Code has already been used",
+					Message:     "code has already been used",
+				},
+				Box: enums.Boxes.TOAST_TR, Persistance: "5000",
+			}, nil)
+		}
+		h.Write([]byte(code))
+		codeHash := hex.EncodeToString(h.Sum(nil))
 
 		backupCode, err := repo.GetBackupCodeByHash(ctx, string(codeHash))
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "database error occurred", Message: fmt.Errorf("unable to get transaction: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "incorrect code, try another one", Message: fmt.Errorf("unable to get transaction: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
 		}
 
 		if backupCode.Used {

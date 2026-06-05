@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"path/filepath"
@@ -26,7 +25,7 @@ import (
 	"github.com/labstack/gommon/log"
 )
 
-func createRouter(ctx context.Context) *echo.Echo {
+func createRouter() *echo.Echo {
 	e := echo.New()
 	e.Use(middleware.RequestLogger())
 	e.Use(middleware.RemoveTrailingSlash())
@@ -107,6 +106,9 @@ func createRouter(ctx context.Context) *echo.Echo {
 	web.GET("/auth", controllers.Auth())
 	web.POST("auth/2fa/check", controllers.SessionLoginTwoFACheck())
 	web.GET("/auth/2fa/reset", controllers.TwoFAResetForm())
+	web.POST("/auth/2fa/reset", controllers.TwoFAReset())
+	web.POST("auth/2fa/verify", controllers.TwoFAVerifyReset())
+	web.DELETE("auth/2fa/cancel", controllers.TwoFACancelReset())
 	web.GET("/auth/2fa/restore", controllers.TwoFARestoreForm())
 	web.GET("/dashboard", controllers.Dashboard(), middlewares.AuthMiddleware())
 	web.GET("/external/github", controllers.RefreshGithubData(), middlewares.AuthMiddleware())

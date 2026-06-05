@@ -44,7 +44,7 @@ func main() {
 		panic(err)
 	}
 
-	e := createRouter(ctx)
+	e := createRouter()
 
 	err = tools.AddJob("cleanup", "0 0 * * *", func() {
 		repo := repository.New(database.Pool())
@@ -72,7 +72,7 @@ func main() {
 		e.Logger.Fatal(e.Start(":" + port))
 
 		if boot.Environment.GoEnv == enums.Environments.DEVELOPMENT {
-			e.Logger.Infof("Environement: %s", boot.Environment.DSN)
+			e.Logger.Infof("Environment: %s", boot.Environment.DSN)
 		}
 	}()
 
