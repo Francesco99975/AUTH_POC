@@ -138,7 +138,6 @@ func createRouter() *echo.Echo {
 	web.PATCH("/settings/users/:id", controllers.ReactivateUserAsAdmin(), middlewares.AuthMiddleware(), middlewares.IsAdminRoleMiddleware())
 	web.DELETE("/settings/users/:id", controllers.DeleteUser(), middlewares.AuthMiddleware(), middlewares.IsAdminRoleMiddleware())
 	web.GET("/search/users", controllers.SearchUsers(), middlewares.AuthMiddleware(), middlewares.IsAdminRoleMiddleware())
-	// web.GET("/settings/users", )
 	web.POST("/signup", controllers.SessionSignup())
 	web.POST("/verification/manual", controllers.ManualEmailVerification())
 	web.POST("/verification/update", controllers.UpdateManualEmailVerification(), middlewares.AuthMiddleware())

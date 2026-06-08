@@ -40,7 +40,6 @@ func SecurityHeaders() echo.MiddlewareFunc {
 				"object-src 'none'",
 				"frame-ancestors 'none'",
 				"base-uri 'self'",
-				"upgrade-insecure-requests",
 				"report-uri /csp-violation-report",
 			}
 

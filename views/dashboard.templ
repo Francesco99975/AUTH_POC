@@ -33,18 +33,18 @@ templ Dashboard(site models.Site, props DashboardProps) {
 					{ props.Email }
 				</p>
 			</div>
-			<section class="container mx-auto px-4 pt-8 pb-6">
-				<div class="flex items-end gap-4 flex-wrap">
+			<section class="mx-auto px-4 sm:px-6 pt-6 sm:pt-10 pb-4 sm:pb-6">
+				<div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-4 sm:flex-wrap">
 					<div>
 						<div class="font-mono text-[10px] text-accent uppercase tracking-widest">\\ telemetry node 06</div>
-						<h1 class="text-3xl sm:text-4xl font-bold neon-primary caret">API_COMPONENTS_DASHBOARD</h1>
+						<h1 class="text-lg sm:text-xl lg:text-2xl font-bold neon-primary caret">API_COMPONENTS_DASHBOARD</h1>
 					</div>
-					<p class="font-mono text-xs text-muted max-w-md">
+					<p class="font-mono text-xs text-muted max-w-xs sm:max-w-md">
 						Real public APIs feed every component below — GitHub Status, CoinGecko, Open-Meteo, USGS Seismic.
 					</p>
 				</div>
 			</section>
-			<div class="container mx-auto px-4 pb-20 grid grid-cols-1 lg:grid-cols-2 gap-6">
+			<div class="px-4 sm:px-6 pb-16 sm:pb-20 grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
 				@layouts.Poller("github-indicator", "Loading GitHub status...", "/external/github", time.Second*60) {
 					@GithubStatus(props.GithubStatus)
 				}

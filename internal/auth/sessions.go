@@ -43,7 +43,6 @@ func getSessionOptions(remember bool) *sessions.Options {
 	}
 
 	if boot.Environment.GoEnv == enums.Environments.DEVELOPMENT {
-		domain = boot.Environment.Host
 
 		if remember {
 			maxAge = 0 //Session Only (Closing browser deletes session)
