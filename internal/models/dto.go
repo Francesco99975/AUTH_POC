@@ -2,7 +2,9 @@ package models
 
 import (
 	"errors"
+	"net/mail"
 	"strings"
+	"unicode"
 
 	"github.com/Francesco99975/authpoc/cmd/boot"
 	"github.com/Francesco99975/authpoc/internal/enums"
@@ -15,19 +17,22 @@ type SignupRequest struct {
 	Confirm  string `form:"confirm"`
 }
 
-func (r SignupRequest) ValidateAndNormalize(passwordSecurityLevel int) error {
+func (r *SignupRequest) ValidateAndNormalize(passwordSecurityLevel int) error {
 	r.Email = strings.ToLower(strings.ReplaceAll(r.Email, " ", ""))
 	r.Username = strings.ToLower(strings.ReplaceAll(r.Username, " ", ""))
-	r.Password = strings.ReplaceAll(r.Password, " ", "")
-	r.Confirm = strings.ReplaceAll(r.Confirm, " ", "")
 
 	if r.Email == "" {
 		return errors.New("email is required")
 	}
 
-	if !strings.Contains(r.Email, "@") {
-		return errors.New("invalid email")
+	addr, err := mail.ParseAddress(r.Email)
+	if err != nil {
+		return errors.New("invalid email address")
 	}
+	if addr.Name != "" {
+		return errors.New("invalid email address")
+	}
+	r.Email = addr.Address
 
 	if r.Username == "" {
 		return errors.New("username is required")
@@ -36,8 +41,19 @@ func (r SignupRequest) ValidateAndNormalize(passwordSecurityLevel int) error {
 		return errors.New("password is required")
 	}
 
-	if r.Password != r.Confirm {
-		return errors.New("passwords do not match")
+	if strings.Contains(r.Password, " ") {
+		return errors.New("password must not contain spaces")
+	}
+
+	if len(r.Password) > 128 {
+		return errors.New("password must not exceed 128 characters")
+	}
+
+	for _, ch := range r.Password {
+		// Reject null bytes and ASCII control characters
+		if ch == 0x00 || (ch < 0x20 && ch != 0x09) || ch == 0x7F {
+			return errors.New("password contains invalid characters")
+		}
 	}
 
 	if len(r.Username) < 3 || len(r.Username) > 21 {
@@ -53,7 +69,7 @@ func (r SignupRequest) ValidateAndNormalize(passwordSecurityLevel int) error {
 			}
 		case 1:
 			if len(r.Password) < 8 {
-				return errors.New("password must be at least 12 characters")
+				return errors.New("password must be at least 8 characters")
 			}
 
 			if !strings.ContainsAny(r.Password, "0123456789") {
@@ -61,20 +77,33 @@ func (r SignupRequest) ValidateAndNormalize(passwordSecurityLevel int) error {
 			}
 		case 2:
 			if len(r.Password) < 12 {
-				return errors.New("password must be at least 16 characters")
+				return errors.New("password must be at least 12 characters")
 			}
 
 			if !strings.ContainsAny(r.Password, "0123456789") {
 				return errors.New("password must contain at least one number")
 			}
 
-			if !strings.ContainsAny(r.Password, "!@#$%") {
+			if !containsSpecialChar(r.Password) {
 				return errors.New("password must contain at least one special character: !@#$%")
 			}
 		}
 	}
+
+	if r.Password != r.Confirm {
+		return errors.New("passwords do not match")
+	}
 	return nil
 
+}
+
+func containsSpecialChar(s string) bool {
+	for _, ch := range s {
+		if !unicode.IsLetter(ch) && !unicode.IsDigit(ch) {
+			return true
+		}
+	}
+	return false
 }
 
 type LoginRequest struct {
@@ -83,7 +112,7 @@ type LoginRequest struct {
 	Remeber         string `form:"remember"`
 }
 
-func (r LoginRequest) Validate() error {
+func (r *LoginRequest) Validate() error {
 	r.EmailOrUsername = strings.ToLower(strings.ReplaceAll(r.EmailOrUsername, " ", ""))
 	r.Password = strings.ReplaceAll(r.Password, " ", "")
 
@@ -100,7 +129,7 @@ type VerifyEmailRequest struct {
 	Token string `form:"token"`
 }
 
-func (r VerifyEmailRequest) Validate() error {
+func (r *VerifyEmailRequest) Validate() error {
 	if r.Token == "" {
 		return errors.New("token is required")
 	}
@@ -113,7 +142,7 @@ type ResetPasswordRequest struct {
 	Confirm  string `form:"confirm-password"`
 }
 
-func (r ResetPasswordRequest) Validate(passwordSecurityLevel int) error {
+func (r *ResetPasswordRequest) Validate(passwordSecurityLevel int) error {
 	if r.Token == "" {
 		return errors.New("token is required")
 	}
@@ -161,7 +190,7 @@ type ChangeEmail struct {
 	Email    string `form:"email"`
 }
 
-func (r ChangeEmail) Validate() error {
+func (r *ChangeEmail) Validate() error {
 
 	if r.Email == "" {
 		return errors.New("email is required")
@@ -181,7 +210,7 @@ type ChangePasswordRequest struct {
 	Confirm         string `form:"confirm_password"`
 }
 
-func (r ChangePasswordRequest) Validate(passwordSecurityLevel int) error {
+func (r *ChangePasswordRequest) Validate(passwordSecurityLevel int) error {
 	if r.CurrentPassword == "" {
 		return errors.New("current password is required")
 	}
@@ -229,7 +258,7 @@ type DisableTwoFARequest struct {
 	Otp      string `form:"otp"`
 }
 
-func (r DisableTwoFARequest) Validate() error {
+func (r *DisableTwoFARequest) Validate() error {
 	if r.Password == "" {
 		return errors.New("password is required")
 	}
@@ -315,9 +344,6 @@ func (r *UpdateUserRequest) Validate(passwordSecurityLevel int) error {
 	if r.Email == "" {
 		return errors.New("email is required")
 	}
-	if r.Password == "" {
-		return errors.New("password is required")
-	}
 	if r.Role == "" {
 		return errors.New("role is required")
 	}
@@ -326,36 +352,42 @@ func (r *UpdateUserRequest) Validate(passwordSecurityLevel int) error {
 		return errors.New("invalid email")
 	}
 
-	if boot.Environment.GoEnv == enums.Environments.PRODUCTION {
-		switch passwordSecurityLevel {
-		case 0:
-			if len(r.Password) < 8 {
-				return errors.New("password must be at least 8 characters")
-			}
-		case 1:
-			if len(r.Password) < 8 {
-				return errors.New("password must be at least 12 characters")
-			}
-
-			if !strings.ContainsAny(r.Password, "0123456789") {
-				return errors.New("password must contain at least one number")
-			}
-		case 2:
-			if len(r.Password) < 12 {
-				return errors.New("password must be at least 16 characters")
-			}
-
-			if !strings.ContainsAny(r.Password, "0123456789") {
-				return errors.New("password must contain at least one number")
-			}
-
-			if !strings.ContainsAny(r.Password, "!@#$%") {
-				return errors.New("password must contain at least one special character: !@#$%")
-			}
+	if r.Password != "" {
+		if strings.Contains(r.Password, " ") {
+			return errors.New("password must not contain spaces")
 		}
 
-		if !enums.IsRoleValid(r.Role) {
-			return errors.New("invalid role")
+		if boot.Environment.GoEnv == enums.Environments.PRODUCTION {
+			switch passwordSecurityLevel {
+			case 0:
+				if len(r.Password) < 8 {
+					return errors.New("password must be at least 8 characters")
+				}
+			case 1:
+				if len(r.Password) < 8 {
+					return errors.New("password must be at least 12 characters")
+				}
+
+				if !strings.ContainsAny(r.Password, "0123456789") {
+					return errors.New("password must contain at least one number")
+				}
+			case 2:
+				if len(r.Password) < 12 {
+					return errors.New("password must be at least 16 characters")
+				}
+
+				if !strings.ContainsAny(r.Password, "0123456789") {
+					return errors.New("password must contain at least one number")
+				}
+
+				if !strings.ContainsAny(r.Password, "!@#$%") {
+					return errors.New("password must contain at least one special character: !@#$%")
+				}
+			}
+
+			if !enums.IsRoleValid(r.Role) {
+				return errors.New("invalid role")
+			}
 		}
 	}
 	return nil

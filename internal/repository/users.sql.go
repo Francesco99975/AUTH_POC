@@ -639,19 +639,19 @@ SET
     email         = $3,
     role          = $4,
     is_active        = $5,
-    password_hash = $6,
+    password_hash = COALESCE(NULLIF($6, ''), password_hash),
     updated_at    = NOW()
 WHERE id = $1
 RETURNING id, username, email, role, is_active, is_email_verified, twofa_enabled, created_at, updated_at, last_login
 `
 
 type UpdateUserParams struct {
-	ID           uuid.UUID `json:"id"`
-	Username     string    `json:"username"`
-	Email        string    `json:"email"`
-	Role         string    `json:"role"`
-	IsActive     bool      `json:"is_active"`
-	PasswordHash string    `json:"password_hash"`
+	ID       uuid.UUID   `json:"id"`
+	Username string      `json:"username"`
+	Email    string      `json:"email"`
+	Role     string      `json:"role"`
+	IsActive bool        `json:"is_active"`
+	Column6  interface{} `json:"column_6"`
 }
 
 type UpdateUserRow struct {
@@ -674,7 +674,7 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (*Update
 		arg.Email,
 		arg.Role,
 		arg.IsActive,
-		arg.PasswordHash,
+		arg.Column6,
 	)
 	var i UpdateUserRow
 	err := row.Scan(

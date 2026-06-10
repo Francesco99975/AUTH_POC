@@ -14,7 +14,7 @@ SET
     email         = $3,
     role          = $4,
     is_active        = $5,
-    password_hash = $6,
+    password_hash = COALESCE(NULLIF($6, ''), password_hash),
     updated_at    = NOW()
 WHERE id = $1
 RETURNING id, username, email, role, is_active, is_email_verified, twofa_enabled, created_at, updated_at, last_login;
@@ -227,8 +227,3 @@ OFFSET $3;
 SELECT COUNT(*)
 FROM users
 WHERE role = $1;
-
-
-
-
-

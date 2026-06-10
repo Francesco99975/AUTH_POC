@@ -610,7 +610,17 @@ func PermanentlyDeleteUser() echo.HandlerFunc {
 				return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusUnauthorized, UserMessage: "invalid credentials", Message: fmt.Errorf("invalid credentials: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 			}
 
-			if !totp.Validate(otp, *secrets.TwofaSecret) {
+			encryptionKey, err := helpers.ParseBase64Key(boot.Environment.TwoFAKey)
+			if err != nil {
+				return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not parse twofa key", Message: fmt.Errorf("could not parse twofa key: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			}
+
+			totp_secret, err := helpers.Decrypt(*secrets.TwofaSecret, encryptionKey)
+			if err != nil {
+				return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not decrypt twofa secret", Message: fmt.Errorf("could not decrypt twofa secret: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			}
+
+			if !totp.Validate(otp, string(totp_secret)) {
 				return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusUnauthorized, UserMessage: "unauthorized: invalid code", Message: "totp validation failed"}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 			}
 		} else {
@@ -891,11 +901,6 @@ func UpdateUser() echo.HandlerFunc {
 
 		isActive := payload.Active == "on"
 
-		hashedPassword, err := helpers.HashPassword(payload.Password)
-		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "Could not create User", Message: fmt.Errorf("unable to hash password: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
-		}
-
 		ctx := c.Request().Context()
 		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
 		if err != nil {
@@ -904,16 +909,36 @@ func UpdateUser() echo.HandlerFunc {
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
-		updatedUser, err := repo.UpdateUser(ctx, repository.UpdateUserParams{
-			ID:           userUUID,
-			Username:     payload.Username,
-			Role:         payload.Role,
-			Email:        payload.Email,
-			IsActive:     isActive,
-			PasswordHash: hashedPassword,
-		})
-		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "Could not create User", Message: fmt.Errorf("unable to create user: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		var updatedUser *repository.UpdateUserRow
+		if payload.Password != "" {
+			hashedPassword, err := helpers.HashPassword(payload.Password)
+			if err != nil {
+				return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "Could not create User", Message: fmt.Errorf("unable to hash password: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			}
+
+			updatedUser, err = repo.UpdateUser(ctx, repository.UpdateUserParams{
+				ID:       userUUID,
+				Username: payload.Username,
+				Role:     payload.Role,
+				Email:    payload.Email,
+				IsActive: isActive,
+				Column6:  hashedPassword,
+			})
+			if err != nil {
+				return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "Could not create User", Message: fmt.Errorf("unable to create user: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			}
+
+		} else {
+			updatedUser, err = repo.UpdateUser(ctx, repository.UpdateUserParams{
+				ID:       userUUID,
+				Username: payload.Username,
+				Role:     payload.Role,
+				Email:    payload.Email,
+				IsActive: isActive,
+			})
+			if err != nil {
+				return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "Could not update User", Message: fmt.Errorf("unable to update user: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			}
 		}
 
 		var userStatus string = "Inactive"
