@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/Francesco99975/authpoc/cmd/boot"
 	"github.com/Francesco99975/authpoc/internal/auth"
@@ -19,14 +20,13 @@ import (
 	"github.com/Francesco99975/authpoc/views/components"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/labstack/echo/v4"
 	"github.com/pquerna/otp/totp"
 )
 
 func CancelTwoFA() echo.HandlerFunc {
 	return func(c echo.Context) error {
-		_ = auth.ClearSessionUserTempTOTP(c.Response(), c.Request())
-
 		ctx := c.Request().Context()
 		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
 		if err != nil {
@@ -100,10 +100,19 @@ func InitTwoFA() echo.HandlerFunc {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not encrypt twofa secret", Message: fmt.Errorf("could not encrypt twofa secret: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
 
-		err = auth.SetSessionUserTempTOTP(c.Response(), c.Request(), encryptedTwofaSecret)
-		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not generate session temp value", Message: fmt.Errorf("could not generate session temp value: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
-		}
+		_, err = helpers.GenerateProofUUIDV4(database.IsPKCollision("pending_auth_challenges_pkey"), func(u uuid.UUID) error {
+			_, err := repo.CreatePendingAuthChallenge(ctx, repository.CreatePendingAuthChallengeParams{
+				ID:     u,
+				UserID: userUUID,
+				Mode:   enums.TwofaModes.REGISTRATION.String(),
+				Secret: &encryptedTwofaSecret,
+				ExpiresAt: pgtype.Timestamptz{
+					Time:  time.Now().Add(time.Duration(time.Minute * 10)),
+					Valid: true,
+				},
+			})
+			return err
+		})
 
 		image, err := key.Image(200, 200)
 		if err != nil {
@@ -153,17 +162,27 @@ func VerifyTwoFA() echo.HandlerFunc {
 			return c.Redirect(http.StatusSeeOther, "/auth")
 		}
 
-		encrypted_totp_secret, ok := auth.GetSessionUserTempTOTP(c.Request())
-		if !ok {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not verify", Message: "secret not found"}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		userUUID, err := uuid.Parse(auser.ID)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not parse user id", Message: fmt.Errorf("could not parse user id: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
+
+		challenge, err := repo.GetPendingAuthChallengeByUser(ctx, repository.GetPendingAuthChallengeByUserParams{
+			UserID: userUUID,
+			Mode:   enums.TwofaModes.REGISTRATION.String(),
+		})
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not get pending auth challenge", Message: fmt.Errorf("could not get pending auth challenge: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		encrypted_totp_secret := challenge.Secret
 
 		encryptionKey, err := helpers.ParseBase64Key(boot.Environment.TwoFAKey)
 		if err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not parse twofa key", Message: fmt.Errorf("could not parse twofa key: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
 
-		totp_secret, err := helpers.Decrypt(encrypted_totp_secret, encryptionKey)
+		totp_secret, err := helpers.Decrypt(*encrypted_totp_secret, encryptionKey)
 		if err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not decrypt twofa secret", Message: fmt.Errorf("could not decrypt twofa secret: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
@@ -172,13 +191,8 @@ func VerifyTwoFA() echo.HandlerFunc {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusUnauthorized, UserMessage: "unauthorized", Message: "totp validation failed"}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
 
-		userUUID, err := uuid.Parse(auser.ID)
-		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse ID", Message: fmt.Errorf("could not parse ID: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
-		}
-
 		err = repo.EnableUser2FA(ctx, repository.EnableUser2FAParams{
-			TwofaSecret: &encrypted_totp_secret,
+			TwofaSecret: encrypted_totp_secret,
 			ID:          userUUID,
 		})
 		if err != nil {

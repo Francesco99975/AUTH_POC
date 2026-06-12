@@ -446,14 +446,13 @@ templ TwoFAResetWithCode(token string, csrf string) {
 	</form>
 }
 
-templ TwoFARestoreWithEmail(token string, csrf string) {
+templ TwoFARestoreWithEmail(csrf string) {
 	<form
 		hx-post="/auth/2fa/restore"
 		{ ui.WithLoading("verify-code-indicator")... }
 		class="p-4 sm:p-6 space-y-6"
 	>
 		@CSRF(csrf)
-		@ui.HiddenInput("token", token)
 		<!-- Instructions -->
 		<div class="p-4 rounded-lg bg-info/5 border border-info/20">
 			<div class="flex gap-3">

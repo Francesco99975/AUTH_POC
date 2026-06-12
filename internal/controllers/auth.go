@@ -339,12 +339,28 @@ func SessionLogin() echo.HandlerFunc {
 
 		if user.TwofaEnabled {
 			csrf := c.Get("csrf").(string)
-			token, err := auth.GenerateEncryptedToken(auser, 10*time.Minute)
+
+			challengeID, err := helpers.GenerateProofUUIDV4(database.IsPKCollision("pending_auth_challenges_pkey"), func(u uuid.UUID) error {
+				_, err = repo.CreatePendingAuthChallenge(ctx, repository.CreatePendingAuthChallengeParams{
+					ID:         u,
+					UserID:     user.ID,
+					Mode:       enums.TwofaModes.CHALLENGE.String(),
+					Secret:     nil,
+					RememberMe: payload.Remeber == "on",
+					ExpiresAt: pgtype.Timestamptz{
+						Time:  time.Now().Add(time.Duration(time.Minute * 10)),
+						Valid: true,
+					},
+				})
+
+				return err
+			})
+
 			if err != nil {
 				return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to generate temp jwt token", Message: fmt.Errorf("failed to generate temp jwt token: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
 			}
 
-			html := helpers.MustRenderHTML(components.TwoFACheck(token, csrf))
+			html := helpers.MustRenderHTML(components.TwoFACheck(challengeID.String(), csrf))
 
 			return c.Blob(http.StatusOK, "text/html", html)
 		}
@@ -362,19 +378,14 @@ func SessionLogin() echo.HandlerFunc {
 
 func SessionLoginTwoFACheck() echo.HandlerFunc {
 	return func(c echo.Context) error {
-		token := c.FormValue("token")
+		challengeID := c.FormValue("token")
 		otp := c.FormValue("otp")
 
-		if otp == "" || token == "" {
+		if otp == "" || challengeID == "" {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusBadRequest, UserMessage: "invalid data sent", Message: "invalid form data"}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
 		}
 
-		auser, err := auth.ValidateAndDecryptToken(token)
-		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse temp jwt token", Message: fmt.Errorf("could not parse temp jwt token: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
-		}
-
-		userUUID, err := uuid.Parse(auser.ID)
+		challengeUUID, err := uuid.Parse(challengeID)
 		if err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse ID", Message: fmt.Errorf("could not parse ID: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
 		}
@@ -387,7 +398,12 @@ func SessionLoginTwoFACheck() echo.HandlerFunc {
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
-		secrets, err := repo.GetUser2FASecret(ctx, userUUID)
+		challenge, err := repo.GetPendingAuthChallenge(ctx, challengeUUID)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "challenge not found", Message: fmt.Errorf("challenge not found: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		}
+
+		secrets, err := repo.GetUser2FASecret(ctx, challenge.UserID)
 		if err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "user not found", Message: fmt.Errorf("user not found: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
 		}
@@ -407,15 +423,23 @@ func SessionLoginTwoFACheck() echo.HandlerFunc {
 		}
 
 		if err := auth.SetSessionUser(c.Response(), c.Request(), auth.AuthenticatedSessionUser{
-			ID:       userUUID.String(),
-			Username: auser.Username,
-			Email:    auser.Email,
-			Role:     auser.Role,
-		}, auser.Remember); err != nil {
+			ID:       challenge.UserID.String(),
+			Username: secrets.Username,
+			Email:    secrets.Email,
+			Role:     secrets.Role,
+		}, challenge.RememberMe); err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to set session", Message: fmt.Errorf("failed to set session: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
 		}
 
-		_ = repo.UpdateUserLastLogin(ctx, userUUID)
+		err = repo.UpdateUserLastLogin(ctx, challenge.UserID)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not update user last login", Message: fmt.Errorf("could not update user last login: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		}
+
+		err = repo.DeletePendingAuthChallenge(ctx, challengeUUID)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not delete pending auth challenge", Message: fmt.Errorf("could not delete pending auth challenge: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		}
 
 		c.Response().Header().Set("HX-Redirect", "/dashboard")
 		return c.NoContent(http.StatusOK)
@@ -429,28 +453,23 @@ func TwoFAResetForm() echo.HandlerFunc {
 		data.Nonce = c.Get("nonce").(string)
 		data.CSRF = c.Get("csrf").(string)
 
-		token := c.QueryParam("token")
+		challengeID := c.QueryParam("token")
 
-		html := helpers.MustRenderHTML(views.TwoFAReset(data, token))
+		html := helpers.MustRenderHTML(views.TwoFAReset(data, challengeID))
 		return c.Blob(http.StatusOK, "text/html", html)
 	}
 }
 
 func TwoFAReset() echo.HandlerFunc {
 	return func(c echo.Context) error {
-		token := c.FormValue("token")
+		challengeID := c.FormValue("token")
 		code := c.FormValue("reset_code")
 
-		if code == "" || token == "" {
+		if code == "" || challengeID == "" {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusBadRequest, UserMessage: "invalid data sent", Message: "invalid form data"}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
 		}
 
-		auser, err := auth.ValidateAndDecryptToken(token)
-		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse temp jwt token", Message: fmt.Errorf("could not parse temp jwt token: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
-		}
-
-		userUUID, err := uuid.Parse(auser.ID)
+		challengeUUID, err := uuid.Parse(challengeID)
 		if err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse ID", Message: fmt.Errorf("could not parse ID: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
 		}
@@ -463,7 +482,12 @@ func TwoFAReset() echo.HandlerFunc {
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
-		count, err := repo.CountUnusedBackupCodesForUser(ctx, userUUID)
+		challenge, err := repo.GetPendingAuthChallenge(ctx, challengeUUID)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "challenge not found", Message: fmt.Errorf("challenge not found: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		}
+
+		count, err := repo.CountUnusedBackupCodesForUser(ctx, challenge.UserID)
 		if err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "database error occurred", Message: fmt.Errorf("unable to get transaction: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
 		}
@@ -495,9 +519,14 @@ func TwoFAReset() echo.HandlerFunc {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusConflict, UserMessage: "Code has already been used", Message: fmt.Errorf("code has already been used: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
 		}
 
+		user, err := repo.GetUserByID(ctx, challenge.UserID)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not get user", Message: fmt.Errorf("could not get user: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
 		key, err := totp.Generate(totp.GenerateOpts{
 			Issuer:      models.GetDefaultSite("", c.Request()).AppName,
-			AccountName: auser.Email,
+			AccountName: user.Email,
 		})
 		if err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not generate code", Message: fmt.Errorf("could not generate code: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
@@ -513,10 +542,10 @@ func TwoFAReset() echo.HandlerFunc {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not encrypt twofa secret", Message: fmt.Errorf("could not encrypt twofa secret: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
 		}
 
-		err = auth.SetSessionUserTempTOTP(c.Response(), c.Request(), string(encryptedTwofaSecret))
-		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not generate session temp value", Message: fmt.Errorf("could not generate session temp value: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
-		}
+		_, err = repo.PromoteChallengeToRegistration(ctx, repository.PromoteChallengeToRegistrationParams{
+			ID:     challengeUUID,
+			Secret: &encryptedTwofaSecret,
+		})
 
 		image, err := key.Image(200, 200)
 		if err != nil {
@@ -538,7 +567,7 @@ func TwoFAReset() echo.HandlerFunc {
 			QRCodeDataURL: qr_code,
 			Secret:        key.Secret(),
 			CSRF:          csrf,
-			Token:         token,
+			Token:         challengeID,
 			BackupCodeID:  backupCode.ID.String(),
 		}))
 
@@ -555,20 +584,15 @@ func TwoFACancelReset() echo.HandlerFunc {
 
 func TwoFAVerifyReset() echo.HandlerFunc {
 	return func(c echo.Context) error {
-		token := c.FormValue("token")
+		challengeID := c.FormValue("token")
 		otp := c.FormValue("otp")
 		code := c.FormValue("code")
 
-		if token == "" || otp == "" || code == "" {
+		if challengeID == "" || otp == "" || code == "" {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusBadRequest, UserMessage: "invalid data sent", Message: "invalid form data"}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
 
-		auser, err := auth.ValidateAndDecryptToken(token)
-		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse temp jwt token", Message: fmt.Errorf("could not parse temp jwt token: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
-		}
-
-		userUUID, err := uuid.Parse(auser.ID)
+		challengeUUID, err := uuid.Parse(challengeID)
 		if err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse ID", Message: fmt.Errorf("could not parse ID: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
 		}
@@ -576,25 +600,6 @@ func TwoFAVerifyReset() echo.HandlerFunc {
 		codeUUID, err := uuid.Parse(code)
 		if err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse temp jwt token", Message: fmt.Errorf("could not parse temp jwt token: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
-		}
-
-		encrypted_totp_secret, ok := auth.GetSessionUserTempTOTP(c.Request())
-		if !ok {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not verify", Message: "secret not found"}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
-		}
-
-		key, err := helpers.ParseBase64Key(boot.Environment.TwoFAKey)
-		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "invalid key", Message: fmt.Errorf("invalid key: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
-		}
-
-		totp_secret, err := helpers.Decrypt(encrypted_totp_secret, key)
-		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not decrypt totp secret", Message: fmt.Errorf("could not decrypt totp secret: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
-		}
-
-		if !totp.Validate(otp, string(totp_secret)) {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusUnauthorized, UserMessage: "unauthorized", Message: "totp validation failed"}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
 
 		ctx := c.Request().Context()
@@ -605,9 +610,30 @@ func TwoFAVerifyReset() echo.HandlerFunc {
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
+		challenge, err := repo.GetPendingAuthChallenge(ctx, challengeUUID)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "challenge not found", Message: fmt.Errorf("challenge not found: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		}
+
+		key, err := helpers.ParseBase64Key(boot.Environment.TwoFAKey)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "invalid key", Message: fmt.Errorf("invalid key: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		}
+
+		encrypted_totp_secret := challenge.Secret
+
+		totp_secret, err := helpers.Decrypt(*encrypted_totp_secret, key)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not decrypt totp secret", Message: fmt.Errorf("could not decrypt totp secret: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		}
+
+		if !totp.Validate(otp, string(totp_secret)) {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusUnauthorized, UserMessage: "unauthorized", Message: "totp validation failed"}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
 		err = repo.EnableUser2FA(ctx, repository.EnableUser2FAParams{
-			TwofaSecret: &encrypted_totp_secret,
-			ID:          userUUID,
+			TwofaSecret: encrypted_totp_secret,
+			ID:          challenge.UserID,
 		})
 		if err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not enable 2fa", Message: fmt.Errorf("could not enable 2fa: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
@@ -615,9 +641,13 @@ func TwoFAVerifyReset() echo.HandlerFunc {
 
 		err = repo.MarkBackupCodeUsed(ctx, codeUUID)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not generate qr code", Message: fmt.Errorf("could not generate qr code: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not mark backup code used", Message: fmt.Errorf("could not mark backup code used: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
 		}
 
+		err = repo.DeletePendingAuthChallenge(ctx, challengeUUID)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not delete pending auth challenge", Message: fmt.Errorf("could not delete pending auth challenge: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
 		c.Response().Header().Set("HX-Redirect", "/auth")
 		return c.NoContent(http.StatusOK)
 	}
@@ -630,14 +660,9 @@ func TwoFARestoreForm() echo.HandlerFunc {
 		data.Nonce = c.Get("nonce").(string)
 		data.CSRF = c.Get("csrf").(string)
 
-		token := c.QueryParam("token")
+		challengeID := c.QueryParam("token")
 
-		auser, err := auth.ValidateAndDecryptToken(token)
-		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse temp jwt token", Message: fmt.Errorf("could not parse temp jwt token: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
-		}
-
-		auserUUID, err := uuid.Parse(auser.ID)
+		challengeUUID, err := uuid.Parse(challengeID)
 		if err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse ID", Message: fmt.Errorf("could not parse ID: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
 		}
@@ -656,19 +681,29 @@ func TwoFARestoreForm() echo.HandlerFunc {
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
+		challenge, err := repo.GetPendingAuthChallenge(ctx, challengeUUID)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "challenge not found", Message: fmt.Errorf("challenge not found: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		}
+
+		user, err := repo.GetUserByID(ctx, challenge.UserID)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "user not found", Message: fmt.Errorf("user not found: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		}
+
 		var ev *repository.CreateEmailVerificationRow
 
 		_, err = helpers.GenerateProofUUIDV4(database.IsPKCollision("email_verifications_pkey"), func(id uuid.UUID) error {
 			var insert_err error
-			ev, insert_err = repo.CreateEmailVerification(ctx, repository.CreateEmailVerificationParams{ID: uuid.New(), UserID: auserUUID, Token: code, Email: auser.Email, ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(time.Duration(30 * time.Minute)), Valid: true}})
+			ev, insert_err = repo.CreateEmailVerification(ctx, repository.CreateEmailVerificationParams{ID: uuid.New(), UserID: user.ID, Token: code, Email: user.Email, ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(time.Duration(30 * time.Minute)), Valid: true}})
 			return insert_err
 		})
 		if err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to Create email verification", Message: fmt.Errorf("failed to Create email verification: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
 		}
 
-		helpers.ResendEmailVerificationTemplate(auser.Email, ev.Token)
-		html := helpers.MustRenderHTML(views.TwoFARestore(data, token))
+		helpers.ResendEmailVerificationTemplate(user.Email, ev.Token)
+		html := helpers.MustRenderHTML(views.TwoFARestore(data))
 		return c.Blob(http.StatusOK, "text/html", html)
 	}
 }

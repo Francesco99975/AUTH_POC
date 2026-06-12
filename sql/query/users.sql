@@ -136,7 +136,7 @@ FROM users
 WHERE id = $1;
 
 -- name: GetUser2FASecret :one
-SELECT twofa_secret, password_hash
+SELECT username, email, role, twofa_secret, password_hash
 FROM users
 WHERE id = $1 AND twofa_enabled = TRUE;
 

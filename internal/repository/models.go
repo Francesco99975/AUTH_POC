@@ -28,6 +28,16 @@ type PasswordReset struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type PendingAuthChallenge struct {
+	ID         uuid.UUID          `json:"id"`
+	UserID     uuid.UUID          `json:"user_id"`
+	Mode       string             `json:"mode"`
+	Secret     *string            `json:"secret"`
+	RememberMe bool               `json:"remember_me"`
+	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
 type RefreshToken struct {
 	ID        uuid.UUID          `json:"id"`
 	UserID    uuid.UUID          `json:"user_id"`

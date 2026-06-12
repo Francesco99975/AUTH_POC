@@ -184,12 +184,15 @@ func (q *Queries) GetPasswordHash(ctx context.Context, id uuid.UUID) (string, er
 }
 
 const getUser2FASecret = `-- name: GetUser2FASecret :one
-SELECT twofa_secret, password_hash
+SELECT username, email, role, twofa_secret, password_hash
 FROM users
 WHERE id = $1 AND twofa_enabled = TRUE
 `
 
 type GetUser2FASecretRow struct {
+	Username     string  `json:"username"`
+	Email        string  `json:"email"`
+	Role         string  `json:"role"`
 	TwofaSecret  *string `json:"twofa_secret"`
 	PasswordHash string  `json:"password_hash"`
 }
@@ -197,7 +200,13 @@ type GetUser2FASecretRow struct {
 func (q *Queries) GetUser2FASecret(ctx context.Context, id uuid.UUID) (*GetUser2FASecretRow, error) {
 	row := q.db.QueryRow(ctx, getUser2FASecret, id)
 	var i GetUser2FASecretRow
-	err := row.Scan(&i.TwofaSecret, &i.PasswordHash)
+	err := row.Scan(
+		&i.Username,
+		&i.Email,
+		&i.Role,
+		&i.TwofaSecret,
+		&i.PasswordHash,
+	)
 	return &i, err
 }
 

@@ -20,13 +20,17 @@ type Querier interface {
 	CreateBackupCodes(ctx context.Context, arg CreateBackupCodesParams) error
 	CreateEmailVerification(ctx context.Context, arg CreateEmailVerificationParams) (*CreateEmailVerificationRow, error)
 	CreatePasswordReset(ctx context.Context, arg CreatePasswordResetParams) (*CreatePasswordResetRow, error)
+	CreatePendingAuthChallenge(ctx context.Context, arg CreatePendingAuthChallengeParams) (*PendingAuthChallenge, error)
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) error
 	CreateRole(ctx context.Context, arg CreateRoleParams) (*Role, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (*CreateUserRow, error)
 	DeactivateUser(ctx context.Context, id uuid.UUID) error
 	DeleteAllRoles(ctx context.Context) error
 	DeleteEmailVerificationByUserID(ctx context.Context, userID uuid.UUID) error
+	DeleteExpiredPendingAuthChallenges(ctx context.Context) error
 	DeletePasswordResetByUserID(ctx context.Context, userID uuid.UUID) error
+	DeletePendingAuthChallenge(ctx context.Context, id uuid.UUID) error
+	DeletePendingAuthChallengesByUser(ctx context.Context, arg DeletePendingAuthChallengesByUserParams) error
 	DeleteRole(ctx context.Context, id string) error
 	DeleteUser(ctx context.Context, id uuid.UUID) error
 	DeleteUserBackupCodes(ctx context.Context, userID uuid.UUID) error
@@ -41,6 +45,8 @@ type Querier interface {
 	GetEmailVerificationByUserID(ctx context.Context, userID uuid.UUID) (*GetEmailVerificationByUserIDRow, error)
 	GetPasswordHash(ctx context.Context, id uuid.UUID) (string, error)
 	GetPasswordResetByToken(ctx context.Context, token string) (*PasswordReset, error)
+	GetPendingAuthChallenge(ctx context.Context, id uuid.UUID) (*PendingAuthChallenge, error)
+	GetPendingAuthChallengeByUser(ctx context.Context, arg GetPendingAuthChallengeByUserParams) (*PendingAuthChallenge, error)
 	GetRefreshTokenByHash(ctx context.Context, tokenHash string) (*GetRefreshTokenByHashRow, error)
 	GetRoleByID(ctx context.Context, id string) (*Role, error)
 	GetRoleById(ctx context.Context, id string) (*Role, error)
@@ -59,6 +65,7 @@ type Querier interface {
 	MarkBackupCodeUsed(ctx context.Context, id uuid.UUID) error
 	MarkEmailVerificationUsed(ctx context.Context, token string) error
 	MarkPasswordResetUsed(ctx context.Context, token string) error
+	PromoteChallengeToRegistration(ctx context.Context, arg PromoteChallengeToRegistrationParams) (*PendingAuthChallenge, error)
 	ReactivateUser(ctx context.Context, id uuid.UUID) error
 	RevokeAllUserRefreshTokens(ctx context.Context, userID uuid.UUID) error
 	RevokeRefreshToken(ctx context.Context, id uuid.UUID) error

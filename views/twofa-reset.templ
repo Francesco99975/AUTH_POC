@@ -16,11 +16,11 @@ templ TwoFAReset(site models.Site, token string) {
 	}
 }
 
-templ TwoFARestore(site models.Site, token string) {
+templ TwoFARestore(site models.Site) {
 	@layouts.Base(site) {
 		<main class="min-h-screen bg-std flex items-center justify-center p-4">
 			<div class="w-full max-w-md" id="reset-container">
-				@components.TwoFARestoreWithEmail(token, site.CSRF)
+				@components.TwoFARestoreWithEmail(site.CSRF)
 			</div>
 		</main>
 	}

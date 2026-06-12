@@ -139,27 +139,3 @@ func ClearSession(w http.ResponseWriter, r *http.Request) error {
 	session.Options.Path = "/"
 	return session.Save(r, w)
 }
-
-func SetSessionUserTempTOTP(w http.ResponseWriter, r *http.Request, key string) error {
-	session, err := SessionStore.Get(r, "session")
-	if err != nil {
-		return err
-	}
-	session.Values["totp"] = key
-	return session.Save(r, w)
-}
-
-func GetSessionUserTempTOTP(r *http.Request) (string, bool) {
-	session, _ := SessionStore.Get(r, "session")
-	key, ok := session.Values["totp"].(string)
-	return key, ok
-}
-
-func ClearSessionUserTempTOTP(w http.ResponseWriter, r *http.Request) error {
-	session, err := SessionStore.Get(r, "session")
-	if err != nil {
-		return err
-	}
-	delete(session.Values, "totp")
-	return session.Save(r, w)
-}
