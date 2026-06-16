@@ -35,8 +35,11 @@ func CancelTwoFA() echo.HandlerFunc {
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
-		auser, authenticated := auth.GetSessionUser(c.Request())
-		if !authenticated {
+		auser, err := auth.GetActiveSession(c.Request(), repo)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to open database on signup", Message: fmt.Errorf("failed to open database on signup: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		}
+		if auser == nil {
 			return c.Redirect(http.StatusSeeOther, "/auth")
 		}
 
@@ -67,8 +70,11 @@ func InitTwoFA() echo.HandlerFunc {
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
-		auser, authenticated := auth.GetSessionUser(c.Request())
-		if !authenticated {
+		auser, err := auth.GetActiveSession(c.Request(), repo)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to open database on signup", Message: fmt.Errorf("failed to open database on signup: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		}
+		if auser == nil {
 			return c.Redirect(http.StatusSeeOther, "/auth")
 		}
 
@@ -157,8 +163,11 @@ func VerifyTwoFA() echo.HandlerFunc {
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
-		auser, authenticated := auth.GetSessionUser(c.Request())
-		if !authenticated {
+		auser, err := auth.GetActiveSession(c.Request(), repo)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to open database on signup", Message: fmt.Errorf("failed to open database on signup: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		}
+		if auser == nil {
 			return c.Redirect(http.StatusSeeOther, "/auth")
 		}
 
@@ -249,8 +258,11 @@ func DisableTwoFA() echo.HandlerFunc {
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
-		auser, authenticated := auth.GetSessionUser(c.Request())
-		if !authenticated {
+		auser, err := auth.GetActiveSession(c.Request(), repo)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to open database on signup", Message: fmt.Errorf("failed to open database on signup: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		}
+		if auser == nil {
 			return c.Redirect(http.StatusSeeOther, "/auth")
 		}
 
@@ -312,8 +324,11 @@ func FinalizeTwoFA() echo.HandlerFunc {
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
-		auser, authenticated := auth.GetSessionUser(c.Request())
-		if !authenticated {
+		auser, err := auth.GetActiveSession(c.Request(), repo)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to open database on signup", Message: fmt.Errorf("failed to open database on signup: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		}
+		if auser == nil {
 			return c.Redirect(http.StatusSeeOther, "/auth")
 		}
 

@@ -1,11 +1,13 @@
 package controllers
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/Francesco99975/authpoc/internal/api"
 	"github.com/Francesco99975/authpoc/internal/auth"
 	"github.com/Francesco99975/authpoc/internal/database"
+	"github.com/Francesco99975/authpoc/internal/enums"
 	"github.com/Francesco99975/authpoc/internal/helpers"
 	"github.com/Francesco99975/authpoc/internal/models"
 	"github.com/Francesco99975/authpoc/internal/repository"
@@ -19,9 +21,21 @@ import (
 func Index() echo.HandlerFunc {
 	return func(c echo.Context) error {
 
-		_, authenticated := auth.GetSessionUser(c.Request())
+		ctx := c.Request().Context()
 
-		if authenticated {
+		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to open database on signup", Message: fmt.Errorf("failed to open database on signup: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		}
+		defer database.HandleTransaction(ctx, tx, &err)
+		repo := repository.New(tx)
+
+		user, err := auth.GetActiveSession(c.Request(), repo)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to open database on signup", Message: fmt.Errorf("failed to open database on signup: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		}
+
+		if user != nil {
 			return c.Redirect(http.StatusSeeOther, "/dashboard")
 		}
 
@@ -32,8 +46,20 @@ func Index() echo.HandlerFunc {
 
 func Auth() echo.HandlerFunc {
 	return func(c echo.Context) error {
-		_, authenticated := auth.GetSessionUser(c.Request())
-		if authenticated {
+		ctx := c.Request().Context()
+
+		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to open database on signup", Message: fmt.Errorf("failed to open database on signup: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		}
+		defer database.HandleTransaction(ctx, tx, &err)
+		repo := repository.New(tx)
+
+		user, err := auth.GetActiveSession(c.Request(), repo)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to open database on signup", Message: fmt.Errorf("failed to open database on signup: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		}
+		if user != nil {
 			return c.Redirect(http.StatusSeeOther, "/dashboard")
 		}
 
@@ -52,8 +78,20 @@ func Auth() echo.HandlerFunc {
 
 func Dashboard() echo.HandlerFunc {
 	return func(c echo.Context) error {
-		auser, authenticated := auth.GetSessionUser(c.Request())
-		if !authenticated {
+		ctx := c.Request().Context()
+
+		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to open database on signup", Message: fmt.Errorf("failed to open database on signup: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		}
+		defer database.HandleTransaction(ctx, tx, &err)
+		repo := repository.New(tx)
+
+		user, err := auth.GetActiveSession(c.Request(), repo)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to open database on signup", Message: fmt.Errorf("failed to open database on signup: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		}
+		if user == nil {
 			return c.Redirect(http.StatusSeeOther, "/auth")
 		}
 
@@ -62,26 +100,12 @@ func Dashboard() echo.HandlerFunc {
 		data.Nonce = c.Get("nonce").(string)
 		data.CSRF = c.Get("csrf").(string)
 
-		ctx := c.Request().Context()
-		userID, err := uuid.Parse(auser.ID)
+		userID, err := uuid.Parse(user.ID)
 		if err != nil {
 			return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusInternalServerError, Message: err.Error(), UserMessage: "Resource is not accessible"}, nil)
 		}
 
 		log.Debugf("Authenticated user ID: %s", userID.String())
-
-		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
-		if err != nil {
-			return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusInternalServerError, Message: err.Error(), UserMessage: "Resource is not accessible"}, nil)
-		}
-		log.Debug("Transaction started")
-		defer database.HandleTransaction(ctx, tx, &err)
-		repo := repository.New(tx)
-
-		user, err := repo.GetUserByID(ctx, userID)
-		if err != nil {
-			return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusInternalServerError, Message: err.Error(), UserMessage: "Resource is not accessible"}, nil)
-		}
 
 		html := helpers.MustRenderHTML(views.Dashboard(data, views.DashboardProps{
 			Username: user.Username,

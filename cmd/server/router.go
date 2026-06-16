@@ -10,16 +10,18 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/Francesco99975/authpoc/cmd/boot"
-	"github.com/Francesco99975/authpoc/internal/auth"
+	// "github.com/Francesco99975/authpoc/internal/auth"
+	"github.com/Francesco99975/authpoc/internal/database"
 	"github.com/Francesco99975/authpoc/internal/enums"
 	"github.com/Francesco99975/authpoc/internal/helpers"
+	"github.com/Francesco99975/authpoc/internal/repository"
 
 	"github.com/Francesco99975/authpoc/internal/controllers"
 	"github.com/Francesco99975/authpoc/internal/middlewares"
 	"github.com/Francesco99975/authpoc/internal/models"
 	"github.com/Francesco99975/authpoc/views"
 
-	"github.com/labstack/echo-contrib/session"
+	// "github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
@@ -29,7 +31,7 @@ func createRouter() *echo.Echo {
 	e := echo.New()
 	e.Use(middleware.RequestLogger())
 	e.Use(middleware.RemoveTrailingSlash())
-	e.Use(session.Middleware(auth.SessionStore))
+	// e.Use(session.Middleware(auth.SessionStore))
 	e.Use(middlewares.RateLimiter())
 	// Apply Gzip middleware, but skip it for /metrics
 	e.Use(middleware.GzipWithConfig(middleware.GzipConfig{
@@ -100,6 +102,8 @@ func createRouter() *echo.Echo {
 		},
 	}))
 
+	am := middlewares.NewAuthMiddlewares(repository.New(database.Pool()))
+
 	web.GET("/", controllers.Index())
 	web.GET("/about", controllers.About())
 	web.GET("/theme", controllers.Theme())
@@ -111,36 +115,36 @@ func createRouter() *echo.Echo {
 	web.DELETE("auth/2fa/cancel", controllers.TwoFACancelReset())
 	web.GET("/auth/2fa/restore", controllers.TwoFARestoreForm())
 	web.POST("/auth/2fa/restore", controllers.TwoFARestore())
-	web.GET("/dashboard", controllers.Dashboard(), middlewares.AuthMiddleware())
-	web.GET("/external/github", controllers.RefreshGithubData(), middlewares.AuthMiddleware())
-	web.GET("/external/coins", controllers.RefreshCryptoData(), middlewares.AuthMiddleware())
-	web.GET("/external/weather", controllers.RefreshWeatherData(), middlewares.AuthMiddleware())
-	web.GET("/external/quakes", controllers.RefreshQuakeData(), middlewares.AuthMiddleware())
-	web.GET("/settings", controllers.Settings(""), middlewares.AuthMiddleware())
-	web.GET("/settings/profile", controllers.Settings("profile"), middlewares.AuthMiddleware())
-	web.PATCH("/settings/profile/username", controllers.UpdateUsername(), middlewares.AuthMiddleware())
-	web.PATCH("/settings/profile/email", controllers.UpdateEmail(), middlewares.AuthMiddleware())
-	web.GET("/settings/security", controllers.Settings("security"), middlewares.AuthMiddleware())
-	web.PATCH("/settings/password", controllers.UpdateUserPassword(), middlewares.AuthMiddleware())
-	web.GET("/settings/account", controllers.Settings("account"), middlewares.AuthMiddleware())
-	web.POST("/settings/account/activate", controllers.ActivateUser(), middlewares.AuthMiddleware())
-	web.DELETE("/settings/account/deactivate", controllers.DeactivateUser(), middlewares.AuthMiddleware())
-	web.DELETE("/settings/account/delete", controllers.PermanentlyDeleteUser(), middlewares.AuthMiddleware())
-	web.DELETE("/settings/2fa/cancel", controllers.CancelTwoFA(), middlewares.AuthMiddleware())
-	web.POST("/settings/2fa/setup", controllers.InitTwoFA(), middlewares.AuthMiddleware())
-	web.POST("/settings/2fa/verify", controllers.VerifyTwoFA(), middlewares.AuthMiddleware())
-	web.POST("/settings/2fa/complete", controllers.FinalizeTwoFA(), middlewares.AuthMiddleware())
-	web.PATCH("/settings/2fa/disable", controllers.DisableTwoFA(), middlewares.AuthMiddleware())
-	web.GET("/settings/users", controllers.Settings("users"), middlewares.AuthMiddleware(), middlewares.IsAdminRoleMiddleware())
-	web.GET("/settings/users/:id", controllers.GetUser(), middlewares.AuthMiddleware(), middlewares.IsAdminRoleMiddleware())
-	web.POST("/settings/users", controllers.CreateUser(), middlewares.AuthMiddleware(), middlewares.IsAdminRoleMiddleware())
-	web.PUT("/settings/users/:id", controllers.UpdateUser(), middlewares.AuthMiddleware(), middlewares.IsAdminRoleMiddleware())
-	web.PATCH("/settings/users/:id", controllers.ReactivateUserAsAdmin(), middlewares.AuthMiddleware(), middlewares.IsAdminRoleMiddleware())
-	web.DELETE("/settings/users/:id", controllers.DeleteUser(), middlewares.AuthMiddleware(), middlewares.IsAdminRoleMiddleware())
-	web.GET("/search/users", controllers.SearchUsers(), middlewares.AuthMiddleware(), middlewares.IsAdminRoleMiddleware())
+	web.GET("/dashboard", controllers.Dashboard(), am.AuthMiddleware())
+	web.GET("/external/github", controllers.RefreshGithubData(), am.AuthMiddleware())
+	web.GET("/external/coins", controllers.RefreshCryptoData(), am.AuthMiddleware())
+	web.GET("/external/weather", controllers.RefreshWeatherData(), am.AuthMiddleware())
+	web.GET("/external/quakes", controllers.RefreshQuakeData(), am.AuthMiddleware())
+	web.GET("/settings", controllers.Settings(""), am.AuthMiddleware())
+	web.GET("/settings/profile", controllers.Settings("profile"), am.AuthMiddleware())
+	web.PATCH("/settings/profile/username", controllers.UpdateUsername(), am.AuthMiddleware())
+	web.PATCH("/settings/profile/email", controllers.UpdateEmail(), am.AuthMiddleware())
+	web.GET("/settings/security", controllers.Settings("security"), am.AuthMiddleware())
+	web.PATCH("/settings/password", controllers.UpdateUserPassword(), am.AuthMiddleware())
+	web.GET("/settings/account", controllers.Settings("account"), am.AuthMiddleware())
+	web.POST("/settings/account/activate", controllers.ActivateUser(), am.AuthMiddleware())
+	web.DELETE("/settings/account/deactivate", controllers.DeactivateUser(), am.AuthMiddleware())
+	web.DELETE("/settings/account/delete", controllers.PermanentlyDeleteUser(), am.AuthMiddleware())
+	web.DELETE("/settings/2fa/cancel", controllers.CancelTwoFA(), am.AuthMiddleware())
+	web.POST("/settings/2fa/setup", controllers.InitTwoFA(), am.AuthMiddleware())
+	web.POST("/settings/2fa/verify", controllers.VerifyTwoFA(), am.AuthMiddleware())
+	web.POST("/settings/2fa/complete", controllers.FinalizeTwoFA(), am.AuthMiddleware())
+	web.PATCH("/settings/2fa/disable", controllers.DisableTwoFA(), am.AuthMiddleware())
+	web.GET("/settings/users", controllers.Settings("users"), am.AuthMiddleware(), am.IsAdminRoleMiddleware())
+	web.GET("/settings/users/:id", controllers.GetUser(), am.AuthMiddleware(), am.IsAdminRoleMiddleware())
+	web.POST("/settings/users", controllers.CreateUser(), am.AuthMiddleware(), am.IsAdminRoleMiddleware())
+	web.PUT("/settings/users/:id", controllers.UpdateUser(), am.AuthMiddleware(), am.IsAdminRoleMiddleware())
+	web.PATCH("/settings/users/:id", controllers.ReactivateUserAsAdmin(), am.AuthMiddleware(), am.IsAdminRoleMiddleware())
+	web.DELETE("/settings/users/:id", controllers.DeleteUser(), am.AuthMiddleware(), am.IsAdminRoleMiddleware())
+	web.GET("/search/users", controllers.SearchUsers(), am.AuthMiddleware(), am.IsAdminRoleMiddleware())
 	web.POST("/signup", controllers.SessionSignup())
 	web.POST("/verification/manual", controllers.ManualEmailVerification())
-	web.POST("/verification/update", controllers.UpdateManualEmailVerification(), middlewares.AuthMiddleware())
+	web.POST("/verification/update", controllers.UpdateManualEmailVerification(), am.AuthMiddleware())
 	web.GET("/verification/:token", controllers.EmailVerification())
 	web.POST("/verification/resend", controllers.ResendEmailVerification())
 	web.POST("/login", controllers.SessionLogin())

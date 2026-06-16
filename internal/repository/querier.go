@@ -24,10 +24,12 @@ type Querier interface {
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) error
 	CreateRole(ctx context.Context, arg CreateRoleParams) (*Role, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (*CreateUserRow, error)
+	CreateUserSession(ctx context.Context, arg CreateUserSessionParams) (*Session, error)
 	DeactivateUser(ctx context.Context, id uuid.UUID) error
 	DeleteAllRoles(ctx context.Context) error
 	DeleteEmailVerificationByUserID(ctx context.Context, userID uuid.UUID) error
 	DeleteExpiredPendingAuthChallenges(ctx context.Context) error
+	DeleteExpiredSessions(ctx context.Context) error
 	DeletePasswordResetByUserID(ctx context.Context, userID uuid.UUID) error
 	DeletePendingAuthChallenge(ctx context.Context, id uuid.UUID) error
 	DeletePendingAuthChallengesByUser(ctx context.Context, arg DeletePendingAuthChallengesByUserParams) error
@@ -39,6 +41,8 @@ type Querier interface {
 	ExistDeveloperAccount(ctx context.Context) (bool, error)
 	ExistsUserWithEmail(ctx context.Context, email string) (bool, error)
 	ExistsUserWithUsername(ctx context.Context, username string) (bool, error)
+	GetActiveSession(ctx context.Context, sessionTokenHash string) (*GetActiveSessionRow, error)
+	GetActiveSessionsByUser(ctx context.Context, userID uuid.UUID) ([]*Session, error)
 	GetBackupCodeByHash(ctx context.Context, codeHash string) (*GetBackupCodeByHashRow, error)
 	GetEmailVerificationByID(ctx context.Context, id uuid.UUID) (*GetEmailVerificationByIDRow, error)
 	GetEmailVerificationByToken(ctx context.Context, token string) (*GetEmailVerificationByTokenRow, error)
@@ -68,8 +72,13 @@ type Querier interface {
 	PromoteChallengeToRegistration(ctx context.Context, arg PromoteChallengeToRegistrationParams) (*PendingAuthChallenge, error)
 	ReactivateUser(ctx context.Context, id uuid.UUID) error
 	RevokeAllUserRefreshTokens(ctx context.Context, userID uuid.UUID) error
+	RevokeAllUserSessions(ctx context.Context, userID uuid.UUID) error
+	RevokeAllUserSessionsExcept(ctx context.Context, arg RevokeAllUserSessionsExceptParams) error
 	RevokeRefreshToken(ctx context.Context, id uuid.UUID) error
+	RevokeSession(ctx context.Context, id uuid.UUID) error
+	RevokeSessionByHash(ctx context.Context, sessionTokenHash string) error
 	SearchUsers(ctx context.Context, arg SearchUsersParams) ([]*SearchUsersRow, error)
+	TouchSession(ctx context.Context, id uuid.UUID) error
 	UpdateRole(ctx context.Context, arg UpdateRoleParams) (*Role, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (*UpdateUserRow, error)
 	UpdateUserEmail(ctx context.Context, arg UpdateUserEmailParams) (*UpdateUserEmailRow, error)

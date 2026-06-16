@@ -329,14 +329,6 @@ func SessionLogin() echo.HandlerFunc {
 			return c.Blob(http.StatusOK, "text/html", html)
 		}
 
-		auser := auth.AuthenticatedSessionUser{
-			ID:       user.ID.String(),
-			Email:    user.Email,
-			Username: user.Username,
-			Role:     user.Role,
-			Remember: payload.Remeber == "on",
-		}
-
 		if user.TwofaEnabled {
 			csrf := c.Get("csrf").(string)
 
@@ -365,9 +357,16 @@ func SessionLogin() echo.HandlerFunc {
 			return c.Blob(http.StatusOK, "text/html", html)
 		}
 
-		if err := auth.SetSessionUser(c.Response(), c.Request(), auser, payload.Remeber == "on"); err != nil {
+		if _, err = helpers.GenerateProofUUIDV7(database.IsPKCollision("sessions_pkey"), func(id uuid.UUID) error {
+			err = auth.CreateSession(c.Response(), c.Request(), repo, id, user.ID, payload.Remeber == "on")
+			return err
+		}); err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to set session", Message: fmt.Errorf("failed to set session: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
 		}
+
+		// if err := auth.SetSessionUser(c.Response(), c.Request(), auser, payload.Remeber == "on"); err != nil {
+		// 	return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to set session", Message: fmt.Errorf("failed to set session: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		// }
 
 		_ = repo.UpdateUserLastLogin(ctx, user.ID)
 
@@ -422,14 +421,21 @@ func SessionLoginTwoFACheck() echo.HandlerFunc {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusUnauthorized, UserMessage: "unauthorized: invalid code", Message: "totp validation failed"}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
 		}
 
-		if err := auth.SetSessionUser(c.Response(), c.Request(), auth.AuthenticatedSessionUser{
-			ID:       challenge.UserID.String(),
-			Username: secrets.Username,
-			Email:    secrets.Email,
-			Role:     secrets.Role,
-		}, challenge.RememberMe); err != nil {
+		if _, err = helpers.GenerateProofUUIDV7(database.IsPKCollision("sessions_pkey"), func(id uuid.UUID) error {
+			err = auth.CreateSession(c.Response(), c.Request(), repo, id, challenge.UserID, challenge.RememberMe)
+			return err
+		}); err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to set session", Message: fmt.Errorf("failed to set session: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
 		}
+
+		// if err := auth.SetSessionUser(c.Response(), c.Request(), auth.AuthenticatedSessionUser{
+		// 	ID:       challenge.UserID.String(),
+		// 	Username: secrets.Username,
+		// 	Email:    secrets.Email,
+		// 	Role:     secrets.Role,
+		// }, challenge.RememberMe); err != nil {
+		// 	return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to set session", Message: fmt.Errorf("failed to set session: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		// }
 
 		err = repo.UpdateUserLastLogin(ctx, challenge.UserID)
 		if err != nil {
@@ -763,9 +769,21 @@ func TwoFARestore() echo.HandlerFunc {
 
 func SessionLogout() echo.HandlerFunc {
 	return func(c echo.Context) error {
-		if err := auth.ClearSession(c.Response(), c.Request()); err != nil {
+		ctx := c.Request().Context()
+
+		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to open database on signup", Message: fmt.Errorf("failed to open database on signup: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		}
+		defer database.HandleTransaction(ctx, tx, &err)
+		repo := repository.New(tx)
+		if err := auth.RevokeCurrentSession(c.Response(), c.Request(), repo); err != nil {
 			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to logout", Message: fmt.Errorf("failed to logout: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
 		}
+
+		// if err := auth.ClearSession(c.Response(), c.Request()); err != nil {
+		// 	return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to logout", Message: fmt.Errorf("failed to logout: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+		// }
 		c.Response().Header().Set("HX-Redirect", "/")
 		return c.NoContent(http.StatusOK)
 	}

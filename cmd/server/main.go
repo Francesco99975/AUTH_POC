@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/Francesco99975/authpoc/cmd/boot"
-	"github.com/Francesco99975/authpoc/internal/auth"
 	"github.com/Francesco99975/authpoc/internal/database"
 	"github.com/Francesco99975/authpoc/internal/enums"
 	"github.com/Francesco99975/authpoc/internal/helpers"
@@ -28,7 +27,7 @@ func main() {
 		log.Fatalf("Failed to load Vite manifest: %v", err)
 	}
 
-	auth.InitSessionStore()
+	// auth.InitSessionStore()
 
 	// Create a root ctx and a CancelFunc which can be used to cancel retentionMap goroutine
 	rootCtx := context.Background()

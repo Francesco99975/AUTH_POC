@@ -55,6 +55,20 @@ type Role struct {
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
+type Session struct {
+	ID               uuid.UUID          `json:"id"`
+	UserID           uuid.UUID          `json:"user_id"`
+	SessionTokenHash string             `json:"session_token_hash"`
+	IpAddress        *string            `json:"ip_address"`
+	UserAgent        *string            `json:"user_agent"`
+	RememberMe       bool               `json:"remember_me"`
+	ExpiresAt        pgtype.Timestamptz `json:"expires_at"`
+	Revoked          bool               `json:"revoked"`
+	RevokedAt        pgtype.Timestamptz `json:"revoked_at"`
+	LastActivityAt   pgtype.Timestamptz `json:"last_activity_at"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
 type TwofaBackupCode struct {
 	ID        uuid.UUID          `json:"id"`
 	UserID    uuid.UUID          `json:"user_id"`
