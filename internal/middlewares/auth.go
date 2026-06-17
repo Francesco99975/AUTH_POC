@@ -47,7 +47,10 @@ func (m *AuthMiddlewares) AuthMiddleware() echo.MiddlewareFunc {
 				}, nil)
 			}
 
+			auth.TouchSession(c.Request(), m.repo, auser.SessionID, auser.LastActivityAt)
+
 			log.Debugf("Authenticated user: %s", auser.Username)
+
 			ctx := context.WithValue(c.Request().Context(), UserKey, auser.ID)
 			c.SetRequest(c.Request().WithContext(ctx))
 			return next(c)

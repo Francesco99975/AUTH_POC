@@ -16,13 +16,15 @@ import (
 )
 
 type AuthenticatedSessionUser struct {
-	ID           string
-	Username     string
-	Email        string
-	Role         string
-	IsActive     bool
-	TwoFAEnabled bool
-	Remember     bool
+	ID             string
+	Username       string
+	Email          string
+	Role           string
+	IsActive       bool
+	TwoFAEnabled   bool
+	Remember       bool
+	SessionID      uuid.UUID
+	LastActivityAt time.Time
 }
 
 // Server Side DB Stored SESSIONS
@@ -122,13 +124,15 @@ func GetActiveSession(r *http.Request, repo *repository.Queries) (*Authenticated
 	}
 
 	return &AuthenticatedSessionUser{
-		ID:           row.UserID.String(),
-		Username:     row.Username,
-		Email:        row.Email,
-		Role:         row.Role,
-		IsActive:     row.IsActive,
-		TwoFAEnabled: row.TwofaEnabled,
-		Remember:     row.RememberMe,
+		ID:             row.UserID.String(),
+		Username:       row.Username,
+		Email:          row.Email,
+		Role:           row.Role,
+		IsActive:       row.IsActive,
+		TwoFAEnabled:   row.TwofaEnabled,
+		Remember:       row.RememberMe,
+		SessionID:      row.ID,
+		LastActivityAt: row.LastActivityAt.Time,
 	}, nil
 }
 

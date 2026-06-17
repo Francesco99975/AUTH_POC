@@ -32,7 +32,7 @@ func Index() echo.HandlerFunc {
 
 		user, err := auth.GetActiveSession(c.Request(), repo)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to open database on signup", Message: fmt.Errorf("failed to open database on signup: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return c.Redirect(http.StatusSeeOther, "/auth")
 		}
 
 		if user != nil {
@@ -57,7 +57,7 @@ func Auth() echo.HandlerFunc {
 
 		user, err := auth.GetActiveSession(c.Request(), repo)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to open database on signup", Message: fmt.Errorf("failed to open database on signup: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			log.Debugf("failed to get active session: %v", err)
 		}
 		if user != nil {
 			return c.Redirect(http.StatusSeeOther, "/dashboard")
