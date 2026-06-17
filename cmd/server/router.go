@@ -125,6 +125,7 @@ func createRouter() *echo.Echo {
 	web.PATCH("/settings/profile/username", controllers.UpdateUsername(), am.AuthMiddleware())
 	web.PATCH("/settings/profile/email", controllers.UpdateEmail(), am.AuthMiddleware())
 	web.GET("/settings/security", controllers.Settings("security"), am.AuthMiddleware())
+	web.DELETE("settings/security/session/:id", controllers.RevokeSession(), am.AuthMiddleware())
 	web.PATCH("/settings/password", controllers.UpdateUserPassword(), am.AuthMiddleware())
 	web.GET("/settings/account", controllers.Settings("account"), am.AuthMiddleware())
 	web.POST("/settings/account/activate", controllers.ActivateUser(), am.AuthMiddleware())

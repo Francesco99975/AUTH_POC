@@ -89,8 +89,31 @@ func Settings(tab string) echo.HandlerFunc {
 
 			return c.Blob(http.StatusOK, "text/html", html)
 		case "security":
+
+			sessions, err := repo.GetActiveSessionsByUser(ctx, userUUID)
+			if err != nil {
+				return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusInternalServerError, Message: err.Error(), UserMessage: "Resource is not accessible"}, nil)
+			}
+
+			log.Debugf("sessions: %v", sessions)
+
+			sessionsInfo := helpers.MapSlice(sessions, func(session *repository.Session) components.SessionInfo {
+				return components.SessionInfo{
+					Device:    helpers.GetUaDeviceType(*session.UserAgent),
+					Browser:   helpers.GetUaBrowser(*session.UserAgent),
+					OS:        helpers.GetUaOS(*session.UserAgent),
+					LastUsed:  session.LastActivityAt.Time.Format(time.RFC850),
+					Expires:   session.ExpiresAt.Time.Format(time.RFC850),
+					IsCurrent: session.ID == auser.SessionID,
+					SessionID: session.ID.String(),
+				}
+			})
+
+			log.Debugf("sessionsInfo: %v", sessionsInfo)
+
 			securityProps := components.SecurityProps{
 				TwoFAEnabled: user.TwofaEnabled,
+				Sessions:     sessionsInfo,
 				CSRF:         c.Get("csrf").(string),
 			}
 
@@ -414,8 +437,29 @@ func Security() echo.HandlerFunc {
 			return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusInternalServerError, Message: err.Error(), UserMessage: "Resource is not accessible"}, nil)
 		}
 
+		sessions, err := repo.GetActiveSessionsByUser(ctx, userUUID)
+		if err != nil {
+			return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusInternalServerError, Message: err.Error(), UserMessage: "Resource is not accessible"}, nil)
+		}
+
+		log.Debugf("sessions: %v", sessions)
+
+		sessionsInfo := helpers.MapSlice(sessions, func(session *repository.Session) components.SessionInfo {
+			device := helpers.GetUaDeviceType(*session.UserAgent)
+
+			return components.SessionInfo{
+				Device:    device,
+				LastUsed:  session.LastActivityAt.Time.Format(time.RFC850),
+				IsCurrent: session.ID == auser.SessionID,
+				SessionID: session.ID.String(),
+			}
+		})
+
+		log.Debugf("sessionsInfo: %v", sessionsInfo)
+
 		props := components.SecurityProps{
 			TwoFAEnabled: user.TwofaEnabled,
+			Sessions:     sessionsInfo,
 			CSRF:         c.Get("csrf").(string),
 		}
 
@@ -486,6 +530,32 @@ func UpdateUserPassword() echo.HandlerFunc {
 		tools.SetToastTrigger(c.Response(), enums.SuccessToast, "Successfully updated user password")
 		return c.NoContent(http.StatusAccepted)
 
+	}
+}
+
+func RevokeSession() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		sessionID := c.Param("id")
+
+		ctx := c.Request().Context()
+		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "database error occurred", Message: fmt.Errorf("unable to get transaction: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+		defer database.HandleTransaction(ctx, tx, &err)
+		repo := repository.New(tx)
+
+		sessionUUID, err := uuid.Parse(sessionID)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "database error occurred", Message: fmt.Errorf("unable to parse session ID: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		err = repo.RevokeSession(ctx, sessionUUID)
+		if err != nil {
+			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "database error occurred", Message: fmt.Errorf("unable to revoke session: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+		}
+
+		return c.NoContent(http.StatusOK)
 	}
 }
 
