@@ -1,6 +1,7 @@
 package middlewares
 
 import (
+	"errors"
 	"net"
 	"net/http"
 	"strings"
@@ -10,7 +11,7 @@ import (
 	"slices"
 
 	"github.com/Francesco99975/authpoc/cmd/boot"
-	"github.com/Francesco99975/authpoc/internal/helpers"
+	"github.com/Francesco99975/authpoc/internal/httperr"
 	"github.com/Francesco99975/authpoc/internal/monitoring"
 	"github.com/labstack/echo/v4"
 )
@@ -46,10 +47,11 @@ func MonitoringMiddleware() echo.MiddlewareFunc {
 
 func MetricsAccessMiddleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		herr := httperr.New("metrics access", "MetricsAccessMiddleware", "")
 		return func(c echo.Context) error {
 			auth := c.Request().Header.Get("Authorization")
 			if auth == "" {
-				return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusForbidden, Message: "Forbidden Access Attempt to Metrics without Authorization header", UserMessage: "Resource is not accessible"}, nil)
+				return herr.HandleEchoPage(http.StatusForbidden, errors.New("Forbidden Access Attempt to Metrics without Authorization header"))
 			}
 
 			realIP := c.RealIP()
@@ -60,24 +62,24 @@ func MetricsAccessMiddleware() echo.MiddlewareFunc {
 			} else {
 				ipStr, _, err = net.SplitHostPort(c.RealIP())
 				if err != nil {
-					return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusForbidden, Message: fmt.Sprintf("Forbidden Access Attempt to Metrics with invalid IP address at splitting host <-- %v", err.Error()), UserMessage: "Resource is not accessible"}, nil)
+					return herr.HandleEchoPage(http.StatusForbidden, fmt.Errorf("Forbidden Access Attempt to Metrics with invalid IP address at splitting host <-- %v", err.Error()))
 				}
 			}
 
 			sourceIP := net.ParseIP(ipStr)
 			if sourceIP == nil {
-				return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusForbidden, Message: "Forbidden Access Attempt to Metrics with invalid source IP address", UserMessage: "Resource is not accessible"}, nil)
+				return herr.HandleEchoPage(http.StatusForbidden, errors.New("Forbidden Access Attempt to Metrics with invalid source IP address"))
 			}
 
 			ips, err := net.LookupHost(boot.Environment.Prometheus)
 			if err != nil {
-				return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusInternalServerError, Message: fmt.Sprintf("Error resolving Prometheus IP address (%v) <-- %v", boot.Environment.Prometheus, err.Error()), UserMessage: "Server is not accessible to find this resource"}, nil)
+				return herr.HandleEchoPage(http.StatusInternalServerError, fmt.Errorf("Error resolving Prometheus IP address (%v) <-- %v", boot.Environment.Prometheus, err.Error()))
 			}
 
 			allowed := slices.Contains(ips, sourceIP.String())
 
 			if !allowed {
-				return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusForbidden, Message: fmt.Sprintf("Forbidden Access Attempt to Metrics with invalid source IP address (%v)", sourceIP), UserMessage: "Resource is not accessible"}, nil)
+				return herr.HandleEchoPage(http.StatusForbidden, fmt.Errorf("Forbidden Access Attempt to Metrics with invalid source IP address (%v)", sourceIP))
 			}
 
 			return next(c)

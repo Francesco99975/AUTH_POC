@@ -264,6 +264,7 @@ type FilterSelectProps struct {
 	Swap    string // hx-swap (defaults to "innerHTML")
 	Include string // hx-include selector to bundle sibling inputs (e.g. "[name='search']")
 	Trigger string // hx-trigger override (defaults to "change")
+	PushURL bool   // hx-push-url (defaults to false)
 	Attrs   templ.Attributes
 }
 
@@ -364,6 +365,9 @@ inputID := p.Name + "-input"
 			hx-trigger={ trigger }
 			hx-target={ "#" + p.Target }
 			hx-swap={ swap }
+			if p.PushURL {
+				hx-push-url="true"
+			}
 			if p.Include != "" {
 				hx-include={ p.Include }
 			}

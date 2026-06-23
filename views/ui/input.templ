@@ -399,6 +399,7 @@ type SearchProps struct {
 	GetURL         string
 	DebounceMS     int
 	ExternalTarget bool
+	PushURL        bool
 	Include        string
 	Attrs          templ.Attributes
 }
@@ -426,6 +427,9 @@ templ Search(p SearchProps) {
 					hx-trigger={ "keyup changed delay:" + itoa(nonZero(p.DebounceMS, 300)) + "ms" }
 					hx-target={ "#" + p.TargetID }
 					hx-swap="innerHTML"
+					if p.PushURL {
+						hx-push-url="true"
+					}
 					if p.Include != "" {
 						hx-include={ p.Include }
 					}

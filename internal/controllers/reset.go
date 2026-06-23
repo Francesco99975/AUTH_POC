@@ -1,13 +1,16 @@
 package controllers
 
 import (
+	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/Francesco99975/authpoc/internal/database"
 	"github.com/Francesco99975/authpoc/internal/enums"
 	"github.com/Francesco99975/authpoc/internal/helpers"
+	"github.com/Francesco99975/authpoc/internal/httperr"
 	"github.com/Francesco99975/authpoc/internal/models"
 	"github.com/Francesco99975/authpoc/internal/repository"
 	"github.com/Francesco99975/authpoc/internal/tools"
@@ -17,7 +20,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/gommon/log"
 )
 
 func ResetPage() echo.HandlerFunc {
@@ -49,32 +51,33 @@ func ResetPageExpress() echo.HandlerFunc {
 
 func ResetCheck() echo.HandlerFunc {
 	return func(c echo.Context) error {
+		herr := httperr.New("reset_check", "ResetCheck", c.Request().Header.Get("X-Request-ID"))
 		email := c.FormValue("email")
 
 		ctx := c.Request().Context()
 		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not check users", Message: fmt.Errorf("failed to open database on signup: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, err)
 		}
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
 		user, err := repo.GetUserByEmail(ctx, email)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "user not found with this email", Message: fmt.Errorf("user not found during reset password: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusNotFound, err)
 		}
 
 		if user == nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "user not found with this email", Message: fmt.Errorf("user not found during reset password, because user is nil: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusNotFound, errors.New("user not found during reset password, because user is nil"))
 		}
 
 		if !user.IsEmailVerified {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusForbidden, UserMessage: "This user does not have a verified email", Message: "user does not have a verified email: %v"}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusForbidden, errors.New("user does not have a verified email"))
 		}
 
 		token, err := helpers.GenerateBase62Token(12)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "an unexpected error occurred while trying to resert password", Message: fmt.Errorf("error during token generation for password reset: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, err)
 		}
 
 		var passwordReset *repository.CreatePasswordResetRow
@@ -90,7 +93,7 @@ func ResetCheck() echo.HandlerFunc {
 			return insert_err
 		})
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "An Unexpected error occurred while trying to resert password", Message: fmt.Errorf("password reset entry was not created: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusNotFound, err)
 		}
 
 		helpers.ResendPasswordResetTemplate(user.Email, passwordReset.Token)
@@ -105,37 +108,38 @@ func ResetCheck() echo.HandlerFunc {
 
 func ResendReset() echo.HandlerFunc {
 	return func(c echo.Context) error {
+		herr := httperr.New("resending reset", "ResendReset", c.Request().Header.Get("X-Request-ID"))
 		email := c.FormValue("email")
 
 		ctx := c.Request().Context()
 		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could Not Check Users", Message: fmt.Errorf("failed to open database on signup: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, err)
 		}
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
 		user, err := repo.GetUserByEmail(ctx, email)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "user not found with this email", Message: fmt.Errorf("user not found during reset password: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusNotFound, err)
 		}
 
 		if user == nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "user not found with this email", Message: fmt.Errorf("user not found during reset password, because user is nil: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusNotFound, errors.New("user not found during reset password, because user is nil"))
 		}
 
 		if !user.IsEmailVerified {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusForbidden, UserMessage: "This user does not have a verified email", Message: "user does not have a verified email: %v"}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusForbidden, errors.New("user does not have a verified email"))
 		}
 
 		err = repo.DeletePasswordResetByUserID(ctx, user.ID)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "An Unexpected error occurred while trying to resert password", Message: fmt.Errorf("error During old token deletion: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("error During old token deletion: %v", err))
 		}
 
 		token, err := helpers.GenerateBase62Token(12)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "An Unexpected error occurred while trying to resert password", Message: fmt.Errorf("error During Token generation for password reset: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("error During Token generation for password reset: %v", err))
 		}
 
 		var passwordReset *repository.CreatePasswordResetRow
@@ -151,7 +155,7 @@ func ResendReset() echo.HandlerFunc {
 			return insert_err
 		})
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "An Unexpected error occurred while trying to resert password", Message: fmt.Errorf("password reset entry was not created: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusNotFound, fmt.Errorf("password reset entry was not created: %v", err))
 		}
 
 		helpers.ResendPasswordResetTemplate(user.Email, passwordReset.Token)
@@ -163,54 +167,55 @@ func ResendReset() echo.HandlerFunc {
 
 func ResetUserPassword() echo.HandlerFunc {
 	return func(c echo.Context) error {
+		herr := httperr.New("reset password", "ResetUserPassword", c.Request().Header.Get("X-Request-ID"))
 		var payload models.ResetPasswordRequest
 		err := c.Bind(&payload)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusBadRequest, UserMessage: "invalid Data Sent", Message: fmt.Errorf("invalid form data: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusBadRequest, fmt.Errorf("invalid form data: %v", err))
 		}
 
 		err = payload.Validate(1)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusBadRequest, UserMessage: "invalid Data Sent", Message: fmt.Errorf("invalid form data on validate: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusBadRequest, fmt.Errorf("invalid form data on validate: %v", err))
 		}
 
 		ctx := c.Request().Context()
 		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "unexpected error occurred while trying to reset password", Message: fmt.Errorf("unable to get transaction from db: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("unable to get transaction from db: %v", err))
 		}
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
 		passwordReset, err := repo.GetPasswordResetByToken(ctx, payload.Token)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "Token not found for this user", Message: fmt.Errorf("unable to find password reset token: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusNotFound, fmt.Errorf("unable to find password reset token: %v", err))
 		}
 
 		if passwordReset.ExpiresAt.Time.Before(time.Now()) {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusPreconditionFailed, UserMessage: "password reset token has expired", Message: fmt.Errorf("password reset token has expired: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusPreconditionFailed, errors.New("password reset token has expired"))
 		}
 
 		if passwordReset.Used {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusConflict, UserMessage: "password reset token has already been used", Message: fmt.Errorf("password reset token has already been used: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusConflict, errors.New("password reset token has already been used"))
 		}
 
 		user, err := repo.GetUserByID(ctx, passwordReset.UserID)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "user not found", Message: fmt.Errorf("unable to find user: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusNotFound, fmt.Errorf("unable to find user: %v", err))
 		}
 
 		if user == nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "user not found", Message: fmt.Errorf("unable to find user since its nil: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusNotFound, errors.New("unable to find user since its nil"))
 		}
 
 		if !user.IsEmailVerified {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusPreconditionFailed, UserMessage: "user email is not verified", Message: fmt.Errorf("user email is not verified: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusPreconditionFailed, errors.New("user email is not verified"))
 		}
 
 		hashedPassword, err := helpers.HashPassword(payload.Password)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "unexpected Error Occurred while trying to reset password", Message: fmt.Errorf("unable to hash password: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("unable to hash password: %v", err))
 		}
 
 		err = repo.UpdateUserPassword(ctx, repository.UpdateUserPasswordParams{
@@ -218,17 +223,17 @@ func ResetUserPassword() echo.HandlerFunc {
 			PasswordHash: hashedPassword,
 		})
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "unexpected Error Occurred while trying to reset password", Message: fmt.Errorf("unable to update user password: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("unable to update user password: %v", err))
 		}
 
 		err = repo.MarkPasswordResetUsed(ctx, passwordReset.Token)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "unexpected Error Occurred while trying to reset password", Message: fmt.Errorf("unable to mark password reset as used: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("unable to mark password reset as used: %v", err))
 		}
 
 		err = repo.CleanupExpiredPasswordResets(ctx)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "unexpected Error Occurred while trying to reset password", Message: fmt.Errorf("unable to cleanup expired password resets: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("unable to cleanup expired password resets: %v", err))
 		}
 
 		html := helpers.MustRenderHTML(components.ResetSuccessCard())
@@ -240,47 +245,48 @@ func ResetUserPassword() echo.HandlerFunc {
 
 func ResetDev() echo.HandlerFunc {
 	return func(c echo.Context) error {
+		herr := httperr.New("reset dev", "ResetDev", c.Request().Header.Get("X-Request-ID"))
 		var payload models.ResetPasswordRequest
 		err := c.Bind(&payload)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusBadRequest, UserMessage: "invalid Data Sent", Message: fmt.Errorf("invalid form data: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusBadRequest, fmt.Errorf("invalid form data: %v", err))
 		}
 
 		err = payload.Validate(1)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusBadRequest, UserMessage: "invalid Data Sent", Message: fmt.Errorf("invalid form data on validate: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusBadRequest, fmt.Errorf("invalid form data on validate: %v", err))
 		}
 
 		ctx := c.Request().Context()
 		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "unexpected error occurred while trying to reset password", Message: fmt.Errorf("unable to get transaction from db: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("unable to get transaction from db: %v", err))
 		}
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
 		userUUID, err := uuid.Parse(payload.Token)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "unexpected error occurred while trying to reset password", Message: fmt.Errorf("unable to parse uuid: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("unable to parse uuid: %v", err))
 		}
 
 		user, err := repo.GetUserByID(ctx, userUUID)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "user not found", Message: fmt.Errorf("unable to find user: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusNotFound, fmt.Errorf("unable to find user: %v", err))
 		}
 
 		if user == nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "user not found", Message: fmt.Errorf("unable to find user since its nil: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusNotFound, errors.New("user not found"))
 		}
 
 		hashedPassword, err := helpers.HashPassword(payload.Password)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "unexpected Error Occurred while trying to reset password", Message: fmt.Errorf("unable to hash password: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("unable to hash password: %v", err))
 		}
 
 		err = repo.VerifyUserEmail(ctx, user.ID)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "unexpected Error Occurred while trying to validate email", Message: fmt.Errorf("unable to validate email: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("unable to validate email: %v", err))
 		}
 
 		err = repo.UpdateUserPassword(ctx, repository.UpdateUserPasswordParams{
@@ -288,13 +294,13 @@ func ResetDev() echo.HandlerFunc {
 			PasswordHash: hashedPassword,
 		})
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "unexpected Error Occurred while trying to reset password", Message: fmt.Errorf("unable to update user password: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("unable to update user password: %v", err))
 		}
 
 		go func() {
 			err := database.DeleteCredentialsFile()
 			if err != nil {
-				log.Errorf("Failed to delete credentials file: %v", err)
+				slog.Warn("failed to delete credentials file", slog.String("error", err.Error()))
 			}
 		}()
 

@@ -2,12 +2,11 @@ package helpers
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
-
-	"github.com/labstack/gommon/log"
 )
 
 // Structured Severity "enum"
@@ -88,7 +87,7 @@ func (r *Reporter) Cleanup(frequency time.Duration) {
 	// Remove old report files in the report directory
 	files, err := os.ReadDir(r.filePath)
 	if err != nil {
-		log.Errorf("Failed to read report directory: %v", err)
+		slog.Error("Failed to read report directory", slog.Any("err", err))
 		return
 	}
 	for _, file := range files {
@@ -98,13 +97,13 @@ func (r *Reporter) Cleanup(frequency time.Duration) {
 
 		fileInfo, err := file.Info()
 		if err != nil {
-			log.Errorf("Failed to get file info: %v", err)
+			slog.Error("Failed to get file info", slog.Any("err", err))
 			continue
 		}
 		if time.Since(fileInfo.ModTime()) > frequency {
 			err := os.Remove(filepath.Join(r.filePath, file.Name()))
 			if err != nil {
-				log.Errorf("Failed to remove old report file: %v", err)
+				slog.Error("Failed to remove old report file", slog.Any("err", err))
 			}
 		}
 	}

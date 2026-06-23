@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"image/png"
+	"log/slog"
 
 	"net/http"
 	"time"
@@ -15,6 +17,7 @@ import (
 	"github.com/Francesco99975/authpoc/internal/database"
 	"github.com/Francesco99975/authpoc/internal/enums"
 	"github.com/Francesco99975/authpoc/internal/helpers"
+	"github.com/Francesco99975/authpoc/internal/httperr"
 	"github.com/Francesco99975/authpoc/internal/models"
 	"github.com/Francesco99975/authpoc/internal/repository"
 	"github.com/Francesco99975/authpoc/internal/tools"
@@ -25,57 +28,58 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/gommon/log"
 	"github.com/pquerna/otp/totp"
 	"golang.org/x/crypto/blake2b"
 )
 
 func SessionSignup() echo.HandlerFunc {
 	return func(c echo.Context) error {
+		herr := httperr.New("signup", "SessionSignup", c.Request().Header.Get("X-Request-ID"))
+
 		var payload models.SignupRequest
 		err := c.Bind(&payload)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusBadRequest, UserMessage: "invalid input", Message: fmt.Errorf("invalid form data: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusBadRequest, err)
 		}
-		log.Debugf("Signup payload: %v", payload)
+		slog.Debug("Signup payload", slog.Any("payload", payload))
 
 		err = payload.ValidateAndNormalize(1)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusBadRequest, UserMessage: err.Error(), Message: fmt.Errorf("invalid form data: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusBadRequest, err)
 		}
-		log.Debugf("Normalized signup payload: %v", payload)
+		slog.Debug("Normalized signup payload", slog.Any("payload", payload))
 
 		ctx := c.Request().Context()
 
 		hashedPassword, err := helpers.HashPassword(payload.Password)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to hash password", Message: fmt.Errorf("failed to hash password: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, err)
 		}
-		log.Debugf("Hashed password: %v", hashedPassword)
+		slog.Debug("Hashed password", slog.String("hashedPassword", hashedPassword))
 
 		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to open database on signup", Message: fmt.Errorf("failed to open database on signup: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, err)
 		}
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
 		existsEmail, err := repo.ExistsUserWithEmail(ctx, payload.Email)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "Could not Create account at thius moment", Message: fmt.Errorf("failed to check if user exists by email: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, err)
 		}
 
 		if existsEmail {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusConflict, UserMessage: "An account with this email already exists", Message: fmt.Errorf("email exists: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusConflict, errors.New("email exists"))
 		}
 
 		existsUsername, err := repo.ExistsUserWithUsername(ctx, payload.Username)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "Could not Create account at thius moment", Message: fmt.Errorf("failed to check if user exists by username: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, err)
 		}
 
 		if existsUsername {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusConflict, UserMessage: "An account with this username already exists", Message: fmt.Errorf("username exists: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusConflict, errors.New("username exists"))
 		}
 
 		var newUser *repository.CreateUserRow
@@ -86,15 +90,15 @@ func SessionSignup() echo.HandlerFunc {
 			return insert_err
 		})
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to create user", Message: fmt.Errorf("failed to create user: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, err)
 		}
-		log.Debugf("New user: %v", newUser)
+		slog.Debug("New user", slog.Any("newUser", newUser))
 
 		token, err := helpers.GenerateBase62Token(8)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to generate token", Message: fmt.Errorf("failed to generate token: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, err)
 		}
-		log.Debugf("Generated token: %v", token)
+		slog.Debug("Generated token", slog.String("token", token))
 
 		var ev *repository.CreateEmailVerificationRow
 
@@ -104,7 +108,7 @@ func SessionSignup() echo.HandlerFunc {
 			return insert_err
 		})
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to Create email verification", Message: fmt.Errorf("failed to Create email verification: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, err)
 		}
 
 		helpers.ResendEmailVerificationTemplate(newUser.Email, ev.Token)
@@ -119,35 +123,36 @@ func SessionSignup() echo.HandlerFunc {
 
 func ResendEmailVerification() echo.HandlerFunc {
 	return func(c echo.Context) error {
+		herr := httperr.New("resending email verification", "ResendEmailVerification", c.Request().Header.Get("X-Request-ID"))
 		email := c.FormValue("email")
 
 		ctx := c.Request().Context()
 		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to open database on signup", Message: fmt.Errorf("failed to open database on signup: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, err)
 		}
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
 		user, err := repo.GetUserByEmail(ctx, email)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "user not found", Message: fmt.Errorf("user not found: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusNotFound, err)
 		}
 
 		if user.IsEmailVerified {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusConflict, UserMessage: "user is already verified", Message: fmt.Errorf("user is already verified: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusConflict, errors.New("user is already verified"))
 		}
 
 		err = repo.DeleteEmailVerificationByUserID(ctx, user.ID)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to delete old email verification", Message: fmt.Errorf("failed to delete old email verification: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, err)
 		}
 
 		token, err := helpers.GenerateBase62Token(8)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to generate token", Message: fmt.Errorf("failed to generate token: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, err)
 		}
-		log.Debugf("Generated token: %v", token)
+		slog.Debug("Generated token", slog.String("token", token))
 
 		var ev *repository.CreateEmailVerificationRow
 
@@ -156,9 +161,8 @@ func ResendEmailVerification() echo.HandlerFunc {
 			ev, insert_err = repo.CreateEmailVerification(ctx, repository.CreateEmailVerificationParams{ID: uuid.New(), UserID: user.ID, Token: token, ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(time.Duration(30 * time.Minute)), Valid: true}})
 			return insert_err
 		})
-
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to Create email verification", Message: fmt.Errorf("failed to Create email verification: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, err)
 		}
 
 		helpers.ResendEmailVerificationTemplate(user.Email, ev.Token)
@@ -171,18 +175,19 @@ func ResendEmailVerification() echo.HandlerFunc {
 
 func EmailVerification() echo.HandlerFunc {
 	return func(c echo.Context) error {
+		herr := httperr.New("email verification", "EmailVerification", c.Request().Header.Get("X-Request-ID"))
 		payload := models.VerifyEmailRequest{Token: c.Param("token")}
 
 		err := payload.Validate()
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusBadRequest, UserMessage: err.Error(), Message: fmt.Errorf("invalid form data: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusBadRequest, err)
 		}
 
 		ctx := c.Request().Context()
 
 		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to open database on signup", Message: fmt.Errorf("failed to open database on signup: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, err)
 		}
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
@@ -190,22 +195,21 @@ func EmailVerification() echo.HandlerFunc {
 		verification, err := repo.GetEmailVerificationByToken(ctx, payload.Token)
 
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to get email verification", Message: fmt.Errorf("failed to get email verification: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, err)
 		}
 
 		if verification.ExpiresAt.Time.Before(time.Now()) {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusBadRequest, UserMessage: "token expired", Message: fmt.Errorf("token expired: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusBadRequest, errors.New("token expired"))
 		}
 
 		err = repo.VerifyUserEmail(ctx, verification.UserID)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to verify email", Message: fmt.Errorf("failed to verify email: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, err)
 		}
 
 		err = repo.MarkEmailVerificationUsed(ctx, verification.Token)
-
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, Message: fmt.Sprintf("failed to mark email verification used: %v", err), UserMessage: "failed to verify email"}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, err)
 		}
 
 		return c.Redirect(http.StatusSeeOther, "/")
@@ -214,22 +218,23 @@ func EmailVerification() echo.HandlerFunc {
 
 func ManualEmailVerification() echo.HandlerFunc {
 	return func(c echo.Context) error {
+		herr := httperr.New("manual email verification", "ManualEmailVerification", c.Request().Header.Get("X-Request-ID"))
 		var payload models.VerifyEmailRequest
 		err := c.Bind(&payload)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusBadRequest, UserMessage: "invalid input", Message: fmt.Errorf("invalid form data: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusBadRequest, err)
 		}
 
 		err = payload.Validate()
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusBadRequest, UserMessage: err.Error(), Message: fmt.Errorf("invalid form data: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusBadRequest, err)
 		}
 
 		ctx := c.Request().Context()
 
 		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to open database on signup", Message: fmt.Errorf("failed to open database on signup: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, err)
 		}
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
@@ -237,22 +242,21 @@ func ManualEmailVerification() echo.HandlerFunc {
 		verification, err := repo.GetEmailVerificationByToken(ctx, payload.Token)
 
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to get email verification", Message: fmt.Errorf("failed to get email verification: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, err)
 		}
 
 		if verification.ExpiresAt.Time.Before(time.Now()) {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusBadRequest, UserMessage: "token expired", Message: fmt.Errorf("token expired: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusBadRequest, errors.New("token expired"))
 		}
 
 		err = repo.VerifyUserEmail(ctx, verification.UserID)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to verify email", Message: fmt.Errorf("failed to verify email: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, err)
 		}
 
 		err = repo.MarkEmailVerificationUsed(ctx, verification.Token)
-
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, Message: fmt.Sprintf("failed to mark email verification used: %v", err), UserMessage: "failed to verify email"}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, err)
 		}
 
 		c.Response().Header().Set("HX-Redirect", "/auth")
@@ -262,39 +266,40 @@ func ManualEmailVerification() echo.HandlerFunc {
 
 func SessionLogin() echo.HandlerFunc {
 	return func(c echo.Context) error {
+		herr := httperr.New("session login", "SessionLogin", c.Request().Header.Get("X-Request-ID"))
 		var payload models.LoginRequest
 		err := c.Bind(&payload)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusBadRequest, UserMessage: "invalid input", Message: fmt.Errorf("invalid form data: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusBadRequest, err)
 		}
 
-		log.Debugf("Login payload: %v", payload)
+		slog.Debug("Login payload", slog.Any("payload", payload))
 
 		err = payload.Validate()
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusBadRequest, UserMessage: err.Error(), Message: fmt.Errorf("invalid form data: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusBadRequest, err)
 		}
 
 		ctx := c.Request().Context()
 
 		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to open database on login", Message: fmt.Errorf("failed to open database on login: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, err)
 		}
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
 		user, err := repo.GetUserByEmailOrUsername(ctx, payload.EmailOrUsername)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "user not found", Message: fmt.Errorf("user not found: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusNotFound, err)
 		}
 
 		if !user.IsEmailVerified && user.Role != string(enums.Roles.DEVELOPER) {
 			token, err := helpers.GenerateBase62Token(8)
 			if err != nil {
-				return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to generate token", Message: fmt.Errorf("failed to generate token: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+				return herr.Handle(c.Response(), http.StatusInternalServerError, err)
 			}
-			log.Debugf("Generated token: %v", token)
+			slog.Debug("Generated token", slog.String("token", token))
 
 			var ev *repository.CreateEmailVerificationRow
 
@@ -305,7 +310,7 @@ func SessionLogin() echo.HandlerFunc {
 			})
 
 			if err != nil {
-				return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to Create email verification", Message: fmt.Errorf("failed to Create email verification: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+				return herr.Handle(c.Response(), http.StatusInternalServerError, err)
 			}
 
 			helpers.ResendEmailVerificationTemplate(user.Email, ev.Token)
@@ -318,7 +323,7 @@ func SessionLogin() echo.HandlerFunc {
 		}
 
 		if !helpers.CheckPasswordHash(payload.Password, user.PasswordHash) {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusUnauthorized, UserMessage: "invalid credentials", Message: fmt.Errorf("invalid credentials: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusUnauthorized, errors.New("invalid credentials"))
 		}
 
 		if user.Role == string(enums.Roles.DEVELOPER) && !user.IsEmailVerified {
@@ -349,7 +354,7 @@ func SessionLogin() echo.HandlerFunc {
 			})
 
 			if err != nil {
-				return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to generate temp jwt token", Message: fmt.Errorf("failed to generate temp jwt token: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+				return herr.Handle(c.Response(), http.StatusInternalServerError, err)
 			}
 
 			html := helpers.MustRenderHTML(components.TwoFACheck(challengeID.String(), csrf))
@@ -361,7 +366,7 @@ func SessionLogin() echo.HandlerFunc {
 			err = auth.CreateSession(c.Response(), c.Request(), repo, id, user.ID, payload.Remeber == "on")
 			return err
 		}); err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to set session", Message: fmt.Errorf("failed to set session: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, err)
 		}
 
 		// if err := auth.SetSessionUser(c.Response(), c.Request(), auser, payload.Remeber == "on"); err != nil {
@@ -377,55 +382,56 @@ func SessionLogin() echo.HandlerFunc {
 
 func SessionLoginTwoFACheck() echo.HandlerFunc {
 	return func(c echo.Context) error {
+		herr := httperr.New("two factor authentication", "SessionLoginTwoFACheck", c.Request().Header.Get("X-Request-ID"))
 		challengeID := c.FormValue("token")
 		otp := c.FormValue("otp")
 
 		if otp == "" || challengeID == "" {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusBadRequest, UserMessage: "invalid data sent", Message: "invalid form data"}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusBadRequest, errors.New("invalid form data"))
 		}
 
 		challengeUUID, err := uuid.Parse(challengeID)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse ID", Message: fmt.Errorf("could not parse ID: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusBadRequest, fmt.Errorf("could not parse ID: %v", err))
 		}
 
 		ctx := c.Request().Context()
 		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "database error occurred", Message: fmt.Errorf("unable to get transaction: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("unable to get transaction: %v", err))
 		}
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
 		challenge, err := repo.GetPendingAuthChallenge(ctx, challengeUUID)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "challenge not found", Message: fmt.Errorf("challenge not found: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusNotFound, fmt.Errorf("challenge not found: %v", err))
 		}
 
 		secrets, err := repo.GetUser2FASecret(ctx, challenge.UserID)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "user not found", Message: fmt.Errorf("user not found: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusNotFound, fmt.Errorf("user not found: %v", err))
 		}
 
 		key, err := helpers.ParseBase64Key(boot.Environment.TwoFAKey)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "invalid key", Message: fmt.Errorf("invalid key: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("invalid key: %v", err))
 		}
 
 		decriptedTwofaSecret, err := helpers.Decrypt(*secrets.TwofaSecret, key)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "invalid key", Message: fmt.Errorf("invalid key: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("invalid key: %v", err))
 		}
 
 		if !totp.Validate(otp, string(decriptedTwofaSecret)) {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusUnauthorized, UserMessage: "unauthorized: invalid code", Message: "totp validation failed"}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusUnauthorized, errors.New("totp validation failed"))
 		}
 
 		if _, err = helpers.GenerateProofUUIDV7(database.IsPKCollision("sessions_pkey"), func(id uuid.UUID) error {
 			err = auth.CreateSession(c.Response(), c.Request(), repo, id, challenge.UserID, challenge.RememberMe)
 			return err
 		}); err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to set session", Message: fmt.Errorf("failed to set session: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("failed to set session: %v", err))
 		}
 
 		// if err := auth.SetSessionUser(c.Response(), c.Request(), auth.AuthenticatedSessionUser{
@@ -439,12 +445,12 @@ func SessionLoginTwoFACheck() echo.HandlerFunc {
 
 		err = repo.UpdateUserLastLogin(ctx, challenge.UserID)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not update user last login", Message: fmt.Errorf("could not update user last login: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("could not update user last login: %v", err))
 		}
 
 		err = repo.DeletePendingAuthChallenge(ctx, challengeUUID)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not delete pending auth challenge", Message: fmt.Errorf("could not delete pending auth challenge: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("could not delete pending auth challenge: %v", err))
 		}
 
 		c.Response().Header().Set("HX-Redirect", "/dashboard")
@@ -468,66 +474,60 @@ func TwoFAResetForm() echo.HandlerFunc {
 
 func TwoFAReset() echo.HandlerFunc {
 	return func(c echo.Context) error {
+		herr := httperr.New("two factor authentication reset", "TwoFAReset", c.Request().Header.Get("X-Request-ID"))
 		challengeID := c.FormValue("token")
 		code := c.FormValue("reset_code")
 
 		if code == "" || challengeID == "" {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusBadRequest, UserMessage: "invalid data sent", Message: "invalid form data"}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusBadRequest, errors.New("invalid form data"))
 		}
 
 		challengeUUID, err := uuid.Parse(challengeID)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse ID", Message: fmt.Errorf("could not parse ID: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusNotFound, fmt.Errorf("could not parse ID: %v", err))
 		}
 
 		ctx := c.Request().Context()
 		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "database error occurred", Message: fmt.Errorf("unable to get transaction: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("unable to get transaction: %v", err))
 		}
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
 		challenge, err := repo.GetPendingAuthChallenge(ctx, challengeUUID)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "challenge not found", Message: fmt.Errorf("challenge not found: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusNotFound, fmt.Errorf("challenge not found: %v", err))
 		}
 
 		count, err := repo.CountUnusedBackupCodesForUser(ctx, challenge.UserID)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "database error occurred", Message: fmt.Errorf("unable to get transaction: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, err)
 		}
 
 		if count <= 0 {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusConflict, UserMessage: "No more backup codes available", Message: fmt.Errorf("no more backup codes available: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusConflict, fmt.Errorf("no more backup codes available: %v", err))
 		}
 
 		h, err := blake2b.New512(nil)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{
-				Error: helpers.GenericError{
-					Code:        http.StatusConflict,
-					UserMessage: "Code has already been used",
-					Message:     "code has already been used",
-				},
-				Box: enums.Boxes.TOAST_TR, Persistance: "5000",
-			}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, err)
 		}
 		h.Write([]byte(code))
 		codeHash := hex.EncodeToString(h.Sum(nil))
 
 		backupCode, err := repo.GetBackupCodeByHash(ctx, string(codeHash))
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "incorrect code, try another one", Message: fmt.Errorf("unable to get transaction: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, err)
 		}
 
 		if backupCode.Used {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusConflict, UserMessage: "Code has already been used", Message: fmt.Errorf("code has already been used: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusConflict, errors.New("code has already been used"))
 		}
 
 		user, err := repo.GetUserByID(ctx, challenge.UserID)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not get user", Message: fmt.Errorf("could not get user: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, err)
 		}
 
 		key, err := totp.Generate(totp.GenerateOpts{
@@ -535,17 +535,17 @@ func TwoFAReset() echo.HandlerFunc {
 			AccountName: user.Email,
 		})
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not generate code", Message: fmt.Errorf("could not generate code: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, err)
 		}
 
 		encryptionKey, err := helpers.ParseBase64Key(boot.Environment.TwoFAKey)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "invalid key", Message: fmt.Errorf("invalid key: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, err)
 		}
 
 		encryptedTwofaSecret, err := helpers.Encrypt([]byte(key.Secret()), encryptionKey)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not encrypt twofa secret", Message: fmt.Errorf("could not encrypt twofa secret: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, err)
 		}
 
 		_, err = repo.PromoteChallengeToRegistration(ctx, repository.PromoteChallengeToRegistrationParams{
@@ -555,12 +555,12 @@ func TwoFAReset() echo.HandlerFunc {
 
 		image, err := key.Image(200, 200)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not generate qr code", Message: fmt.Errorf("could not generate qr code: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, err)
 		}
 
 		var buf bytes.Buffer
 		if err := png.Encode(&buf, image); err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not generate qr code", Message: fmt.Errorf("could not generate qr code: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, err)
 		}
 
 		pngBytes := buf.Bytes()
@@ -590,51 +590,52 @@ func TwoFACancelReset() echo.HandlerFunc {
 
 func TwoFAVerifyReset() echo.HandlerFunc {
 	return func(c echo.Context) error {
+		herr := httperr.New("two factor verify reset", "TwoFAVerifyReset", c.Request().Header.Get("X-Request-ID"))
 		challengeID := c.FormValue("token")
 		otp := c.FormValue("otp")
 		code := c.FormValue("code")
 
 		if challengeID == "" || otp == "" || code == "" {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusBadRequest, UserMessage: "invalid data sent", Message: "invalid form data"}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusBadRequest, errors.New("invalid form data"))
 		}
 
 		challengeUUID, err := uuid.Parse(challengeID)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse ID", Message: fmt.Errorf("could not parse ID: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusNotFound, fmt.Errorf("could not parse ID: %v", err))
 		}
 
 		codeUUID, err := uuid.Parse(code)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse temp jwt token", Message: fmt.Errorf("could not parse temp jwt token: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusNotFound, fmt.Errorf("could not parse code UUID: %v", err))
 		}
 
 		ctx := c.Request().Context()
 		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "database error occurred", Message: fmt.Errorf("unable to get transaction: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("unable to get transaction: %v", err))
 		}
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
 		challenge, err := repo.GetPendingAuthChallenge(ctx, challengeUUID)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "challenge not found", Message: fmt.Errorf("challenge not found: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusNotFound, fmt.Errorf("challenge not found: %v", err))
 		}
 
 		key, err := helpers.ParseBase64Key(boot.Environment.TwoFAKey)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "invalid key", Message: fmt.Errorf("invalid key: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("could not parse key: %v", err))
 		}
 
 		encrypted_totp_secret := challenge.Secret
 
 		totp_secret, err := helpers.Decrypt(*encrypted_totp_secret, key)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not decrypt totp secret", Message: fmt.Errorf("could not decrypt totp secret: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("could not decrypt totp secret: %v", err))
 		}
 
 		if !totp.Validate(otp, string(totp_secret)) {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusUnauthorized, UserMessage: "unauthorized", Message: "totp validation failed"}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusUnauthorized, errors.New("totp validation failed"))
 		}
 
 		err = repo.EnableUser2FA(ctx, repository.EnableUser2FAParams{
@@ -642,17 +643,17 @@ func TwoFAVerifyReset() echo.HandlerFunc {
 			ID:          challenge.UserID,
 		})
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not enable 2fa", Message: fmt.Errorf("could not enable 2fa: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("could not enable 2fa: %v", err))
 		}
 
 		err = repo.MarkBackupCodeUsed(ctx, codeUUID)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not mark backup code used", Message: fmt.Errorf("could not mark backup code used: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("could not mark backup code used: %v", err))
 		}
 
 		err = repo.DeletePendingAuthChallenge(ctx, challengeUUID)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "could not delete pending auth challenge", Message: fmt.Errorf("could not delete pending auth challenge: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "3000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("could not delete pending auth challenge: %v", err))
 		}
 		c.Response().Header().Set("HX-Redirect", "/auth")
 		return c.NoContent(http.StatusOK)
@@ -661,6 +662,7 @@ func TwoFAVerifyReset() echo.HandlerFunc {
 
 func TwoFARestoreForm() echo.HandlerFunc {
 	return func(c echo.Context) error {
+		herr := httperr.New("two factor restore form", "TwoFARestoreForm", c.Request().Header.Get("X-Request-ID"))
 		data := models.GetDefaultSite("Restore Account", c.Request())
 
 		data.Nonce = c.Get("nonce").(string)
@@ -670,31 +672,31 @@ func TwoFARestoreForm() echo.HandlerFunc {
 
 		challengeUUID, err := uuid.Parse(challengeID)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "could not parse ID", Message: fmt.Errorf("could not parse ID: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusNotFound, fmt.Errorf("could not parse ID: %v", err))
 		}
 
 		code, err := helpers.GenerateBase62Token(8)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to generate token", Message: fmt.Errorf("failed to generate token: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("failed to generate token: %v", err))
 		}
-		log.Debugf("Generated code: %v", code)
+		slog.Debug("Generated code", slog.String("code", code))
 
 		ctx := c.Request().Context()
 		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "database error occurred", Message: fmt.Errorf("unable to get transaction: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("unable to get transaction: %v", err))
 		}
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
 		challenge, err := repo.GetPendingAuthChallenge(ctx, challengeUUID)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "challenge not found", Message: fmt.Errorf("challenge not found: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusNotFound, fmt.Errorf("challenge not found: %v", err))
 		}
 
 		user, err := repo.GetUserByID(ctx, challenge.UserID)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusNotFound, UserMessage: "user not found", Message: fmt.Errorf("user not found: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusNotFound, fmt.Errorf("user not found: %v", err))
 		}
 
 		var ev *repository.CreateEmailVerificationRow
@@ -705,7 +707,7 @@ func TwoFARestoreForm() echo.HandlerFunc {
 			return insert_err
 		})
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to Create email verification", Message: fmt.Errorf("failed to Create email verification: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("failed to Create email verification: %v", err))
 		}
 
 		helpers.ResendEmailVerificationTemplate(user.Email, ev.Token)
@@ -716,16 +718,17 @@ func TwoFARestoreForm() echo.HandlerFunc {
 
 func TwoFARestore() echo.HandlerFunc {
 	return func(c echo.Context) error {
+		herr := httperr.New("two factor restore", "TwoFARestore", c.Request().Header.Get("X-Request-ID"))
 		resetCode := c.FormValue("reset_code")
 		if resetCode == "" {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusBadRequest, UserMessage: "reset code is required", Message: "reset code is required"}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusBadRequest, fmt.Errorf("reset code is required"))
 		}
 
 		ctx := c.Request().Context()
 
 		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to open database on signup", Message: fmt.Errorf("failed to open database on signup: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("failed to open database on signup: %v", err))
 		}
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
@@ -733,32 +736,32 @@ func TwoFARestore() echo.HandlerFunc {
 		verification, err := repo.GetEmailVerificationByToken(ctx, resetCode)
 
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to get email verification", Message: fmt.Errorf("failed to get email verification: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("failed to get email verification: %v", err))
 		}
 
 		if verification.ExpiresAt.Time.Before(time.Now()) {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusBadRequest, UserMessage: "token expired", Message: fmt.Errorf("token expired: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusBadRequest, fmt.Errorf("token expired: %v", err))
 		}
 
 		err = repo.VerifyUserEmail(ctx, verification.UserID)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to verify email", Message: fmt.Errorf("failed to verify email: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("failed to verify email: %v", err))
 		}
 
 		err = repo.MarkEmailVerificationUsed(ctx, verification.Token)
 
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, Message: fmt.Sprintf("failed to mark email verification used: %v", err), UserMessage: "failed to verify email"}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("failed to mark email verification used: %v", err))
 		}
 
 		err = repo.DeleteUserBackupCodes(ctx, verification.UserID)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, Message: fmt.Sprintf("failed to delete user backup codes: %v", err), UserMessage: "failed to verify email"}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("failed to delete user backup codes: %v", err))
 		}
 
 		err = repo.DisableUser2FA(ctx, verification.UserID)
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, Message: fmt.Sprintf("failed to disable user 2FA: %v", err), UserMessage: "failed to verify email"}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("failed to disable user 2FA: %v", err))
 		}
 
 		c.Response().Header().Set("HX-Redirect", "/auth")
@@ -769,16 +772,17 @@ func TwoFARestore() echo.HandlerFunc {
 
 func SessionLogout() echo.HandlerFunc {
 	return func(c echo.Context) error {
+		herr := httperr.New("logout", "SessionLogout", c.Request().Header.Get("X-Request-ID"))
 		ctx := c.Request().Context()
 
 		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
 		if err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to open database on signup", Message: fmt.Errorf("failed to open database on signup: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("failed to open database on signup: %v", err))
 		}
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 		if err := auth.RevokeCurrentSession(c.Response(), c.Request(), repo); err != nil {
-			return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{Error: helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "failed to logout", Message: fmt.Errorf("failed to logout: %v", err).Error()}, Box: enums.Boxes.TOAST_TR, Persistance: "5000"}, nil)
+			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("failed to logout: %v", err))
 		}
 
 		// if err := auth.ClearSession(c.Response(), c.Request()); err != nil {

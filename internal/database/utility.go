@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/labstack/gommon/log"
 )
 
 // HandleTransaction ensures that a transaction is committed or rolled back properly.
@@ -15,23 +15,23 @@ func HandleTransaction(ctx context.Context, tx pgx.Tx, err *error) {
 	if p := recover(); p != nil {
 		rollbackErr := tx.Rollback(ctx)
 		if rollbackErr != nil {
-			log.Errorf("Failed to rollback transaction: %v", rollbackErr)
+			slog.Error("Failed to rollback transaction", slog.Any("rollbackErr", rollbackErr))
 		}
-		log.Errorf("Transaction rolled back on panic: %v", p)
+		slog.Error("Transaction rolled back on panic", slog.Any("p", p))
 		panic(p) // Re-panic after rollback
 	} else if *err != nil {
 		rollbackErr := tx.Rollback(ctx)
 		if rollbackErr != nil {
-			log.Errorf("Failed to rollback transaction: %v", rollbackErr)
+			slog.Error("Failed to rollback transaction", slog.Any("rollbackErr", rollbackErr))
 		}
-		log.Errorf("Transaction rolled back err not nil: %v", *err)
+		slog.Error("Transaction rolled back err not nil", slog.Any("err", *err))
 	} else {
 		commitErr := tx.Commit(ctx)
 		if commitErr != nil {
-			log.Errorf("Failed to commit transaction: %v", commitErr)
+			slog.Error("Failed to commit transaction", slog.Any("commitErr", commitErr))
 			*err = fmt.Errorf("commit failed: %w", commitErr)
 		}
-		log.Debug("Transaction committed")
+		slog.Debug("Transaction committed")
 	}
 }
 

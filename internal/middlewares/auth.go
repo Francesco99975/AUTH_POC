@@ -3,15 +3,15 @@ package middlewares
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/Francesco99975/authpoc/internal/auth"
 	"github.com/Francesco99975/authpoc/internal/enums"
-	"github.com/Francesco99975/authpoc/internal/helpers"
+	"github.com/Francesco99975/authpoc/internal/httperr"
 	"github.com/Francesco99975/authpoc/internal/repository"
 	"github.com/jackc/pgx/v5"
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/gommon/log"
 )
 
 type UserIDKey string
@@ -31,6 +31,8 @@ func NewAuthMiddlewares(repo *repository.Queries) *AuthMiddlewares {
 func (m *AuthMiddlewares) AuthMiddleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
+			herr := httperr.New("authorizing user", "AuthMiddleware", c.Request().Header.Get("X-Request-ID"))
+
 			auser, err := auth.GetActiveSession(c.Request(), m.repo)
 			if err != nil {
 				if errors.Is(err, http.ErrNoCookie) || errors.Is(err, pgx.ErrNoRows) {
@@ -40,16 +42,12 @@ func (m *AuthMiddlewares) AuthMiddleware() echo.MiddlewareFunc {
 					}
 					return c.Redirect(http.StatusSeeOther, "/auth")
 				}
-				return helpers.SendReturnedHTMLErrorMessage(c, helpers.ErrorMessage{
-					Error:       helpers.GenericError{Code: http.StatusInternalServerError, UserMessage: "session error", Message: err.Error()},
-					Box:         enums.Boxes.TOAST_TR,
-					Persistance: "5000",
-				}, nil)
+				return herr.Handle(c.Response(), http.StatusInternalServerError, err)
 			}
 
 			auth.TouchSession(c.Request(), m.repo, auser.SessionID, auser.LastActivityAt)
 
-			log.Debugf("Authenticated user: %s", auser.Username)
+			slog.Debug("Authenticated user", slog.String("username", auser.Username))
 
 			ctx := context.WithValue(c.Request().Context(), UserKey, auser.ID)
 			c.SetRequest(c.Request().WithContext(ctx))

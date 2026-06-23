@@ -7,13 +7,14 @@ import (
 
 	"github.com/Francesco99975/authpoc/cmd/boot"
 	"github.com/Francesco99975/authpoc/internal/enums"
-	"github.com/Francesco99975/authpoc/internal/helpers"
+	"github.com/Francesco99975/authpoc/internal/httperr"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
 
 // rateLimiter returns a configured middleware.RateLimiter
 func RateLimiter() echo.MiddlewareFunc {
+	herr := httperr.New("rate limiter", "RateLimiter", "")
 	// Config per environment
 	var config middleware.RateLimiterConfig
 
@@ -35,7 +36,7 @@ func RateLimiter() echo.MiddlewareFunc {
 						"error": "Too many requests (dev mode)",
 					})
 				} else {
-					return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusTooManyRequests, Message: "Too many requests (dev mode)", UserMessage: "Too many requests (dev mode)"}, nil)
+					return herr.HandleEchoPage(http.StatusTooManyRequests, err)
 				}
 			},
 			DenyHandler: func(c echo.Context, identifier string, err error) error {
@@ -45,7 +46,7 @@ func RateLimiter() echo.MiddlewareFunc {
 						"error": "Rate limit exceeded. Try again later.",
 					})
 				} else {
-					return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusTooManyRequests, Message: "Rate limit exceeded. Try again later. (dev mode)", UserMessage: "Rate limit exceeded. Try again later. (dev mode)"}, nil)
+					return herr.HandleEchoPage(http.StatusTooManyRequests, err)
 				}
 			},
 		}
@@ -68,7 +69,7 @@ func RateLimiter() echo.MiddlewareFunc {
 						"error": "Too many requests",
 					})
 				} else {
-					return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusTooManyRequests, Message: "Too many requests"}, nil)
+					return herr.HandleEchoPage(http.StatusTooManyRequests, err)
 				}
 
 			},
@@ -80,7 +81,7 @@ func RateLimiter() echo.MiddlewareFunc {
 						"retryIn": "180",
 					})
 				} else {
-					return helpers.SendReturnedGenericHTMLError(c, helpers.GenericError{Code: http.StatusTooManyRequests, Message: "Rate limit exceeded. Try again later."}, nil)
+					return herr.HandleEchoPage(http.StatusTooManyRequests, err)
 				}
 			},
 		}

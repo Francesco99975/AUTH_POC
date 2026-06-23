@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"log/slog"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -24,12 +26,14 @@ import (
 	// "github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/labstack/gommon/log"
 )
 
 func createRouter() *echo.Echo {
 	e := echo.New()
-	e.Use(middleware.RequestLogger())
+	e.Logger.SetOutput(io.Discard)
+	e.HideBanner = true
+	e.HidePort = true
+	e.Use(middlewares.SlogLogger())
 	e.Use(middleware.RemoveTrailingSlash())
 	// e.Use(session.Middleware(auth.SessionStore))
 	e.Use(middlewares.RateLimiter())
@@ -47,7 +51,7 @@ func createRouter() *echo.Echo {
 		return c.JSON(http.StatusOK, "OK")
 	})
 	e.POST("/csp-violation-report", func(c echo.Context) error {
-		log.Warnf("CSP Violation Report: %s", c.Request().RequestURI)
+		slog.Warn("CSP Violation Report", slog.String("path", c.Request().RequestURI))
 		return c.NoContent(http.StatusOK)
 	})
 
@@ -67,22 +71,6 @@ func createRouter() *echo.Echo {
 
 	web.Use(middlewares.SecurityHeaders())
 
-	if boot.Environment.GoEnv == enums.Environments.DEVELOPMENT {
-		log.Infof("Running in %s mode", boot.Environment.GoEnv)
-		e.Logger.SetLevel(log.DEBUG)
-		log.SetLevel(log.DEBUG)
-
-		log.Debugf("Environment variables: %v", boot.Environment)
-
-	}
-
-	if boot.Environment.GoEnv == enums.Environments.PRODUCTION {
-		log.Infof("Running in %s mode", boot.Environment.GoEnv)
-		e.Logger.SetLevel(log.INFO)
-		log.SetLevel(log.INFO)
-
-	}
-
 	web.Use(middleware.CSRFWithConfig(middleware.CSRFConfig{
 		TokenLookup:    "form:_csrf,header:X-CSRF-Token",
 		CookieName:     "csrf_token",
@@ -97,7 +85,7 @@ func createRouter() *echo.Echo {
 		},
 		ErrorHandler: func(err error, c echo.Context) error {
 			// Log or customize the 403 response
-			log.Errorf("CSRF protection failed: %v", err)
+			slog.Error("CSRF protection failed", slog.String("error", err.Error()))
 			return c.String(http.StatusForbidden, "CSRF protection failed: "+err.Error())
 		},
 	}))

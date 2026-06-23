@@ -3,12 +3,12 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/Francesco99975/authpoc/internal/helpers"
 	"github.com/Francesco99975/authpoc/internal/models"
-	"github.com/labstack/gommon/log"
 )
 
 var httpClient = &http.Client{
@@ -23,7 +23,7 @@ func fetchJSON(url string, target any) error {
 	defer func() {
 		err := resp.Body.Close()
 		if err != nil {
-			log.Error(err)
+			slog.Error("fetchJSON", slog.String("error", err.Error()))
 		}
 	}()
 
