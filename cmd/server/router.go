@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -51,7 +52,41 @@ func createRouter() *echo.Echo {
 		return c.JSON(http.StatusOK, "OK")
 	})
 	e.POST("/csp-violation-report", func(c echo.Context) error {
-		slog.Warn("CSP Violation Report", slog.String("path", c.Request().RequestURI))
+		type CSPReport struct {
+			DocumentURI        string `json:"document-uri"`
+			Referrer           string `json:"referrer"`
+			ViolatedDirective  string `json:"violated-directive"`
+			EffectiveDirective string `json:"effective-directive"`
+			OriginalPolicy     string `json:"original-policy"`
+			BlockedURI         string `json:"blocked-uri"`
+			StatusCode         int    `json:"status-code"`
+			SourceFile         string `json:"source-file"`
+			LineNumber         int    `json:"line-number"`
+			ColumnNumber       int    `json:"column-number"`
+		}
+
+		type CSPPayload struct {
+			Report CSPReport `json:"csp-report"`
+		}
+
+		var payload CSPPayload
+		if err := json.NewDecoder(c.Request().Body).Decode(&payload); err != nil {
+			slog.Warn("CSP Violation Report (unparsable body)", slog.String("err", err.Error()))
+			return c.NoContent(http.StatusOK)
+		}
+
+		r := payload.Report
+		slog.Warn("CSP Violation",
+			slog.String("blocked_uri", r.BlockedURI),
+			slog.String("violated_directive", r.ViolatedDirective),
+			slog.String("effective_directive", r.EffectiveDirective),
+			slog.String("document_uri", r.DocumentURI),
+			slog.String("source_file", r.SourceFile),
+			slog.Int("line", r.LineNumber),
+			slog.Int("col", r.ColumnNumber),
+			slog.String("original_policy", r.OriginalPolicy),
+		)
+
 		return c.NoContent(http.StatusOK)
 	})
 
@@ -172,6 +207,8 @@ func serverErrorHandler(err error, c echo.Context) {
 	} else {
 		// Prepare data for rendering the error page (HTML)
 		data := models.GetDefaultSite("Error", c.Request())
+		data.Nonce = c.Get("nonce").(string)
+		data.CSRF = c.Get("csrf").(string)
 
 		html := helpers.MustRenderHTML(views.Error(data, fmt.Sprintf("%d", code), message.(string)))
 

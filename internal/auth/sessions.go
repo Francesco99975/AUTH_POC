@@ -108,7 +108,7 @@ func CreateSession(w http.ResponseWriter, r *http.Request, repo *repository.Quer
 func GetActiveSession(r *http.Request, repo *repository.Queries) (*AuthenticatedSessionUser, error) {
 	cookie, err := r.Cookie(sessionCookieName)
 	if err != nil {
-		return nil, err
+		return nil, nil
 	}
 
 	sum, err := blake2b.New512(nil)

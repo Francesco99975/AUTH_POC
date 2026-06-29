@@ -34,8 +34,8 @@ func (m *AuthMiddlewares) AuthMiddleware() echo.MiddlewareFunc {
 			herr := httperr.New("authorizing user", "AuthMiddleware", c.Request().Header.Get("X-Request-ID"))
 
 			auser, err := auth.GetActiveSession(c.Request(), m.repo)
-			if err != nil {
-				if errors.Is(err, http.ErrNoCookie) || errors.Is(err, pgx.ErrNoRows) {
+			if err != nil || auser == nil {
+				if auser == nil || errors.Is(err, http.ErrNoCookie) || errors.Is(err, pgx.ErrNoRows) {
 					if c.Request().Header.Get("HX-Request") == "true" {
 						c.Response().Header().Set("HX-Redirect", "/auth")
 						return c.NoContent(http.StatusUnauthorized)

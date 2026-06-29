@@ -651,6 +651,23 @@ func GetUser() echo.HandlerFunc {
 			return herr.Handle(c.Response(), http.StatusNotFound, fmt.Errorf("unable to get user: %v", err))
 		}
 
+		userActiveSessions, err := repo.GetActiveSessionsByUser(ctx, userID)
+		if err != nil {
+			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("failed to get user's active sessions: %v", err))
+		}
+
+		sessionsInfo := helpers.MapSlice(userActiveSessions, func(session *repository.Session) components.SessionInfo {
+			return components.SessionInfo{
+				Device:    helpers.GetUaDeviceType(*session.UserAgent),
+				Browser:   helpers.GetUaBrowser(*session.UserAgent),
+				OS:        helpers.GetUaOS(*session.UserAgent),
+				LastUsed:  session.LastActivityAt.Time.Format(time.RFC850),
+				Expires:   session.ExpiresAt.Time.Format(time.RFC850),
+				IsCurrent: session.ID == auser.SessionID,
+				SessionID: session.ID.String(),
+			}
+		})
+
 		status := "Active"
 		if !user.IsActive {
 			status = "Inactive"
@@ -659,6 +676,7 @@ func GetUser() echo.HandlerFunc {
 			ID:        user.ID.String(),
 			Username:  user.Username,
 			Email:     user.Email,
+			Sessions:  sessionsInfo,
 			Verified:  user.IsEmailVerified,
 			Initials:  strings.Split(user.Username, "")[0],
 			Role:      user.Role,

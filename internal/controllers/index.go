@@ -30,8 +30,9 @@ func Index() echo.HandlerFunc {
 		repo := repository.New(tx)
 
 		user, err := auth.GetActiveSession(c.Request(), repo)
-		if err != nil {
-			return c.Redirect(http.StatusSeeOther, "/auth")
+		slog.Debug("user", "user", user, "err", err)
+		if err != nil && user != nil {
+			return herr.HandleEchoPage(http.StatusInternalServerError, err)
 		}
 
 		if user != nil {
@@ -56,8 +57,8 @@ func Auth() echo.HandlerFunc {
 		repo := repository.New(tx)
 
 		user, err := auth.GetActiveSession(c.Request(), repo)
-		if err != nil {
-			slog.Warn("failed to get active session", slog.String("error", err.Error()))
+		if err != nil && user != nil {
+			return herr.HandleEchoPage(http.StatusInternalServerError, err)
 		}
 		if user != nil {
 			return c.Redirect(http.StatusSeeOther, "/dashboard")
@@ -89,7 +90,7 @@ func Dashboard() echo.HandlerFunc {
 		repo := repository.New(tx)
 
 		user, err := auth.GetActiveSession(c.Request(), repo)
-		if err != nil {
+		if err != nil && user != nil {
 			return herr.HandleEchoPage(http.StatusInternalServerError, err)
 		}
 		if user == nil {

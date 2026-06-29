@@ -92,6 +92,7 @@ templ UserDetails(site models.Site, details components.UserInfo) {
 				}
 				@detailRow("LAST LOGIN", details.LastLogin, "")
 			</section>
+			@components.ActiveSessionsCard(details.Sessions, site.CSRF)
 		</main>
 	}
 }
