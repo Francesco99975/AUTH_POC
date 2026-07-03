@@ -210,7 +210,45 @@ func serverErrorHandler(err error, c echo.Context) {
 		data.Nonce = c.Get("nonce").(string)
 		data.CSRF = c.Get("csrf").(string)
 
-		html := helpers.MustRenderHTML(views.Error(data, fmt.Sprintf("%d", code), message.(string)))
+		var title string
+		switch code {
+		case http.StatusNotFound:
+			title = "Not Found"
+		case http.StatusUnauthorized:
+			title = "Unauthorized"
+		case http.StatusForbidden:
+			title = "Forbidden"
+		case http.StatusInternalServerError:
+			title = "Internal Server Error"
+		case http.StatusServiceUnavailable:
+			title = "Service Unavailable"
+		case http.StatusGatewayTimeout:
+			title = "Gateway Timeout"
+		case http.StatusBadGateway:
+			title = "Bad Gateway"
+		case http.StatusBadRequest:
+			title = "Bad Request"
+		case http.StatusConflict:
+			title = "Conflict"
+		case http.StatusUnprocessableEntity:
+			title = "Unprocessable Entity"
+		default:
+			title = "Internal Server Error"
+		}
+
+		var marquee string
+		if code >= 500 {
+			marquee = "Server Error"
+		} else {
+			marquee = "Client Error"
+		}
+
+		html := helpers.MustRenderHTML(views.Error(data, views.ErrorContentProps{
+			Marquee: marquee,
+			Code:    fmt.Sprintf("%d", code),
+			Title:   title,
+			Detail:  message.(string),
+		}))
 
 		// Respond with HTML (default) if the client prefers HTML
 		_ = c.Blob(code, "text/html; charset=utf-8", html)

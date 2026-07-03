@@ -1,0 +1,14 @@
+package components
+
+import "github.com/Francesco99975/authpoc/internal/models"
+import "github.com/Francesco99975/authpoc/views/ui"
+
+templ ErrorHeader(site models.Site, title string) {
+	@HeaderCore(site) {
+		@ui.MarqueeDisplay(false, ui.RepeatMarquee(title, ui.DisplayError, 6)...)
+	}
+}
+
+templ ErrorFooter(title string) {
+	@ui.MarqueeDisplay(true, ui.RepeatMarquee(title, ui.DisplayError, 6)...)
+}

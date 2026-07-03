@@ -23,7 +23,6 @@ type errorDescriptor struct {
 }
 
 // JSONErrorResponse is the structured error body returned by HandleJSON.
-// Errors is omitted when empty — most errors are single-message.
 // RequestID is omitted when absent so it does not appear on handlers that
 // don't carry one.
 type JSONErrorResponse struct {
@@ -39,7 +38,7 @@ var clientMessages = map[int]errorDescriptor{
 		remedy: "check your request parameters and try again",
 	},
 	http.StatusUnauthorized: {
-		why:    "authentication is required to perform this action",
+		why:    "authentication failed",
 		remedy: "provide valid credentials and try again",
 	},
 	http.StatusForbidden: {
@@ -113,6 +112,14 @@ type HttpErrorMessage struct {
 	requestID string // the request ID for log correlation, e.g. from X-Request-ID
 }
 
+// errorCall is an ephemeral, single-use builder produced by Why().
+// It carries a why override for one specific error without mutating
+// the parent HttpErrorMessage — preventing bleed between errors.
+type errorCall struct {
+	h           *HttpErrorMessage
+	whyOverride string
+}
+
 // New creates an HttpErrorMessage for a given controller action.
 //
 //   - what:      the operation being performed (e.g. "creating post")
@@ -126,80 +133,105 @@ func New(what, origin, requestID string) *HttpErrorMessage {
 	}
 }
 
-// Handle logs the internal error with structured fields and dispatches a
-// user-facing error response via displayerrorDescriptor.
+// Why returns an ephemeral errorCall carrying a caller-supplied why override.
+// Use when the status code alone is too generic for the specific failure.
 //
-// Log severity is derived from the status code class:
-//   - 4xx → Warn  (expected client mistakes, not actionable for the server)
-//   - 5xx → Error (server-side failures, actionable for on-call)
+// Usage:
 //
-// The HTTP status code is used to resolve the Why and How-to-remedy components.
-// Together with the instance's What, these are composed into a single coherent
-// message following the What / Why / How pattern.
+//	return errMsg.Why("the username does not exist").Handle(w, http.StatusUnauthorized, err)
+func (h *HttpErrorMessage) Why(reason string) *errorCall {
+	return &errorCall{h: h, whyOverride: reason}
+}
+
+// ─── HttpErrorMessage handlers (no why override) ─────────────────────────────
+
+// Handle is for HTMX/HTML handlers. Logs the error and triggers a toast.
 func (h *HttpErrorMessage) Handle(w http.ResponseWriter, code int, err error) error {
+	return handle(h, "", w, code, err)
+}
+
+// HandleOnForm is for inline form error rendering. Logs the error and writes
+// an HTML error component into the response.
+func (h *HttpErrorMessage) HandleOnForm(w http.ResponseWriter, code int, err error, box enums.Box, persistence *time.Duration) error {
+	return handleOnForm(h, "", w, code, err, box, persistence)
+}
+
+// HandleJSON is for API handlers. Logs the error and writes a structured
+// JSON error body.
+func (h *HttpErrorMessage) HandleJSON(w http.ResponseWriter, code int, err error) error {
+	return handleJSON(h, "", w, code, err)
+}
+
+// HandleEchoPage is for navigational handlers. Logs the error and returns an
+// echo.HTTPError which Echo's serverErrorHandler catches to render the
+// appropriate error page or JSON response based on the Accept header.
+func (h *HttpErrorMessage) HandleEchoPage(code int, err error) error {
+	return handleEchoPage(h, code, err)
+}
+
+// ─── errorCall handlers (with why override) ───────────────────────────────────
+
+// Handle is for HTMX/HTML handlers. Logs the error and triggers a toast,
+// using the caller-supplied why in place of the map lookup.
+func (c *errorCall) Handle(w http.ResponseWriter, code int, err error) error {
+	return handle(c.h, c.whyOverride, w, code, err)
+}
+
+// HandleOnForm is for inline form error rendering with a why override.
+func (c *errorCall) HandleOnForm(w http.ResponseWriter, code int, err error, box enums.Box, persistence *time.Duration) error {
+	return handleOnForm(c.h, c.whyOverride, w, code, err, box, persistence)
+}
+
+// HandleJSON is for API handlers with a why override.
+func (c *errorCall) HandleJSON(w http.ResponseWriter, code int, err error) error {
+	return handleJSON(c.h, c.whyOverride, w, code, err)
+}
+
+// HandleEchoPage is for navigational handlers with a why override.
+func (c *errorCall) HandleEchoPage(code int, err error) error {
+	return handleEchoPage(c.h, code, err)
+}
+
+// ─── shared implementations ───────────────────────────────────────────────────
+
+func handle(h *HttpErrorMessage, whyOverride string, w http.ResponseWriter, code int, err error) error {
 	monitoring.RecordError(fmt.Sprintf("%d", code))
 	h.log(code, err)
 
-	descriptor := h.resolve(code)
-
-	message := fmt.Sprintf(
-		"An error occurred while %s, caused by %s. To remedy, %s.",
-		h.what, descriptor.why, descriptor.remedy,
-	)
+	message := h.buildMessage(code, whyOverride)
 
 	tools.SetToastTrigger(w, enums.ErrorToast, message)
-
 	w.WriteHeader(code)
-
 	return err
 }
 
-func (h *HttpErrorMessage) HandleOnForm(w http.ResponseWriter, code int, err error, box enums.Box, persistance *time.Duration) error {
+func handleOnForm(h *HttpErrorMessage, whyOverride string, w http.ResponseWriter, code int, err error, box enums.Box, persistence *time.Duration) error {
 	var prs string
-	if persistance != nil {
-		prs = strconv.FormatInt(persistance.Milliseconds(), 10)
+	if persistence != nil {
+		prs = strconv.FormatInt(persistence.Milliseconds(), 10)
 	}
 
 	monitoring.RecordError(fmt.Sprintf("%d", code))
 	h.log(code, err)
 
-	descriptor := h.resolve(code)
-
-	message := fmt.Sprintf(
-		"An error occurred while %s, caused by %s. To remedy, %s.",
-		h.what, descriptor.why, descriptor.remedy,
-	)
+	message := h.buildMessage(code, whyOverride)
 
 	htmlBytes := helpers.MustRenderHTML(components.ErrorMsg(message, box, prs))
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(code)
-	_, internal_error := w.Write(htmlBytes)
-	if internal_error != nil {
-		h.log(http.StatusInternalServerError, err)
-		return internal_error
+	if _, internalErr := w.Write(htmlBytes); internalErr != nil {
+		h.log(http.StatusInternalServerError, internalErr)
+		return internalErr
 	}
-
 	return err
 }
 
-// HandleJSON is for API handlers. It logs the error and writes a structured
-// JSON error body. The errors parameter is optional — pass nil for single-message
-// errors, or a slice of validation messages for 422 responses.
-//
-// Usage:
-//
-//	return errMsg.HandleJSON(w, http.StatusUnprocessableEntity, err, []string{"title is required", "content is required"})
-//	return errMsg.HandleJSON(w, http.StatusInternalServerError, err, nil)
-func (h *HttpErrorMessage) HandleJSON(w http.ResponseWriter, code int, err error) error {
+func handleJSON(h *HttpErrorMessage, whyOverride string, w http.ResponseWriter, code int, err error) error {
 	monitoring.RecordError(fmt.Sprintf("%d", code))
 	h.log(code, err)
 
-	ce := h.resolve(code)
-	message := fmt.Sprintf(
-		"An error occurred while %s: %s. To remedy, %s.",
-		h.what, ce.why, ce.remedy,
-	)
+	message := h.buildMessage(code, whyOverride)
 
 	resp := JSONErrorResponse{
 		Code:      code,
@@ -209,25 +241,33 @@ func (h *HttpErrorMessage) HandleJSON(w http.ResponseWriter, code int, err error
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	internal_error := json.NewEncoder(w).Encode(resp)
-	if internal_error != nil {
-		h.log(http.StatusInternalServerError, err)
-		return internal_error
+	if internalErr := json.NewEncoder(w).Encode(resp); internalErr != nil {
+		h.log(http.StatusInternalServerError, internalErr)
+		return internalErr
 	}
 	return err
 }
 
-// HandlePage is for navigational handlers. It logs the error and returns an
-// echo.HTTPError which Echo's serverErrorHandler catches to render the
-// appropriate error page or JSON response based on the Accept header.
-//
-// Usage:
-//
-//	return errMsg.HandlePage(http.StatusNotFound, fmt.Errorf("post %d not found", id))
-func (h *HttpErrorMessage) HandleEchoPage(code int, err error) error {
+func handleEchoPage(h *HttpErrorMessage, code int, err error) error {
 	monitoring.RecordError(fmt.Sprintf("%d", code))
 	h.log(code, err)
-	return echo.NewHTTPError(code)
+	return echo.NewHTTPError(code, h.buildMessage(code, ""))
+}
+
+// ─── helpers ──────────────────────────────────────────────────────────────────
+
+// buildMessage composes the final user-facing message.
+// If whyOverride is provided it replaces the map-resolved why.
+func (h *HttpErrorMessage) buildMessage(code int, whyOverride string) string {
+	descriptor := h.resolve(code)
+	why := descriptor.why
+	if whyOverride != "" {
+		why = whyOverride
+	}
+	return fmt.Sprintf(
+		"%s failed, %s. %s.",
+		h.what, why, descriptor.remedy,
+	)
 }
 
 // resolve looks up the errorDescriptor for the given status code, falling back to

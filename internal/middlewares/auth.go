@@ -49,6 +49,8 @@ func (m *AuthMiddlewares) AuthMiddleware() echo.MiddlewareFunc {
 
 			slog.Debug("Authenticated user", slog.String("username", auser.Username))
 
+			c.Request().Header.Set("X-Request-ID", auser.ID)
+
 			ctx := context.WithValue(c.Request().Context(), UserKey, auser.ID)
 			c.SetRequest(c.Request().WithContext(ctx))
 			return next(c)

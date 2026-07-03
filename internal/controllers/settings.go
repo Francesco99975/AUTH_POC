@@ -626,21 +626,21 @@ func GetUser() echo.HandlerFunc {
 		id := c.Param("id")
 		userID, err := uuid.Parse(id)
 		if err != nil {
-			return herr.Handle(c.Response(), http.StatusBadRequest, fmt.Errorf("invalid ID: %v", err))
+			return herr.HandleEchoPage(http.StatusBadRequest, fmt.Errorf("invalid ID: %v", err))
 		}
 
 		ctx := c.Request().Context()
 
 		tx, err := database.Pool().BeginTx(ctx, pgx.TxOptions{})
 		if err != nil {
-			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("failed to open database on signup: %v", err))
+			return herr.HandleEchoPage(http.StatusInternalServerError, fmt.Errorf("failed to open database on signup: %v", err))
 		}
 		defer database.HandleTransaction(ctx, tx, &err)
 		repo := repository.New(tx)
 
 		auser, err := auth.GetActiveSession(c.Request(), repo)
 		if err != nil {
-			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("failed to open database on signup: %v", err))
+			return herr.HandleEchoPage(http.StatusInternalServerError, fmt.Errorf("failed to open database on signup: %v", err))
 		}
 		if auser == nil {
 			return c.Redirect(http.StatusSeeOther, "/auth")
@@ -648,12 +648,12 @@ func GetUser() echo.HandlerFunc {
 
 		user, err := repo.GetUserByID(ctx, userID)
 		if err != nil {
-			return herr.Handle(c.Response(), http.StatusNotFound, fmt.Errorf("unable to get user: %v", err))
+			return herr.HandleEchoPage(http.StatusNotFound, fmt.Errorf("unable to get user: %v", err))
 		}
 
 		userActiveSessions, err := repo.GetActiveSessionsByUser(ctx, userID)
 		if err != nil {
-			return herr.Handle(c.Response(), http.StatusInternalServerError, fmt.Errorf("failed to get user's active sessions: %v", err))
+			return herr.HandleEchoPage(http.StatusInternalServerError, fmt.Errorf("failed to get user's active sessions: %v", err))
 		}
 
 		sessionsInfo := helpers.MapSlice(userActiveSessions, func(session *repository.Session) components.SessionInfo {

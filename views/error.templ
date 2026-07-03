@@ -5,51 +5,77 @@ import (
 	"github.com/Francesco99975/authpoc/views/layouts"
 )
 
-templ Error(site models.Site, code string, message string) {
-	@layouts.Error(site) {
-		<!-- Main Content -->
-		<main class="grow container mx-auto px-4 py-8 flex items-center justify-center">
-			<div class="w-full max-w-lg">
-				<div class="bg-white dark:bg-bg-dark rounded-2xl shadow-xl overflow-hidden">
-					<!-- Top Gradient Bar -->
-					<div class="h-3 bg-linear-to-r from-primary via-accent to-primary"></div>
-					<div class="p-8 md:p-12">
-						<!-- Error Code and Icon -->
-						<div class="flex flex-col md:flex-row items-center justify-center gap-6 mb-8">
-							<div class="relative">
-								<!-- Animated Background Circle -->
-								<div class="absolute inset-0 bg-error/10 dark:bg-error/20 rounded-full animate-float" style="width: 120px; height: 120px;"></div>
-								<!-- Error Icon -->
-								<div class="relative z-10 flex items-center justify-center w-28 h-28 md:w-32 md:h-32 bg-white dark:bg-bg-dark rounded-full border-4 border-error shadow-lg">
-									<svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-error" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-										<circle cx="12" cy="12" r="10"></circle>
-										<line x1="12" y1="8" x2="12" y2="12"></line>
-										<line x1="12" y1="16" x2="12.01" y2="16"></line>
-									</svg>
-								</div>
-							</div>
-							<div class="text-center md:text-left">
-								<h1 class="text-5xl md:text-6xl font-bold text-error">{ code }</h1>
-								<h2 class="text-xl md:text-2xl font-semibold text-text-primary mt-2">{ message }</h2>
-							</div>
-						</div>
-						<!-- Home Button -->
-						<div class="flex justify-center">
-							<a href="/" class="inline-flex items-center justify-center bg-primary hover:bg-primary/90 text-white font-medium py-3 px-8 rounded-lg transition-colors shadow-md hover:shadow-lg transform hover:-translate-y-1 duration-200">
-								<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-									<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-									<polyline points="9 22 9 12 15 12 15 22"></polyline>
-								</svg>
-								Return to Home
-							</a>
-						</div>
-					</div>
-				</div>
-				<!-- Additional Information (Optional) -->
-				// <div class="mt-6 text-center text-text-secondary text-sm">
-				// 	<p>If you believe this is an error, please <a href="/contact" class="text-primary hover:underline">contact our support team</a>.</p>
-				// </div>
-			</div>
+// ErrorContentProps drives the centered block of an error page. Every field is
+// optional and falls back to a sensible 500 default, so @ErrorContent(ErrorContentProps{})
+// renders a valid page and callers override only what they need.
+type ErrorContentProps struct {
+	Marquee  string // marquee text to display above the error content
+	Caption  string // small mono caption above the title, e.g. "// fatal exception"
+	Code     string // the big glitch numeral/word, e.g. "500"
+	Title    string // uppercase line under the title, e.g. "Internal Server Error"
+	Detail   string // full error text shown in the mono panel
+	HomeHref string // target of the return button (defaults to "/")
+	HomeText string // return button label (defaults to "Return Home")
+}
+
+// ErrorContent renders the centered content of an error page (caption, title,
+// subtitle, detail panel, and a return-home link). It is chrome-agnostic: drop
+// it inside any layout — e.g. between the ErrorHeader/ErrorFooter marquees.
+//
+// Cyberpunk styling is expressed purely through Tailwind design tokens
+// (bg-std / text-error / text-accent / …) plus the shared `glitch` and
+// `cp-panel` utilities, so it themes with the rest of the app for free.
+templ Error(site models.Site, p ErrorContentProps) {
+	{{marquee := p.Marquee
+if marquee == "" {
+	marquee = "Error"
+}
+	}}
+	{{caption := p.Caption
+if caption == "" {
+	caption = "// fatal exception"
+}
+	}}
+	{{code := p.Code
+if code == "" {
+	code = "500"
+}
+	}}
+	{{title := p.Title
+if title == "" {
+	title = "Internal Server Error"
+}
+	}}
+	{{href := p.HomeHref
+if href == "" {
+	href = "/"
+}
+	}}
+	{{homeText := p.HomeText
+if homeText == "" {
+	homeText = "Return Home"
+}
+	}}
+	@layouts.Error(site, marquee) {
+		<main class="flex-1 flex flex-col items-center justify-center gap-5 text-center px-5 py-12">
+			<p class="font-mono text-[11px] uppercase tracking-[0.35em] text-accent/70">{ caption }</p>
+			<h1
+				class="font-sans font-black uppercase leading-[0.95] tracking-wide text-error glitch text-[clamp(2.75rem,14vw,7rem)]"
+				data-text={ code }
+			>{ code }</h1>
+			<p class="font-sans font-bold uppercase tracking-[0.15em] text-fg text-[clamp(1rem,4vw,1.5rem)]">{ title }</p>
+			if p.Detail != "" {
+				<p class="cp-panel max-w-2xl font-mono text-sm leading-relaxed text-muted px-5 py-4 break-words">
+					{ p.Detail }
+				</p>
+			}
+			<a
+				href={ templ.SafeURL(href) }
+				class="mt-2 inline-flex items-center gap-2 px-6 py-3 font-mono text-xs font-bold uppercase tracking-[0.25em] bg-accent text-std border border-accent transition-colors hover:bg-primary hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+			>
+				<span aria-hidden="true" class="text-base leading-none">&larr;</span>
+				{ homeText }
+			</a>
 		</main>
 	}
 }

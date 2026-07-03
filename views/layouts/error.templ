@@ -3,14 +3,14 @@ package layouts
 import (
 	"github.com/Francesco99975/authpoc/internal/models"
 	"github.com/Francesco99975/authpoc/views/components"
-	"strconv"
 )
 
-templ Error(site models.Site) {
+templ Error(site models.Site, title string) {
 	@CoreHTML(site) {
 		<div class="min-h-screen flex flex-col">
+			@components.ErrorHeader(site, title)
 			{ children... }
-			@components.Footer(site.AppName, strconv.Itoa(site.Year))
+			@components.ErrorFooter(title)
 		</div>
 	}
 }

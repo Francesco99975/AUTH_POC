@@ -45,7 +45,7 @@ func SessionSignup() echo.HandlerFunc {
 
 		err = payload.ValidateAndNormalize(1)
 		if err != nil {
-			return herr.Handle(c.Response(), http.StatusBadRequest, err)
+			return herr.Why(err.Error()).Handle(c.Response(), http.StatusBadRequest, err)
 		}
 		slog.Debug("Normalized signup payload", slog.Any("payload", payload))
 
@@ -266,7 +266,7 @@ func ManualEmailVerification() echo.HandlerFunc {
 
 func SessionLogin() echo.HandlerFunc {
 	return func(c echo.Context) error {
-		herr := httperr.New("session login", "SessionLogin", c.Request().Header.Get("X-Request-ID"))
+		herr := httperr.New("login", "SessionLogin", c.Request().Header.Get("X-Request-ID"))
 		var payload models.LoginRequest
 		err := c.Bind(&payload)
 		if err != nil {
@@ -277,7 +277,7 @@ func SessionLogin() echo.HandlerFunc {
 
 		err = payload.Validate()
 		if err != nil {
-			return herr.Handle(c.Response(), http.StatusBadRequest, err)
+			return herr.Why(err.Error()).Handle(c.Response(), http.StatusBadRequest, err)
 		}
 
 		ctx := c.Request().Context()
@@ -323,7 +323,7 @@ func SessionLogin() echo.HandlerFunc {
 		}
 
 		if !helpers.CheckPasswordHash(payload.Password, user.PasswordHash) {
-			return herr.Handle(c.Response(), http.StatusUnauthorized, errors.New("invalid credentials"))
+			return herr.Why("invalid password").Handle(c.Response(), http.StatusUnauthorized, errors.New("invalid password"))
 		}
 
 		if user.Role == string(enums.Roles.DEVELOPER) && !user.IsEmailVerified {
